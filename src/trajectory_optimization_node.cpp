@@ -8,13 +8,6 @@
 
 #include <rclcpp_components/register_node_macro.hpp>
 
-// acados
-#include "acados/utils/print.h"
-#include "acados_c/ocp_nlp_interface.h"
-#include "acados_c/external_function_interface.h"
-#include "acados/ocp_nlp/ocp_nlp_constraints_bgh.h"
-#include "acados/ocp_nlp/ocp_nlp_cost_ls.h"
-
 RCLCPP_COMPONENTS_REGISTER_NODE(trajectory_optimization::TrajectoryOptimizationNode)
 
 
