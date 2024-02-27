@@ -6,13 +6,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(acados_vendor_ros2)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 
 set(TARGET_NAME trajectory_optimization_node_component)
-set(ACADOS_INCLUDE "/opt/acados/include")
-set(ACADOS_LIB "/opt/acados/lib")
 
 add_library(${TARGET_NAME} SHARED src/trajectory_optimization_node.cpp)
 
@@ -24,15 +23,11 @@ rclcpp_components_register_node(${TARGET_NAME}
 target_include_directories(${TARGET_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
-	${ACADOS_INCLUDE}
-	${ACADOS_INCLUDE}/blasfeo/include/
-	${ACADOS_INCLUDE}/hpipm/include/
-	${ACADOS_INCLUDE}/acados/
-	${ACADOS_INCLUDE}/qpOASES_e/
 )
 target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
+  acados_vendor_ros2
   rclcpp
   rclcpp_components
   std_msgs
