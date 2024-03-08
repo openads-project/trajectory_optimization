@@ -8,12 +8,14 @@
 
   <maintainer email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</maintainer>
   <author email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</author>
+  <author email="guido.kueppers@ika.rwth-aachen.de">Guido Küppers</author>
 
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>acados_vendor_ros2</depend>
+  <depend>acados_tp_ocp_def</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
