@@ -1,5 +1,5 @@
 from acados_template import AcadosOcp, AcadosOcpSolver
-from . import model, dims, constraints, costs, opts
+import model, dims, constraints, costs, opts
 
 def main():
 
