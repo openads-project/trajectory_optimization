@@ -10,7 +10,7 @@ def main():
     ocp.dims = export_dims(ocp.model)
     ocp.solver_options = export_opts()
 
-    ocp_solver = AcadosOcpSolver(ocp, json_file = 'ocp.json')
+    ocp_solver = AcadosOcpSolver(ocp, json_file = 'ocp.json', simulink_opts=None, build=False, generate=True)
 
 if __name__ == '__main__':
     main()
