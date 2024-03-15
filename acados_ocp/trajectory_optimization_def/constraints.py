@@ -6,11 +6,11 @@ def export_constraints() -> AcadosOcpConstraints:
     cons = AcadosOcpConstraints()
 
     # set constraints
-    Fmax = 80
-    cons.lbu = np.array([-Fmax])
-    cons.ubu = np.array([+Fmax])
-    cons.idxbu = np.array([0])
+    alpha = 0.5
+    j_lon = 4.0
+    cons.lbu = np.array([-j_lon, -alpha])
+    cons.ubu = np.array([+j_lon, +alpha])
 
-    cons.x0 = np.array([0.0, np.pi, 0.0, 0.0])
+    cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     return cons

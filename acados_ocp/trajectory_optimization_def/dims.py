@@ -1,9 +1,11 @@
 from acados_template import AcadosOcpDims
 
-def export_dims() -> AcadosOcpDims:    
+def export_dims(model) -> AcadosOcpDims:    
 
     dims = AcadosOcpDims()
 
-    dims.N = 20 # prediction horizon (number of intervals)
+    dims.N = 50 # prediction horizon (number of intervals)
+    dims.nx = model.x.size()[0] # number of states
+    dims.nu = model.u.size()[0] # number of inputs/controls
 
     return dims
