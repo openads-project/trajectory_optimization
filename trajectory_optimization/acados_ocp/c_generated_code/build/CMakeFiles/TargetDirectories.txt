@@ -1,3 +1,0 @@
-/docker-ros/ws/src/target/trajectory_optimization/acados_ocp/c_generated_code/build/CMakeFiles/model_trajectory_planning.dir
-/docker-ros/ws/src/target/trajectory_optimization/acados_ocp/c_generated_code/build/CMakeFiles/edit_cache.dir
-/docker-ros/ws/src/target/trajectory_optimization/acados_ocp/c_generated_code/build/CMakeFiles/rebuild_cache.dir
