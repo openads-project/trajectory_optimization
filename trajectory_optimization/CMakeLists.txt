@@ -5,6 +5,13 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(BUILD_ACADOS_SOLVER_LIB ON)
+set(BUILD_ACADOS_OCP_SOLVER_LIB ON)
+set(BUILD_EXAMPLE ON)
+set(BUILD_SIM_EXAMPLE ON)
+set(BUILD_ACADOS_SIM_SOLVER_LIB ON)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/acados_ocp/c_generated_code)
+
 find_package(ament_cmake REQUIRED)
 find_package(acados_vendor_ros2 REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -22,6 +29,7 @@ rclcpp_components_register_node(${TARGET_NAME}
 
 target_include_directories(${TARGET_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/acados_ocp/c_generated_code>
   $<INSTALL_INTERFACE:include>
 )
 target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
