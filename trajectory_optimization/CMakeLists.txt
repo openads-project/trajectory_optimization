@@ -7,7 +7,6 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(acados_vendor_ros2 REQUIRED)
-find_package(acados_tp_ocp_def REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -29,7 +28,6 @@ target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
   acados_vendor_ros2
-  acados_tp_ocp_def
   rclcpp
   rclcpp_components
   std_msgs
