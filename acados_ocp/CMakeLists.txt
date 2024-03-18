@@ -10,8 +10,6 @@ find_package(acados_vendor_ros2 REQUIRED)
 
 add_library(${PROJECT_NAME} INTERFACE)
 
-message("acados_vendor_ros2 install space: ${CMAKE_INSTALL_PREFIX}")
-
 # Download t_renderer
 set(FILE_URL "https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux")
 set(DESTINATION_PATH "/docker-ros/ws/install/acados_vendor_ros2/opt/acados_vendor_ros2/bin/t_renderer")

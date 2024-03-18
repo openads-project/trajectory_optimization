@@ -27,7 +27,12 @@ target_include_directories(${TARGET_NAME} PUBLIC
 )
 target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
-# target_link_libraries(${TARGET_NAME} ${LIB_ACADOS_OCP_SOLVER} ${LIB_ACADOS_SOLVER})
+# TODO: fix hard-coded path
+target_link_libraries(${TARGET_NAME}
+                      /docker-ros/ws/install/acados_ocp/lib/libacados_solver_trajectory_planning.so
+                      /docker-ros/ws/install/acados_ocp/lib/libacados_ocp_solver_trajectory_planning.so
+                      /docker-ros/ws/install/acados_ocp/lib/libacados_sim_solver_trajectory_planning.so
+)
 
 ament_target_dependencies(${TARGET_NAME}
   acados_vendor_ros2
