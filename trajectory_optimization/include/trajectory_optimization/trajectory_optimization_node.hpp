@@ -8,7 +8,7 @@
 #include <acados/utils/math.h>
 #include <acados_c/ocp_nlp_interface.h>
 #include <acados_c/external_function_interface.h>
-// #include <trajectory_optimization/acados_solver_trajectory_planning.h>
+// #include <acados_ocp/acados_solver_trajectory_planning.h>
 
 namespace trajectory_optimization {
 
