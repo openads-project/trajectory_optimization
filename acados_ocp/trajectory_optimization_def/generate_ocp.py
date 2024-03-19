@@ -6,9 +6,9 @@ def main():
 
     ocp = AcadosOcp()
     ocp.model = model.export_model()
-    ocp.dims = dims.export_dims()
+    ocp.dims = dims.export_dims(ocp.model)
     ocp.constraints = constraints.export_constraints()
-    ocp.cost = costs.export_costs()  
+    ocp.cost = costs.export_costs()
     ocp.solver_options = opts.export_opts()
     ocp.code_export_directory = os.path.join(os.path.dirname(__file__), 'c_generated_code')
 
