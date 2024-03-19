@@ -1,13 +1,13 @@
 from acados_template import AcadosOcpConstraints
 import numpy as np
 
-def export_constraints() -> AcadosOcpConstraints:
+def export_constraints(parameters) -> AcadosOcpConstraints:
     
     cons = AcadosOcpConstraints()
 
     # set constraints
-    alpha = 0.5
-    j_lon = 4.0
+    alpha = 0.5 # To-Do: get from parameters
+    j_lon = 4.0 # To-Do: get from parameters
     cons.lbu = np.array([-j_lon, -alpha])
     cons.ubu = np.array([+j_lon, +alpha])
 

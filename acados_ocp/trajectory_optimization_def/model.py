@@ -1,7 +1,7 @@
 from acados_template import AcadosModel
 from casadi import SX, vertcat, sin, cos
 
-def export_vehicle_model() -> AcadosModel:
+def export_vehicle_model(parameters) -> AcadosModel:
     
     model = AcadosModel()
     
@@ -9,7 +9,7 @@ def export_vehicle_model() -> AcadosModel:
     model.name = 'kinematic_single_track_model'
 
     # set constants
-    l = 2.711 # wheelbase [m]
+    l = 2.711 # wheelbase [m] # To-Do: get from parameters
 
     # set up states
     x      = SX.sym('x')
