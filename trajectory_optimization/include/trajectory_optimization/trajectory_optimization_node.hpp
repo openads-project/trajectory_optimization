@@ -20,6 +20,7 @@
 #include <acados_c/ocp_nlp_interface.h>
 #include <acados_c/external_function_interface.h>
 #include <acados_ocp/acados_solver_trajectory_planning.h>
+#include <blasfeo_d_aux_ext_dep.h> // for printing dense matrices
 
 namespace trajectory_optimization {
 
@@ -29,6 +30,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
 
   explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions& options);
+
+  ~TrajectoryOptimizationNode();
 
  private:
 
@@ -49,6 +52,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void setup();
   void setupSolver();
+
+  void printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf);
 
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
@@ -71,7 +76,21 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
+  // parameters
   double planning_freq_ = 10.0;
+
+  // ocp variables
+  int N_ = TRAJECTORY_PLANNING_N;
+  trajectory_planning_solver_capsule *acados_ocp_capsule_;
+  ocp_nlp_config *nlp_config_;
+  ocp_nlp_dims *nlp_dims_;
+  ocp_nlp_in *nlp_in_;
+  ocp_nlp_out *nlp_out_;
+  ocp_nlp_solver *nlp_solver_;
+  void *nlp_opts_;
+
+  double* xtraj_;
+  double* utraj_;
 
 };
 

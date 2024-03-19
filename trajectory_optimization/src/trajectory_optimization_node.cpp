@@ -42,7 +42,28 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->setup();
 }
 
-
+/**
+ * @brief Destroys a TrajectoryOptimizationNode node
+ *
+ */
+TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
+    // deallocate memory
+    delete[] xtraj_;
+    delete[] utraj_;
+    
+    int status;
+    // free solver
+    status = trajectory_planning_acados_free(acados_ocp_capsule_);
+    if (status) {
+        printf("trajectory_planning_acados_free() returned status %d. \n", status);
+    }
+    // free solver capsule
+    status = trajectory_planning_acados_free_capsule(acados_ocp_capsule_);
+    if (status) {
+        printf("trajectory_planning_acados_free_capsule() returned status %d. \n", status);
+    }
+    RCLCPP_INFO(this->get_logger(), "TrajectoryOptimizationNode destroyed");
+}
 
 /**
  * @brief Declares all parameters that this node uses
@@ -124,25 +145,64 @@ void TrajectoryOptimizationNode::setup() {
 
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
-  trajectory_planning_solver_capsule *acados_ocp_capsule = trajectory_planning_acados_create_capsule();
+  acados_ocp_capsule_ = trajectory_planning_acados_create_capsule();
 
   // there is an opportunity to change the number of shooting intervals in C without new code generation
-  int N = TRAJECTORY_PLANNING_N; // TODO: param
+  N_ = TRAJECTORY_PLANNING_N; // TODO: param
   // allocate the array and fill it accordingly
-  double* new_time_steps = NULL;
-  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule, N, new_time_steps);
+  double* new_time_steps = NULL; // TODO: calculate from N_
+  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, N_, new_time_steps);
 
   if (status) {
     RCLCPP_INFO(this->get_logger(), "trajectory_planning_acados_create() returned status %d. Exiting.", status);
     exit(1);
   }
 
-  ocp_nlp_config *nlp_config = trajectory_planning_acados_get_nlp_config(acados_ocp_capsule);
-  ocp_nlp_dims *nlp_dims = trajectory_planning_acados_get_nlp_dims(acados_ocp_capsule);
-  ocp_nlp_in *nlp_in = trajectory_planning_acados_get_nlp_in(acados_ocp_capsule);
-  ocp_nlp_out *nlp_out = trajectory_planning_acados_get_nlp_out(acados_ocp_capsule);
-  ocp_nlp_solver *nlp_solver = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule);
-  void *nlp_opts = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule);
+  nlp_config_ = trajectory_planning_acados_get_nlp_config(acados_ocp_capsule_);
+  nlp_dims_ = trajectory_planning_acados_get_nlp_dims(acados_ocp_capsule_);
+  nlp_in_ = trajectory_planning_acados_get_nlp_in(acados_ocp_capsule_);
+  nlp_out_ = trajectory_planning_acados_get_nlp_out(acados_ocp_capsule_);
+  nlp_solver_ = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule_);
+  nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
+
+  // initial condition
+  double lbx0[TRAJECTORY_PLANNING_NBX0];
+  double ubx0[TRAJECTORY_PLANNING_NBX0];
+  lbx0[0] = 0;
+  ubx0[0] = 0;
+  lbx0[1] = 3.141592653589793;
+  ubx0[1] = 3.141592653589793;
+  lbx0[2] = 0;
+  ubx0[2] = 0;
+  lbx0[3] = 0;
+  ubx0[3] = 0;
+
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
+
+  // initialization for state values
+  double x_init[TRAJECTORY_PLANNING_NX];
+  x_init[0] = 0.0;
+  x_init[1] = 0.0;
+  x_init[2] = 0.0;
+  x_init[3] = 0.0;
+
+  // initial value for control input
+  double u0[TRAJECTORY_PLANNING_NU];
+  u0[0] = 0.0;
+
+  // initialize solution
+  int rti_phase = 0;
+  for (int i = 0; i < N_; i++) {
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
+  }
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, N_, "x", x_init);
+  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &rti_phase);
+
+  xtraj_ = new double[TRAJECTORY_PLANNING_NX * (N_+1)];
+  utraj_ = new double[TRAJECTORY_PLANNING_NU * N_];
+
 }
 
 
@@ -220,6 +280,35 @@ void TrajectoryOptimizationNode::routeCallback(
   // TODO: process route
 }
 
+/**
+ * @brief This function prints the solution of the ocp
+ * 
+ */
+void TrajectoryOptimizationNode::printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf) {
+  printf("\n--- xtraj ---\n");
+  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NX, N_+1, xtraj_, TRAJECTORY_PLANNING_NX);
+  printf("\n--- utraj ---\n");
+  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NU, N_, utraj_, TRAJECTORY_PLANNING_NU );
+  // ocp_nlp_out_print(nlp_solver->dims, nlp_out);
+
+  printf("\nsolved ocp %d times, solution printed above\n\n", 1);
+
+  if (status == ACADOS_SUCCESS)
+  {
+      printf("trajectory_planning_acados_solve(): SUCCESS!\n");
+  }
+  else
+  {
+      printf("trajectory_planning_acados_solve() failed with status %d.\n", status);
+  }
+
+  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
+
+  printf("\nSolver info:\n");
+  printf(" SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n",
+          sqp_iter, 1, elapsed_time*1000, kkt_norm_inf);
+
+}
 
 /**
  * @brief This function is invoked every period seconds by the timer
@@ -231,6 +320,43 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(*trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, TRAJECTORY_PLANNING_N);  
 
   trajectory_pub_->publish(std::move(trajectory));
+  RCLCPP_INFO(this->get_logger(), "Published trajectory");
+
+  ////////////////////////////////////////////////////////
+  // sample ocp step
+  double kkt_norm_inf;
+  double elapsed_time;
+  int sqp_iter;
+
+  int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
+
+  // get elapsed time
+  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
+
+  // get solution
+  for (int ii = 0; ii <= nlp_dims_->N; ii++)
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii*TRAJECTORY_PLANNING_NX]);
+  for (int ii = 0; ii < nlp_dims_->N; ii++)
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii*TRAJECTORY_PLANNING_NU]);
+
+  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+
+  // print solution
+  printSolution(status, elapsed_time, sqp_iter, kkt_norm_inf);
+
+  // update condition
+  double lbx0[TRAJECTORY_PLANNING_NBX0];
+  double ubx0[TRAJECTORY_PLANNING_NBX0];
+  // fill condition with the last state of the solution
+  for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; i++) {
+    lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (N_+1) - TRAJECTORY_PLANNING_NBX0 + i];
+    ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (N_+1) - TRAJECTORY_PLANNING_NBX0 + i];
+  }
+
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
+
 }
 
 
