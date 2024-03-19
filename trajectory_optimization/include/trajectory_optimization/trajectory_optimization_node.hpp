@@ -46,6 +46,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // parameter names
   static const std::string kPlanningFreqParam;
+  static const std::string kNStatesParam;
+  static const std::string kPlanningHoizonParam;
 
   void declareParameters();
   void loadParameters();
@@ -78,9 +80,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // parameters
   double planning_freq_ = 10.0;
+  int n_states_ = TRAJECTORY_PLANNING_N;
+  double planning_horizon_ = 1.0;
 
   // ocp variables
-  int N_ = TRAJECTORY_PLANNING_N;
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
   ocp_nlp_config *nlp_config_;
   ocp_nlp_dims *nlp_dims_;

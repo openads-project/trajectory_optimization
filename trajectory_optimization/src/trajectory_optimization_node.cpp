@@ -29,7 +29,8 @@ const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
 const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
 
 const std::string TrajectoryOptimizationNode::kPlanningFreqParam = "planning_frequency";
-
+const std::string TrajectoryOptimizationNode::kNStatesParam = "n_states";
+const std::string TrajectoryOptimizationNode::kPlanningHoizonParam = "planning_horizon";
 
 /**
  * @brief Creates a TrajectoryOptimizationNode node
@@ -70,12 +71,19 @@ TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
  */
 void TrajectoryOptimizationNode::declareParameters() {
 
-  // set parameter description
   rcl_interfaces::msg::ParameterDescriptor param_desc;
-  param_desc.description = "Planning Frequency in Hz";
 
-  // declare parameter
-  this->declare_parameter(kPlanningFreqParam, rclcpp::ParameterType::PARAMETER_DOUBLE, param_desc);
+  // declare planning frequency parameter
+  param_desc.description = "Planning Frequency in Hz";
+  this->declare_parameter(kPlanningFreqParam, planning_freq_, param_desc);
+
+  // declare number of states parameter
+  param_desc.description = "Number of states in the optimization problem";
+  this->declare_parameter(kNStatesParam, n_states_, param_desc);
+
+  // declare planning horizon parameter
+  param_desc.description = "Planning Horizon in seconds";
+  this->declare_parameter(kPlanningHoizonParam, planning_horizon_, param_desc);
 }
 
 /**
@@ -84,11 +92,22 @@ void TrajectoryOptimizationNode::declareParameters() {
  */
 void TrajectoryOptimizationNode::loadParameters() {
 
-  // load parameter
   try {
     planning_freq_ = this->get_parameter(kPlanningFreqParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kPlanningFreqParam.c_str());
+    exit(EXIT_FAILURE);
+  }
+  try {
+    n_states_ = this->get_parameter(kNStatesParam).as_int();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kNStatesParam.c_str());
+    exit(EXIT_FAILURE);
+  }
+  try {
+    planning_horizon_ = this->get_parameter(kPlanningHoizonParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kPlanningHoizonParam.c_str());
     exit(EXIT_FAILURE);
   }
 }
@@ -147,11 +166,13 @@ void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
   acados_ocp_capsule_ = trajectory_planning_acados_create_capsule();
 
-  // there is an opportunity to change the number of shooting intervals in C without new code generation
-  N_ = TRAJECTORY_PLANNING_N; // TODO: param
   // allocate the array and fill it accordingly
-  double* new_time_steps = NULL; // TODO: calculate from N_
-  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, N_, new_time_steps);
+  double* new_time_steps = NULL;
+  if (n_states_ != TRAJECTORY_PLANNING_N) {
+    new_time_steps = new double(planning_horizon_ / n_states_);
+    printf("new_time_steps = %f\n", *new_time_steps);
+  }
+  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, n_states_, new_time_steps);
 
   if (status) {
     RCLCPP_INFO(this->get_logger(), "trajectory_planning_acados_create() returned status %d. Exiting.", status);
@@ -193,15 +214,15 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   // initialize solution
   int rti_phase = 0;
-  for (int i = 0; i < N_; i++) {
+  for (int i = 0; i < n_states_; i++) {
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
   }
-  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, N_, "x", x_init);
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_states_, "x", x_init);
   ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &rti_phase);
 
-  xtraj_ = new double[TRAJECTORY_PLANNING_NX * (N_+1)];
-  utraj_ = new double[TRAJECTORY_PLANNING_NU * N_];
+  xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_states_+1)];
+  utraj_ = new double[TRAJECTORY_PLANNING_NU * n_states_];
 
 }
 
@@ -286,9 +307,9 @@ void TrajectoryOptimizationNode::routeCallback(
  */
 void TrajectoryOptimizationNode::printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf) {
   printf("\n--- xtraj ---\n");
-  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NX, N_+1, xtraj_, TRAJECTORY_PLANNING_NX);
+  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NX, n_states_+1, xtraj_, TRAJECTORY_PLANNING_NX);
   printf("\n--- utraj ---\n");
-  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NU, N_, utraj_, TRAJECTORY_PLANNING_NU );
+  d_print_exp_tran_mat( TRAJECTORY_PLANNING_NU, n_states_, utraj_, TRAJECTORY_PLANNING_NU );
   // ocp_nlp_out_print(nlp_solver->dims, nlp_out);
 
   printf("\nsolved ocp %d times, solution printed above\n\n", 1);
@@ -350,8 +371,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   double ubx0[TRAJECTORY_PLANNING_NBX0];
   // fill condition with the last state of the solution
   for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; i++) {
-    lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (N_+1) - TRAJECTORY_PLANNING_NBX0 + i];
-    ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (N_+1) - TRAJECTORY_PLANNING_NBX0 + i];
+    lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_+1) - TRAJECTORY_PLANNING_NBX0 + i];
+    ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_+1) - TRAJECTORY_PLANNING_NBX0 + i];
   }
 
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
