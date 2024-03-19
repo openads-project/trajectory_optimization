@@ -3,6 +3,17 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 
+// definitions
+#include <perception_msgs/msg/ego_data.hpp>
+#include <perception_msgs/msg/object_list.hpp>
+#include <route_planning_msgs/msg/driveable_space.hpp>
+#include <route_planning_msgs/msg/route.hpp>
+#include <trajectory_planning_msgs/msg/trajectory.hpp>
+
+// access functions
+#include <perception_msgs_utils/object_access.hpp>
+#include <trajectory_planning_msgs_utils/trajectory_access.hpp>
+
 // acados
 #include <acados/utils/print.h>
 #include <acados/utils/math.h>
@@ -21,34 +32,47 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
  private:
 
-  static const std::string kInputTopic;
-  static const std::string kOutputTopic;
-  static const std::string kParam;
+  // input topics
+  static const std::string kDriveableSpaceTopic;
+  static const std::string kEgoDataTopic;
+  static const std::string kObjectListTopic;
+  static const std::string kRouteTopic;
+
+  // output topics
+  static const std::string kTrajectoryTopic;
+
+  // parameter names
+  static const std::string kPlanningFreqParam;
 
   void declareParameters();
   void loadParameters();
 
   void setup();
+  void setupSolver();
 
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
-  void topicCallback(const std_msgs::msg::Int32::ConstSharedPtr msg);
+  void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
+  void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
+  void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
+  void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
-  void publishTimerCallback();
+  void planningCycle();
 
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
-  rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr subscriber_;
+  rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
+  rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
+  rclcpp::Subscription<route_planning_msgs::msg::DriveableSpace>::SharedPtr driveable_space_sub_;
+  rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
 
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_;
+  rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
 
-  rclcpp::TimerBase::SharedPtr publish_timer_;
+  rclcpp::TimerBase::SharedPtr planning_timer_;
 
-  double param_ = 1.0;
+  double planning_freq_ = 10.0;
 
-
-  int count_ = 0;
 };
 
 

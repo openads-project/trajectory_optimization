@@ -6,11 +6,16 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(acados_vendor_ros2 REQUIRED)
 find_package(acados_ocp REQUIRED)
+find_package(acados_vendor_ros2 REQUIRED)
+find_package(perception_msgs REQUIRED)
+find_package(perception_msgs_utils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(route_planning_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(trajectory_planning_msgs REQUIRED)
+find_package(trajectory_planning_msgs_utils REQUIRED)
 
 set(TARGET_NAME trajectory_optimization_node_component)
 
@@ -28,11 +33,16 @@ target_include_directories(${TARGET_NAME} PUBLIC
 target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
-  acados_vendor_ros2
   acados_ocp
+  acados_vendor_ros2
+  perception_msgs
+  perception_msgs_utils
   rclcpp
   rclcpp_components
+  route_planning_msgs
   std_msgs
+  trajectory_planning_msgs
+  trajectory_planning_msgs_utils
 )
 
 install(TARGETS ${TARGET_NAME}

@@ -21,9 +21,14 @@ namespace trajectory_optimization {
 // parameter names
 
 // constants
-const std::string TrajectoryOptimizationNode::kInputTopic = "~/output";
-const std::string TrajectoryOptimizationNode::kOutputTopic = "~/output";
-const std::string TrajectoryOptimizationNode::kParam = "param";
+const std::string TrajectoryOptimizationNode::kDriveableSpaceTopic = "~/driveable_space";
+const std::string TrajectoryOptimizationNode::kEgoDataTopic = "~/ego_data";
+const std::string TrajectoryOptimizationNode::kObjectListTopic = "~/object_list";
+const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
+
+const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
+
+const std::string TrajectoryOptimizationNode::kPlanningFreqParam = "planning_frequency";
 
 
 /**
@@ -46,15 +51,10 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   // set parameter description
   rcl_interfaces::msg::ParameterDescriptor param_desc;
-  param_desc.description = "TODO";
-
-  // set allowed parameter range
-  rcl_interfaces::msg::FloatingPointRange param_range;
-  param_range.set__from_value(0.1).set__to_value(10.0).set__step(0.1);
-  param_desc.floating_point_range = {param_range};
+  param_desc.description = "Planning Frequency in Hz";
 
   // declare parameter
-  this->declare_parameter(kParam, rclcpp::ParameterType::PARAMETER_DOUBLE, param_desc);
+  this->declare_parameter(kPlanningFreqParam, rclcpp::ParameterType::PARAMETER_DOUBLE, param_desc);
 }
 
 /**
@@ -65,9 +65,9 @@ void TrajectoryOptimizationNode::loadParameters() {
 
   // load parameter
   try {
-    param_ = this->get_parameter(kParam).as_double();
+    planning_freq_ = this->get_parameter(kPlanningFreqParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kParam.c_str());
+    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kPlanningFreqParam.c_str());
     exit(EXIT_FAILURE);
   }
 }
@@ -83,28 +83,66 @@ void TrajectoryOptimizationNode::setup() {
   parameters_callback_ = this->add_on_set_parameters_callback(
     std::bind(&TrajectoryOptimizationNode::parametersCallback, this, std::placeholders::_1));
 
-  // create a subscriber for handling incoming messages
-  subscriber_ =
-    this->create_subscription<std_msgs::msg::Int32>(
-      kInputTopic, 10,
-      std::bind(&TrajectoryOptimizationNode::topicCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", subscriber_->get_topic_name());
+  // set up subscriber for input topics
+  ego_data_sub_ =
+    this->create_subscription<perception_msgs::msg::EgoData>(
+      kEgoDataTopic, 10,
+      std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
-  trajectory_planning_solver_capsule* test;
-  trajectory_planning_acados_solve(test);
+  driveable_space_sub_ =
+    this->create_subscription<route_planning_msgs::msg::DriveableSpace>(
+      kDriveableSpaceTopic, 10,
+      std::bind(&TrajectoryOptimizationNode::driveableSpaceCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", driveable_space_sub_->get_topic_name());
 
-  // create a publisher for publishing messages
-  publisher_ = this->create_publisher<std_msgs::msg::Int32>(
-    kOutputTopic, 10);
-  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", publisher_->get_topic_name());
+  object_list_sub_ =
+    this->create_subscription<perception_msgs::msg::ObjectList>(
+      kObjectListTopic, 10,
+      std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
+  route_sub_ =
+    this->create_subscription<route_planning_msgs::msg::Route>(
+      kRouteTopic, 10,
+      std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
+  // set up publisher for output topic
+  trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(
+    kTrajectoryTopic, 10);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
 
-  // create a timer for repeatedly invoking a callback to publish messages
-  publish_timer_ =
-    this->create_wall_timer(std::chrono::duration<double>(param_),
-                            std::bind(&TrajectoryOptimizationNode::publishTimerCallback,
+  // create timer for planning cycle
+  planning_timer_ =
+    this->create_wall_timer(std::chrono::duration<double>(planning_freq_),
+                            std::bind(&TrajectoryOptimizationNode::planningCycle,
                             this));
+
+  setupSolver();
+}
+
+void TrajectoryOptimizationNode::setupSolver() {
+  // setup acados solver
+  trajectory_planning_solver_capsule *acados_ocp_capsule = trajectory_planning_acados_create_capsule();
+
+  // there is an opportunity to change the number of shooting intervals in C without new code generation
+  int N = TRAJECTORY_PLANNING_N; // TODO: param
+  // allocate the array and fill it accordingly
+  double* new_time_steps = NULL;
+  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule, N, new_time_steps);
+
+  if (status) {
+    RCLCPP_INFO(this->get_logger(), "trajectory_planning_acados_create() returned status %d. Exiting.", status);
+    exit(1);
+  }
+
+  ocp_nlp_config *nlp_config = trajectory_planning_acados_get_nlp_config(acados_ocp_capsule);
+  ocp_nlp_dims *nlp_dims = trajectory_planning_acados_get_nlp_dims(acados_ocp_capsule);
+  ocp_nlp_in *nlp_in = trajectory_planning_acados_get_nlp_in(acados_ocp_capsule);
+  ocp_nlp_out *nlp_out = trajectory_planning_acados_get_nlp_out(acados_ocp_capsule);
+  ocp_nlp_solver *nlp_solver = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule);
+  void *nlp_opts = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule);
 }
 
 
@@ -121,8 +159,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
   // update timer with newly configured period parameter value
   rcl_interfaces::msg::SetParametersResult result;
   for (const auto &param : parameters) {
-    if (param.get_name() == kParam) {
-      param_ = param.as_double();
+    if (param.get_name() == kPlanningFreqParam) {
+      planning_freq_ = param.as_double();
     }
   }
 
@@ -137,24 +175,62 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
 /**
  * @brief This callback is invoked when the subscriber receives a message
  *
- * @param[in] msg   input
+ * @param[in] msg   input ego data
  */
-void TrajectoryOptimizationNode::topicCallback(
-  const std_msgs::msg::Int32::ConstSharedPtr msg) {
+void TrajectoryOptimizationNode::egoDataCallback(
+  const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
 
-  RCLCPP_INFO(this->get_logger(), "I heard: '%d'", msg->data);
+  RCLCPP_INFO(this->get_logger(), "Received ego data");
+  // TODO: process ego data
+}
+
+/**
+ * @brief This callback is invoked when the subscriber receives a message
+ *
+ * @param[in] msg   input drivable space
+ */
+void TrajectoryOptimizationNode::driveableSpaceCallback(
+  const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg) {
+
+  RCLCPP_INFO(this->get_logger(), "Received driveable space");
+  // TODO: process driveable space
+}
+
+/**
+ * @brief This callback is invoked when the subscriber receives a message
+ *
+ * @param[in] msg   input object list
+ */
+void TrajectoryOptimizationNode::objectListCallback(
+  const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
+
+  RCLCPP_INFO(this->get_logger(), "Received object list");
+  // TODO: process object list
+}
+
+/**
+ * @brief This callback is invoked when the subscriber receives a message
+ *
+ * @param[in] msg   input route
+ */
+void TrajectoryOptimizationNode::routeCallback(
+  const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
+
+  RCLCPP_INFO(this->get_logger(), "Received route");
+  // TODO: process route
 }
 
 
 /**
- * @brief This callback is invoked every period seconds by the timer
+ * @brief This function is invoked every period seconds by the timer
  *
  */
-void TrajectoryOptimizationNode::publishTimerCallback() {
+void TrajectoryOptimizationNode::planningCycle() {
   
-  std_msgs::msg::Int32::UniquePtr msg = std::make_unique<std_msgs::msg::Int32>();
-  msg->data = 10;
-  publisher_->publish(std::move(msg));
+  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(*trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, TRAJECTORY_PLANNING_N);  
+
+  trajectory_pub_->publish(std::move(trajectory));
 }
 
 
