@@ -90,6 +90,9 @@ void TrajectoryOptimizationNode::setup() {
       std::bind(&TrajectoryOptimizationNode::topicCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", subscriber_->get_topic_name());
 
+  trajectory_planning_solver_capsule* test;
+  trajectory_planning_acados_solve(test);
+
   // create a publisher for publishing messages
   publisher_ = this->create_publisher<std_msgs::msg::Int32>(
     kOutputTopic, 10);

@@ -3,7 +3,12 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 
-#include "acados_c/ocp_nlp_interface.h"
+// acados
+#include <acados/utils/print.h>
+#include <acados/utils/math.h>
+#include <acados_c/ocp_nlp_interface.h>
+#include <acados_c/external_function_interface.h>
+#include <acados_ocp/acados_solver_trajectory_planning.h>
 
 namespace trajectory_optimization {
 

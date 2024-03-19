@@ -6,4 +6,3 @@ variables:
   TARGET: dev,run
   PLATFORM: amd64
   COMMAND: ros2 launch trajectory_optimization trajectory_optimization_node_launch.py
-  ENABLE_INDUSTRIAL_CI: 'true'
