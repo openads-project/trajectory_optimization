@@ -6,7 +6,7 @@ def export_vehicle_model(parameters) -> AcadosModel:
     model = AcadosModel()
     
     # set model_name
-    model.name = 'kinematic_single_track_model'
+    model.name = 'trajectory_planning'
 
     # set constants
     l = 2.711 # wheelbase [m] # To-Do: get from parameters
