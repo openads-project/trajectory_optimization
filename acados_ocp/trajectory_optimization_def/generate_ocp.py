@@ -12,7 +12,7 @@ def parser_init():
 def readConfig(config):
     currentDirPath = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(currentDirPath, config)) as configFile:
-        config_params = yaml.load(configFile, loader=yaml.FullLoader)
+        config_params = yaml.load(configFile, yaml.FullLoader)
     return config_params
 
 def main():

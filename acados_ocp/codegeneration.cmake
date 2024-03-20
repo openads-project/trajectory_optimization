@@ -11,7 +11,7 @@ file(CHMOD ${DESTINATION_PATH} PERMISSIONS WORLD_EXECUTE OWNER_EXECUTE OWNER_REA
 
 ## Generate OCP Model ##
 
-file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py")
+file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py" "trajectory_optimization_def/*.yml")
 file(COPY ${ACADOS_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(GENERATOR generate_ocp.py)

@@ -1,12 +1,12 @@
 from acados_template import AcadosModel
 from casadi import SX, vertcat, sin, cos
 
-def export_vehicle_model(parameters) -> AcadosModel:
+def export_model(parameters) -> AcadosModel:
     
     model = AcadosModel()
     
     # set model_name
-    model.name = 'trajectory_planning'
+    model.name = parameters['model_name']
 
     # set constants
     l = parameters['wheelbase']
