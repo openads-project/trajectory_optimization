@@ -15,26 +15,22 @@
 #include <trajectory_planning_msgs_utils/trajectory_access.hpp>
 
 // acados
-#include <acados/utils/print.h>
 #include <acados/utils/math.h>
-#include <acados_c/ocp_nlp_interface.h>
+#include <acados/utils/print.h>
 #include <acados_c/external_function_interface.h>
+#include <acados_c/ocp_nlp_interface.h>
 #include <acados_ocp/acados_solver_trajectory_planning.h>
-#include <blasfeo_d_aux_ext_dep.h> // for printing dense matrices
+#include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 
 namespace trajectory_optimization {
 
-
 class TrajectoryOptimizationNode : public rclcpp::Node {
-
  public:
-
-  explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions& options);
+  explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions &options);
 
   ~TrajectoryOptimizationNode();
 
  private:
-
   // input topics
   static const std::string kDriveableSpaceTopic;
   static const std::string kEgoDataTopic;
@@ -57,7 +53,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf);
 
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
@@ -65,7 +61,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
-
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -92,10 +87,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ocp_nlp_solver *nlp_solver_;
   void *nlp_opts_;
 
-  double* xtraj_;
-  double* utraj_;
-
+  double *xtraj_;
+  double *utraj_;
 };
 
-
-}
+}  // namespace trajectory_optimization
