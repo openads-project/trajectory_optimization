@@ -1,0 +1,17 @@
+#### general parameters defining the mpc
+timeframe: 8.0                    # duration of one timestep [s]
+dimension: 50                     # number of timesteps in prediction horizon
+
+#### vehicle specific parameters
+wheelbase: 2.711                  # wheelbase in [m]
+length: 4.799                     # length in [m]
+width: 1.855                      # width in [m]
+delta_max: 0.4956735              # wheel angle in [rad]
+acceleration_max: 9.0             # total acceleration in [m/s²]
+acceleration_lon_max: 3.5         # longitudinal acceleration in [m/s²]
+
+#### actuator specific parameters
+alpha_max: 0.5                    # steering rate in [rad/s]
+jerk_max: 4.0                     # longitudinal jerk in [m/s²]
+
+#### other parameters

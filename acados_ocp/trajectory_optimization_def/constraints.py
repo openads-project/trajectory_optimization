@@ -6,8 +6,8 @@ def export_constraints(parameters) -> AcadosOcpConstraints:
     cons = AcadosOcpConstraints()
 
     # set constraints
-    alpha = 0.5 # To-Do: get from parameters
-    j_lon = 4.0 # To-Do: get from parameters
+    alpha = parameters['alpha_max']
+    j_lon = parameters['jerk_max']
     cons.lbu = np.array([-j_lon, -alpha])
     cons.ubu = np.array([+j_lon, +alpha])
 

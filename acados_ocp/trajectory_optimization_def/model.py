@@ -9,7 +9,7 @@ def export_vehicle_model(parameters) -> AcadosModel:
     model.name = 'trajectory_planning'
 
     # set constants
-    l = 2.711 # wheelbase [m] # To-Do: get from parameters
+    l = parameters['wheelbase']
 
     # set up states
     x      = SX.sym('x')

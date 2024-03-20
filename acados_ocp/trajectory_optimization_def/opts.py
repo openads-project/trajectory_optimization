@@ -14,6 +14,6 @@ def export_opts(parameters) -> AcadosOcpOptions:
     opts.nlp_solver_type = 'SQP' # SQP_RTI, SQP
 
     # set prediction horizon in s
-    opts.tf = 1.0 # To-Do: get from parameters
+    opts.tf = parameters['timeframe']
 
     return opts

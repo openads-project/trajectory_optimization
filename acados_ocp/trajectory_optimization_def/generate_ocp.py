@@ -1,13 +1,24 @@
 from acados_template import AcadosOcp, AcadosOcpSolver, builders
 import model, dims, constraints, costs, opts
 import os
+import yaml
+import argparse
+
+def parser_init():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', help="configuaration file *.yml", type=str, required=False, default='params.yml')
+    return parser
+
+def readConfig(config):
+    currentDirPath = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(currentDirPath, config)) as configFile:
+        config_params = yaml.load(configFile, loader=yaml.FullLoader)
+    return config_params
 
 def main():
-
-    # To-Do: create a paremeter-file, define the path to the parameter file as argument for the python script
-    # parse the given parameter-file and fill the parameters list/dict (or whats suits the best) accordingly
-    parameters = None
-    # After the parameters variable is filled correctly you can solve the todos within model, constraints etc. 
+    parser = parser_init()
+    args = parser.parse_args()
+    parameters = readConfig(args.config)
 
     ocp = AcadosOcp()
     ocp.model = model.export_model(parameters)
