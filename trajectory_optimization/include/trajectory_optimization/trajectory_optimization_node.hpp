@@ -51,7 +51,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setup();
   void setupSolver();
 
-  void printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf);
+  void printSolution(int status);
 
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 

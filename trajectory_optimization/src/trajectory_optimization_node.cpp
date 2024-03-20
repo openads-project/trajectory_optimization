@@ -279,7 +279,15 @@ void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::R
  * @brief This function prints the solution of the ocp
  * 
  */
-void TrajectoryOptimizationNode::printSolution(int status, double elapsed_time, int sqp_iter, double kkt_norm_inf) {
+void TrajectoryOptimizationNode::printSolution(int status) {
+  // get statistics
+  double kkt_norm_inf;
+  double elapsed_time;
+  int sqp_iter;
+  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
+  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+
   printf("\n--- xtraj ---\n");
   d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_states_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
   printf("\n--- utraj ---\n");
@@ -316,16 +324,8 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   ////////////////////////////////////////////////////////
   // sample ocp step
-  double kkt_norm_inf;
-  double elapsed_time;
-  int sqp_iter;
 
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
-
-  // get statistics
-  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
-  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ii++)
@@ -334,7 +334,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
   // print solution and statistics
-  printSolution(status, elapsed_time, sqp_iter, kkt_norm_inf);
+  printSolution(status);
 
   // update condition
   double lbx0[TRAJECTORY_PLANNING_NBX0];
