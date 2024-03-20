@@ -1,7 +1,7 @@
 from acados_template import AcadosModel
 from casadi import SX, vertcat, sin, cos, tan
 
-def export_model(parameters) -> AcadosModel:
+def set_model(ocp, parameters) -> AcadosModel:
     
     model = AcadosModel()
     
@@ -53,4 +53,4 @@ def export_model(parameters) -> AcadosModel:
     model.xdot = state_dot
     model.u = u
 
-    return model
+    ocp.model = model

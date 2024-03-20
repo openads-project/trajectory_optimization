@@ -21,11 +21,11 @@ def main():
     parameters = readConfig(args.config)
 
     ocp = AcadosOcp()
-    ocp.model = model.export_model(parameters)
-    ocp.dims = dims.export_dims(ocp.model, parameters)
-    ocp.constraints = constraints.export_constraints(parameters)
-    ocp.cost = costs.export_costs()
-    ocp.solver_options = opts.export_opts(parameters)
+    model.set_model(ocp, parameters)
+    dims.set_dims(ocp, parameters)
+    constraints.set_constraints(ocp, parameters)
+    costs.set_costs(ocp, parameters)
+    opts.set_opts(ocp, parameters)
     ocp.code_export_directory = os.path.join(os.path.dirname(__file__), 'c_generated_code')
 
     builder = builders.CMakeBuilder()
