@@ -171,31 +171,17 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_solver_ = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule_);
   nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
 
-  // initial condition (not necessary here, as it is already defined in constraints.py)
-  double lbx0[TRAJECTORY_PLANNING_NBX0];
-  double ubx0[TRAJECTORY_PLANNING_NBX0];
-  lbx0[0] = 0;
-  ubx0[0] = 0;
-  lbx0[1] = 3.141592653589793;
-  ubx0[1] = 3.141592653589793;
-  lbx0[2] = 0;
-  ubx0[2] = 0;
-  lbx0[3] = 0;
-  ubx0[3] = 0;
-
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
-
   // initialization for state values
   double x_init[TRAJECTORY_PLANNING_NX];
-  x_init[0] = 0.0;
-  x_init[1] = 0.0;
-  x_init[2] = 0.0;
-  x_init[3] = 0.0;
+  for (int i = 0; i < TRAJECTORY_PLANNING_NX; i++) {
+    x_init[i] = 0.0;
+  }
 
   // initial value for control input
   double u0[TRAJECTORY_PLANNING_NU];
-  u0[0] = 0.0;
+  for (int i = 0; i < TRAJECTORY_PLANNING_NU; i++) {
+    u0[i] = 0.0;
+  }
 
   // initialize solution
   int rti_phase = 0;
@@ -276,40 +262,6 @@ void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::R
 }
 
 /**
- * @brief This function prints the solution of the ocp
- * 
- */
-void TrajectoryOptimizationNode::printSolution(int status) {
-  // get statistics
-  double kkt_norm_inf;
-  double elapsed_time;
-  int sqp_iter;
-  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
-  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
-
-  printf("\n--- xtraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_states_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
-  printf("\n--- utraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_states_, utraj_, TRAJECTORY_PLANNING_NU);
-  // ocp_nlp_out_print(nlp_solver->dims, nlp_out);
-
-  printf("\nsolved ocp %d times, solution printed above\n\n", 1);
-
-  if (status == ACADOS_SUCCESS) {
-    printf("trajectory_planning_acados_solve(): SUCCESS!\n");
-  } else {
-    printf("trajectory_planning_acados_solve() failed with status %d.\n", status);
-  }
-
-  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
-
-  printf("\nSolver info:\n");
-  printf(" SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
-         kkt_norm_inf);
-}
-
-/**
  * @brief This function is invoked every period seconds by the timer
  *
  */
@@ -347,6 +299,40 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
+}
+
+/**
+ * @brief This function prints the solution of the ocp
+ * 
+ */
+void TrajectoryOptimizationNode::printSolution(int status) {
+  // get statistics
+  double kkt_norm_inf;
+  double elapsed_time;
+  int sqp_iter;
+  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
+  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+
+  printf("\n--- xtraj ---\n");
+  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_states_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
+  printf("\n--- utraj ---\n");
+  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_states_, utraj_, TRAJECTORY_PLANNING_NU);
+  // ocp_nlp_out_print(nlp_solver_->dims, nlp_out_);
+
+  printf("\nsolved ocp %d times, solution printed above\n\n", 1);
+
+  if (status == ACADOS_SUCCESS) {
+    printf("trajectory_planning_acados_solve(): SUCCESS!\n");
+  } else {
+    printf("trajectory_planning_acados_solve() failed with status %d.\n", status);
+  }
+
+  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
+
+  printf("\nSolver info:\n");
+  printf(" SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
+         kkt_norm_inf);
 }
 
 }  // namespace trajectory_optimization
