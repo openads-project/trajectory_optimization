@@ -154,9 +154,10 @@ void TrajectoryOptimizationNode::setupSolver() {
   double* new_time_steps = NULL;
   if (n_states_ != TRAJECTORY_PLANNING_N) {
     new_time_steps = new double(planning_horizon_ / n_states_);
-    printf("new_time_steps = %f\n", *new_time_steps);
+    RCLCPP_INFO(this->get_logger(), "new_time_steps = %f", *new_time_steps);
   }
   int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, n_states_, new_time_steps);
+  delete[] new_time_steps;
 
   if (status) {
     RCLCPP_INFO(this->get_logger(), "trajectory_planning_acados_create() returned status %d. Exiting.", status);
@@ -170,7 +171,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_solver_ = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule_);
   nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
 
-  // initial condition
+  // initial condition (not necessary here, as it is already defined in constraints.py)
   double lbx0[TRAJECTORY_PLANNING_NBX0];
   double ubx0[TRAJECTORY_PLANNING_NBX0];
   lbx0[0] = 0;
@@ -321,8 +322,10 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
-  // get elapsed time
+  // get statistics
   ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
+  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ii++)
@@ -330,10 +333,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   for (int ii = 0; ii < nlp_dims_->N; ii++)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
-  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
-
-  // print solution
+  // print solution and statistics
   printSolution(status, elapsed_time, sqp_iter, kkt_norm_inf);
 
   // update condition
