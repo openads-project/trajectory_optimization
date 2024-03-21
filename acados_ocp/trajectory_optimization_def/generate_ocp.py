@@ -31,7 +31,7 @@ def main():
     ocp.code_export_directory = os.path.join(CURRENT_DIR_PATH, 'c_generated_code')
 
     builder = builders.CMakeBuilder()
-    builder.options_on = ['BUILD_ACADOS_SOLVER_LIB', 'BUILD_ACADOS_OCP_SOLVER_LIB', 'BUILD_EXAMPLE', 'BUILD_SIM_EXAMPLE', 'BUILD_ACADOS_SIM_SOLVER_LIB']
+    builder.options_on = ['BUILD_ACADOS_SOLVER_LIB', 'BUILD_ACADOS_OCP_SOLVER_LIB']
     
     acados_tp_ocp = AcadosOcpSolver(ocp, json_file = 'acados_tp_ocp.json', simulink_opts=None, build=True, generate=True, cmake_builder=builder)
 
