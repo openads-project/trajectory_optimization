@@ -61,6 +61,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
+  void updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
+                       const perception_msgs::msg::ObjectList &object_list,
+                       const route_planning_msgs::msg::DriveableSpace &driveable_space,
+                       const route_planning_msgs::msg::Route &route);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -72,6 +76,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
+
+  // input data
+  perception_msgs::msg::EgoData ego_data_;
+  perception_msgs::msg::ObjectList object_list_;
+  route_planning_msgs::msg::DriveableSpace driveable_space_;
+  route_planning_msgs::msg::Route route_;
 
   // parameters
   double optimization_freq_ = 10.0;

@@ -227,7 +227,7 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
  */
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "Received ego data");
-  // TODO: process ego data
+  ego_data_ = *msg;
 }
 
 /**
@@ -238,7 +238,7 @@ void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::Ego
 void TrajectoryOptimizationNode::driveableSpaceCallback(
     const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "Received driveable space");
-  // TODO: process driveable space
+  driveable_space_ = *msg;
 }
 
 /**
@@ -248,7 +248,7 @@ void TrajectoryOptimizationNode::driveableSpaceCallback(
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "Received object list");
-  // TODO: process object list
+  object_list_ = *msg;
 }
 
 /**
@@ -258,7 +258,7 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
  */
 void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "Received route");
-  // TODO: process route
+  route_ = *msg;
 }
 
 /**
@@ -269,15 +269,12 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, TRAJECTORY_PLANNING_N);
-
-  trajectory_pub_->publish(std::move(trajectory));
-  RCLCPP_INFO(this->get_logger(), "Published trajectory");
-
-  ////////////////////////////////////////////////////////
-  // sample ocp step
+      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
 
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
+
+  // update inputs to the ocp
+  updateOcpInputs(ego_data_, object_list_, driveable_space_, route_);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ++ii)
@@ -288,7 +285,19 @@ void TrajectoryOptimizationNode::planningCycle() {
   // print solution and statistics
   printSolution(status);
 
-  // update condition
+  trajectory_pub_->publish(std::move(trajectory));
+  RCLCPP_INFO(this->get_logger(), "Published trajectory");
+}
+
+/**
+ * @brief This function updates the inputs to the ocp
+ *
+ */
+void TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
+                                                 const perception_msgs::msg::ObjectList& object_list,
+                                                 const route_planning_msgs::msg::DriveableSpace& driveable_space,
+                                                 const route_planning_msgs::msg::Route& route) {
+  // update initial condition
   double lbx0[TRAJECTORY_PLANNING_NBX0];
   double ubx0[TRAJECTORY_PLANNING_NBX0];
   // fill condition with the last state of the solution
