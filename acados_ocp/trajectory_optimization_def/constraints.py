@@ -12,9 +12,13 @@ def set_constraints(ocp, parameters) -> AcadosOcpConstraints:
     cons.ubx = np.array([parameters['v_max'], parameters['delta_max']])
     cons.idxbx = np.array([3, 6])
 
-    # To-Do: we need to constraint the magnitude of a_lon and a_lat to a_max 
-    # this is tricky since this constraint is dependant of three state variables: a_lat = v * psi and a_lon
-    # a_lat * a_lat + a_lon * a_lon <= a_max * a_max
+    # set boundaries for acceleration values through nonlinear constraints
+    a_max = parameters['acceleration_max']
+    a_lon_max = parameters['acceleration_lon_max']
+    cons.lh = np.array([-a_lon_max, 0])
+    cons.lh_e = np.array([-a_lon_max, 0])
+    cons.uh = np.array([a_lon_max, a_max**2])
+    cons.uh_e = np.array([a_lon_max, a_max**2])
 
     # set constraints on controls
     alpha = parameters['alpha_max']
