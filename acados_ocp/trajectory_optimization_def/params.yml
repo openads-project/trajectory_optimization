@@ -1,7 +1,7 @@
 #### general parameters defining the mpc
 model_name: 'trajectory_planning'
 horizon: 5.0                      # optimization horizon [s]
-nsteps: 49                        # number of shooting intervals in optimization horizon
+nsteps: 50                        # number of shooting intervals in optimization horizon
 
 #### vehicle specific parameters
 wheelbase: 2.711                  # wheelbase [m]
