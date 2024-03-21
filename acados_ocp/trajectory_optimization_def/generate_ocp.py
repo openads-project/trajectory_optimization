@@ -24,9 +24,9 @@ def main():
 
     ocp = AcadosOcp()
     model.set_model(ocp, parameters)
-    dims.set_dims(ocp, parameters)
     constraints.set_constraints(ocp, parameters)
     costs.set_costs(ocp, parameters)
+    dims.set_dims(ocp, parameters)
     opts.set_opts(ocp, parameters)
     ocp.code_export_directory = os.path.join(CURRENT_DIR_PATH, 'c_generated_code')
 

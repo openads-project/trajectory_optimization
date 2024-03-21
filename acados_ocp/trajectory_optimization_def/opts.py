@@ -5,7 +5,7 @@ def set_opts(ocp, parameters):
     opts = AcadosOcpOptions()
 
     # set options
-    opts.qp_solver = 'FULL_CONDENSING_QPOASES'
+    opts.qp_solver = 'PARTIAL_CONDENSING_HPIPM' #'FULL_CONDENSING_QPOASES'
     opts.nlp_solver_type = "SQP_RTI"
     opts.hessian_approx = "GAUSS_NEWTON"
     opts.integrator_type = "ERK"
