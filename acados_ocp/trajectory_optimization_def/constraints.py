@@ -2,7 +2,7 @@ from acados_template import AcadosOcpConstraints
 from casadi import vertcat
 import numpy as np
 
-def set_constraints(ocp, parameters) -> AcadosOcpConstraints:
+def set_constraints(ocp, parameters):
     
     cons = AcadosOcpConstraints()
 

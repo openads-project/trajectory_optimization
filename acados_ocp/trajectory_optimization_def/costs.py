@@ -1,6 +1,6 @@
 from acados_template import AcadosOcpCost
 
-def set_costs(ocp, parameter) -> AcadosOcpCost:    
+def set_costs(ocp, parameter):    
 
     cost = AcadosOcpCost()
 

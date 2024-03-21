@@ -1,7 +1,7 @@
 from acados_template import AcadosModel
 from casadi import SX, vertcat, sin, cos, tan
 
-def set_model(ocp, parameters) -> AcadosModel:
+def set_model(ocp, parameters):
     
     model = AcadosModel()
     

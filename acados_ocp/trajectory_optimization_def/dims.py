@@ -1,6 +1,6 @@
 from acados_template import AcadosOcpDims
 
-def set_dims(ocp, parameters) -> AcadosOcpDims:    
+def set_dims(ocp, parameters):    
 
     dims = AcadosOcpDims()
 

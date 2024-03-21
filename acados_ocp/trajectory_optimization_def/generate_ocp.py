@@ -1,23 +1,25 @@
 from acados_template import AcadosOcp, AcadosOcpSolver, builders
-import model, dims, constraints, costs, opts
+import argparse
 import os
 import yaml
-import argparse
 
-def parser_init():
+import model, dims, constraints, costs, opts
+
+CURRENT_DIR_PATH = os.path.dirname(__file__)
+
+def parseArguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', help="configuaration file *.yml", type=str, required=False, default='params.yml')
-    return parser
+    parser.add_argument('--config', help="configuaration file (.yml)", type=str, required=False, default='params.yml')
+    args = parser.parse_args()
+    return args
 
 def readConfig(config):
-    currentDirPath = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(currentDirPath, config)) as configFile:
+    with open(os.path.join(CURRENT_DIR_PATH, config)) as configFile:
         config_params = yaml.load(configFile, yaml.FullLoader)
     return config_params
 
 def main():
-    parser = parser_init()
-    args = parser.parse_args()
+    args = parseArguments()
     parameters = readConfig(args.config)
 
     ocp = AcadosOcp()
@@ -26,7 +28,7 @@ def main():
     constraints.set_constraints(ocp, parameters)
     costs.set_costs(ocp, parameters)
     opts.set_opts(ocp, parameters)
-    ocp.code_export_directory = os.path.join(os.path.dirname(__file__), 'c_generated_code')
+    ocp.code_export_directory = os.path.join(CURRENT_DIR_PATH, 'c_generated_code')
 
     builder = builders.CMakeBuilder()
     builder.options_on = ['BUILD_ACADOS_SOLVER_LIB', 'BUILD_ACADOS_OCP_SOLVER_LIB', 'BUILD_EXAMPLE', 'BUILD_SIM_EXAMPLE', 'BUILD_ACADOS_SIM_SOLVER_LIB']

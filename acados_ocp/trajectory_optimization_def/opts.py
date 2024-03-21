@@ -1,6 +1,6 @@
 from acados_template import AcadosOcpOptions
 
-def set_opts(ocp, parameters) -> AcadosOcpOptions:
+def set_opts(ocp, parameters):
     
     opts = AcadosOcpOptions()
 
