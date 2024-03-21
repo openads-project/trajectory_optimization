@@ -16,7 +16,7 @@ file(COPY ${ACADOS_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(GENERATOR generate_ocp.py)
 
-add_custom_target(acados_model ALL
+add_custom_target(${PROJECT_NAME}_code_generation ALL
   COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}
   COMMENT "Build ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}"
 )

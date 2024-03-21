@@ -11,6 +11,7 @@ find_package(acados_vendor_ros2 REQUIRED)
 include(codegeneration.cmake)
 
 add_library(${PROJECT_NAME} INTERFACE)
+# add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_code_generation)
 
 target_include_directories(${PROJECT_NAME} INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -19,7 +20,10 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 
-file(GLOB ACADOS_LIBS ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/*.so)
+# add_custom_command(TARGET ${PROJECT_NAME}_code_generation
+#   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/findlibs.cmake
+# )
+file(GLOB ACADOS_LIBS ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/*.so)
 target_link_libraries(${PROJECT_NAME} INTERFACE ${ACADOS_LIBS})
 
 install(TARGETS ${PROJECT_NAME}
