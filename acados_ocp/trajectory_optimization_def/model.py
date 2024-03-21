@@ -53,10 +53,4 @@ def set_model(ocp, parameters) -> AcadosModel:
     model.xdot = state_dot
     model.u = u
 
-    # define nonlinear constraint expression in model
-    a_lat = v * psi
-    a_squared = a_lon**2 + a_lat**2
-    model.con_h_expr = vertcat(a_squared)
-    model.con_h_expr_e = vertcat(a_squared)
-
     ocp.model = model
