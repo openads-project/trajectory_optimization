@@ -35,6 +35,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kDriveableSpaceTopic;
   static const std::string kEgoDataTopic;
   static const std::string kObjectListTopic;
+  static const std::string kReferenceTrajectoryTopic;
   static const std::string kRouteTopic;
 
   // output topics
@@ -74,9 +75,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::DriveableSpace>::SharedPtr driveable_space_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
+  rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
-  rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr demo_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
