@@ -41,9 +41,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kTrajectoryTopic;
 
   // parameter names
-  static const std::string kPlanningFreqParam;
+  static const std::string kOptimizationFreqParam;
   static const std::string kNStatesParam;
-  static const std::string kPlanningHoizonParam;
+  static const std::string kOptimizationHoizonParam;
 
   void declareParameters();
   void loadParameters();
@@ -74,9 +74,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
   // parameters
-  double planning_freq_ = 10.0;
+  double optimization_freq_ = 10.0;
   int n_states_ = TRAJECTORY_PLANNING_N;
-  double planning_horizon_ = 1.0;
+  double optimization_horizon_ = 1.0;
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

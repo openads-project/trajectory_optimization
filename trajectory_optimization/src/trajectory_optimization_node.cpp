@@ -26,9 +26,9 @@ const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
 
 const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
 
-const std::string TrajectoryOptimizationNode::kPlanningFreqParam = "planning_frequency";
+const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimization_frequency";
 const std::string TrajectoryOptimizationNode::kNStatesParam = "n_states";
-const std::string TrajectoryOptimizationNode::kPlanningHoizonParam = "planning_horizon";
+const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 
 /**
  * @brief Creates a TrajectoryOptimizationNode node
@@ -70,17 +70,17 @@ TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
 void TrajectoryOptimizationNode::declareParameters() {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
 
-  // declare planning frequency parameter
-  param_desc.description = "Planning Frequency in Hz";
-  this->declare_parameter(kPlanningFreqParam, planning_freq_, param_desc);
+  // declare optimization frequency parameter
+  param_desc.description = "Optimization Frequency in Hz";
+  this->declare_parameter(kOptimizationFreqParam, optimization_freq_, param_desc);
 
   // declare number of states parameter
   param_desc.description = "Number of states in the optimization problem";
   this->declare_parameter(kNStatesParam, n_states_, param_desc);
 
-  // declare planning horizon parameter
-  param_desc.description = "Planning Horizon in seconds";
-  this->declare_parameter(kPlanningHoizonParam, planning_horizon_, param_desc);
+  // declare optimization horizon parameter
+  param_desc.description = "Optimization Horizon in seconds";
+  this->declare_parameter(kOptimizationHoizonParam, optimization_horizon_, param_desc);
 }
 
 /**
@@ -89,9 +89,9 @@ void TrajectoryOptimizationNode::declareParameters() {
  */
 void TrajectoryOptimizationNode::loadParameters() {
   try {
-    planning_freq_ = this->get_parameter(kPlanningFreqParam).as_double();
+    optimization_freq_ = this->get_parameter(kOptimizationFreqParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kPlanningFreqParam.c_str());
+    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kOptimizationFreqParam.c_str());
     exit(EXIT_FAILURE);
   }
   try {
@@ -101,9 +101,9 @@ void TrajectoryOptimizationNode::loadParameters() {
     exit(EXIT_FAILURE);
   }
   try {
-    planning_horizon_ = this->get_parameter(kPlanningHoizonParam).as_double();
+    optimization_horizon_ = this->get_parameter(kOptimizationHoizonParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kPlanningHoizonParam.c_str());
+    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kOptimizationHoizonParam.c_str());
     exit(EXIT_FAILURE);
   }
 }
@@ -140,7 +140,7 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
 
   // create timer for planning cycle
-  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(planning_freq_),
+  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(optimization_freq_),
                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
 
   setupSolver();
@@ -153,7 +153,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   // allocate the array and fill it accordingly
   double* new_time_steps = NULL;
   if (n_states_ != TRAJECTORY_PLANNING_N) {
-    new_time_steps = new double(planning_horizon_ / n_states_);
+    new_time_steps = new double(optimization_horizon_ / n_states_);
     RCLCPP_INFO(this->get_logger(), "new_time_steps = %f", *new_time_steps);
   }
   int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, n_states_, new_time_steps);
@@ -208,8 +208,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
   // update timer with newly configured period parameter value
   rcl_interfaces::msg::SetParametersResult result;
   for (const auto& param : parameters) {
-    if (param.get_name() == kPlanningFreqParam) {
-      planning_freq_ = param.as_double();
+    if (param.get_name() == kOptimizationFreqParam) {
+      optimization_freq_ = param.as_double();
     }
   }
 
