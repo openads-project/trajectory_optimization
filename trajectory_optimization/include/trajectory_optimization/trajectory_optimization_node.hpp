@@ -65,7 +65,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
                        const route_planning_msgs::msg::DriveableSpace &driveable_space,
-                       const route_planning_msgs::msg::Route &route);
+                       const route_planning_msgs::msg::Route &route,
+                       const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 

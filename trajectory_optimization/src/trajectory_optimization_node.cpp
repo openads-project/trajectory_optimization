@@ -344,17 +344,17 @@ void TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
                                                  const route_planning_msgs::msg::DriveableSpace& driveable_space,
                                                  const route_planning_msgs::msg::Route& route,
                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
-  // update initial condition
-  double lbx0[TRAJECTORY_PLANNING_NBX0];
-  double ubx0[TRAJECTORY_PLANNING_NBX0];
-  // fill condition with the last state of the solution
-  for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; ++i) {
-    lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
-    ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
-  }
+  // // update initial condition
+  // double lbx0[TRAJECTORY_PLANNING_NBX0];
+  // double ubx0[TRAJECTORY_PLANNING_NBX0];
+  // // fill condition with the last state of the solution
+  // for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; ++i) {
+  //   lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
+  //   ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
+  // }
 
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
+  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
+  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
 
   // set yref in ocp
   double yref[TRAJECTORY_PLANNING_NY];
