@@ -19,7 +19,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 
-file(GLOB ACADOS_LIBS ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/*.so)
+file(GLOB ACADOS_LIBS ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/*.so)
 target_link_libraries(${PROJECT_NAME} INTERFACE ${ACADOS_LIBS})
 
 install(TARGETS ${PROJECT_NAME}
