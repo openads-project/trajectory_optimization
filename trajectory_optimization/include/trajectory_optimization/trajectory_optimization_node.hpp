@@ -58,6 +58,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
+  void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
@@ -74,6 +75,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
+  rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr demo_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
@@ -82,6 +84,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   perception_msgs::msg::ObjectList object_list_;
   route_planning_msgs::msg::DriveableSpace driveable_space_;
   route_planning_msgs::msg::Route route_;
+  trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
   // parameters
   double optimization_freq_ = 10.0;
