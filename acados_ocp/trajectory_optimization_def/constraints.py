@@ -38,4 +38,7 @@ def set_constraints(ocp, parameters):
     cons.uh = np.array([a_max**2])
     cons.uh_e = np.array([a_max**2])
 
+    # set initial condition
+    cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
     ocp.constraints = cons
