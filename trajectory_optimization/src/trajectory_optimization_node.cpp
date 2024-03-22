@@ -173,19 +173,19 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   // initialization for state values
   double x_init[TRAJECTORY_PLANNING_NX];
-  for (int i = 0; i < TRAJECTORY_PLANNING_NX; i++) {
+  for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
     x_init[i] = 0.0;
   }
 
   // initial value for control input
   double u0[TRAJECTORY_PLANNING_NU];
-  for (int i = 0; i < TRAJECTORY_PLANNING_NU; i++) {
+  for (int i = 0; i < TRAJECTORY_PLANNING_NU; ++i) {
     u0[i] = 0.0;
   }
 
   // initialize solution
   int rti_phase = 0;
-  for (int i = 0; i < n_states_; i++) {
+  for (int i = 0; i < n_states_; ++i) {
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
   }
@@ -280,9 +280,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
   // get solution
-  for (int ii = 0; ii <= nlp_dims_->N; ii++)
+  for (int ii = 0; ii <= nlp_dims_->N; ++ii)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * TRAJECTORY_PLANNING_NX]);
-  for (int ii = 0; ii < nlp_dims_->N; ii++)
+  for (int ii = 0; ii < nlp_dims_->N; ++ii)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
   // print solution and statistics
@@ -292,7 +292,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   double lbx0[TRAJECTORY_PLANNING_NBX0];
   double ubx0[TRAJECTORY_PLANNING_NBX0];
   // fill condition with the last state of the solution
-  for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; i++) {
+  for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; ++i) {
     lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
     ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
   }
