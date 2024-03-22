@@ -174,9 +174,9 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
 
   // // initial condition
-  // double lbx0[7];
-  // double ubx0[7];
-  // for (int i = 0; i < 7; i++) {
+  // double lbx0[TRAJECTORY_PLANNING_NBX0];
+  // double ubx0[TRAJECTORY_PLANNING_NBX0];
+  // for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; i++) {
   //   lbx0[i] = 0.0;
   //   ubx0[i] = 0.0;
   // }
@@ -218,8 +218,9 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   // set reference trajectory
   for (int i = 0; i < n_states_ + 1; i++) {
-    double v = (double) i * planning_horizon_/n_states_;
-    std::vector<double> state = {v, v, 0.0, v};
+    double t = (double) i * optimization_horizon_/n_states_;
+    double v = 5.0;
+    std::vector<double> state = {t, t*v, 0.0, v};
     trajectory_planning_msgs::trajectory_access::setState(reference_trajectory_, state, i);
   }
 }
