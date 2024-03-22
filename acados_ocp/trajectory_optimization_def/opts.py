@@ -6,9 +6,9 @@ def set_opts(ocp, parameters):
 
     # set options
     opts.qp_solver = 'PARTIAL_CONDENSING_HPIPM' #'FULL_CONDENSING_QPOASES'
-    opts.nlp_solver_type = "SQP_RTI"
     opts.hessian_approx = "GAUSS_NEWTON"
-    opts.integrator_type = "ERK"
+    opts.integrator_type = "IRK"
+    opts.nlp_solver_type = "SQP"
 
     # set prediction horizon in s
     opts.tf = parameters['horizon']
