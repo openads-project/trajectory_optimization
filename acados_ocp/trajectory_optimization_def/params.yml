@@ -1,4 +1,4 @@
-#### general parameters defining the mpc
+#### general parameters defining the ocp
 model_name: 'trajectory_planning'
 horizon: 5.0                      # optimization horizon [s]
 nsteps: 50                        # number of shooting intervals in optimization horizon
@@ -15,4 +15,5 @@ acceleration_lon_max: 3.5         # max. absolute longitudinal acceleration [m/s
 alpha_max: 0.5                    # max. absolute steering rate [rad/s]
 jerk_max: 4.0                     # max. absolute longitudinal jerk [m/s²]
 
-#### other parameters
+#### reference information parameters
+nrefsamples: 50
