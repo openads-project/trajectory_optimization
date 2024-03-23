@@ -1,5 +1,5 @@
 from acados_template import AcadosModel
-from casadi import SX, vertcat, sin, cos, tan
+from casadi import MX, vertcat, sin, cos, tan
 
 def set_model(ocp, parameters):
     
@@ -12,28 +12,28 @@ def set_model(ocp, parameters):
     l = parameters['wheelbase']
 
     # set up states
-    x      = SX.sym('x')
-    y      = SX.sym('y')
-    s      = SX.sym('s')
-    v      = SX.sym('v')
-    a_lon  = SX.sym('a_lon')
-    psi    = SX.sym('psi')
-    delta  = SX.sym('delta')
+    x      = MX.sym('x')
+    y      = MX.sym('y')
+    s      = MX.sym('s')
+    v      = MX.sym('v')
+    a_lon  = MX.sym('a_lon')
+    psi    = MX.sym('psi')
+    delta  = MX.sym('delta')
     state = vertcat(x, y, s, v, a_lon, psi, delta)
 
     # set up controls
-    j_lon = SX.sym('j_lon')
-    alpha = SX.sym('alpha')
+    j_lon = MX.sym('j_lon')
+    alpha = MX.sym('alpha')
     u = vertcat(j_lon, alpha)
 
     # derivatives
-    x_dot = SX.sym('x_dot')
-    y_dot = SX.sym('y_dot')
-    s_dot = SX.sym('s_dot')
-    v_dot = SX.sym('v_dot')
-    a_lon_dot = SX.sym('a_lon_dot')
-    psi_dot = SX.sym('psi_dot')
-    delta_dot = SX.sym('delta_dot')
+    x_dot = MX.sym('x_dot')
+    y_dot = MX.sym('y_dot')
+    s_dot = MX.sym('s_dot')
+    v_dot = MX.sym('v_dot')
+    a_lon_dot = MX.sym('a_lon_dot')
+    psi_dot = MX.sym('psi_dot')
+    delta_dot = MX.sym('delta_dot')
     state_dot = vertcat(x_dot, y_dot, s_dot, v_dot, a_lon_dot, psi_dot, delta_dot)
 
     # dynamics
@@ -54,9 +54,10 @@ def set_model(ocp, parameters):
     model.u = u
 
     # parameters
-    v_ref = SX.sym('v_ref')
+    # ref_path is represented as matrix (t, x, y, v)
+    ref_path = MX.sym('ref_path', parameters['nrefsamples'], 4)
 
-    params = vertcat(v_ref)
+    params = vertcat(ref_path)
 
     model.p = params
 
