@@ -320,7 +320,7 @@ void TrajectoryOptimizationNode::planningCycle() {
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
-  for (int i = 0; i <= n_states_; i++) {
+  for (int i = 0; i <= n_states_; ++i) {
     trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 0], i);
     trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 1], i);
     trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 2], i);
@@ -330,7 +330,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     // TODO: set Kappa and dKappa
   }
 
-  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false); // TODO: check if standstill
+  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
   trajectory->header.stamp = this->now();
   trajectory->header.frame_id = "map";  // TODO: parameter or from reference trajectory?
 
@@ -346,19 +346,33 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
-  // set yref in ocp
-  double yref[TRAJECTORY_PLANNING_NY];
-  double vref;
-  for (int i = 0; i <= nlp_dims_->N; i++) {
-    yref[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
-    yref[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
+  for (int i = 0; i <= nlp_dims_->N; ++i) {
+    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++j) {
+      double T = trajectory_planning_msgs::trajectory_access::getT(reference_trajectory, j);
+      int idx_t = j;
+      double X = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, j);
+      int idx_x = j + 50;
+      double Y = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, j);
+      int idx_y = j + 100;
+      double V = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, j);
+      int idx_v = j + 150;
+      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_t, &T, 1);
+      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_x, &X, 1);
+      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_y, &Y, 1);
+      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_v, &V, 1);
+    }
+
+    // set yref in ocp
+    double yref[TRAJECTORY_PLANNING_NY];
+    yref[0] = 0.0;
+    yref[1] = 0.0;
     yref[2] = 0.0;
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "y_ref", yref);
 
     // TODO: parameterize this (dyn. reconfigure?)
     double W[TRAJECTORY_PLANNING_NY * TRAJECTORY_PLANNING_NY];
-    for (int i = 0; i < TRAJECTORY_PLANNING_NY; i++) {
-      for (int j = 0; j < TRAJECTORY_PLANNING_NY; j++) {
+    for (int i = 0; i < TRAJECTORY_PLANNING_NY; ++i) {
+      for (int j = 0; j < TRAJECTORY_PLANNING_NY; ++j) {
         if (i == j) {
           W[i * TRAJECTORY_PLANNING_NY + j] = 1.0;
         } else {
@@ -366,12 +380,8 @@ void TrajectoryOptimizationNode::updateOcpInputs(
         }
       }
     }
-    W[0] = 0.0;
+    W[8] = 0.0;
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "W", W);
-
-    // set model parameter for vref
-    vref = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
-    trajectory_planning_acados_update_params(acados_ocp_capsule_, i, &vref, 1);
   }
 }
 
