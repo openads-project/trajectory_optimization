@@ -3,3 +3,5 @@ trajectory_optimization_node:
     optimization_frequency: 1.0
     n_states: 50
     optimization_horizon: 5.0
+
+    verbose: True

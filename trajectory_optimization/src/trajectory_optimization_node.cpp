@@ -30,6 +30,7 @@ const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
 const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimization_frequency";
 const std::string TrajectoryOptimizationNode::kNStatesParam = "n_states";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
+const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 
 /**
  * @brief Creates a TrajectoryOptimizationNode node
@@ -82,6 +83,10 @@ void TrajectoryOptimizationNode::declareParameters() {
   // declare optimization horizon parameter
   param_desc.description = "Optimization Horizon in seconds";
   this->declare_parameter(kOptimizationHoizonParam, optimization_horizon_, param_desc);
+
+  // declare verbose parameter
+  param_desc.description = "Print solver statistics";
+  this->declare_parameter(kVerboseParam, verbose_, param_desc);
 }
 
 /**
@@ -106,6 +111,11 @@ void TrajectoryOptimizationNode::loadParameters() {
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kOptimizationHoizonParam.c_str());
     exit(EXIT_FAILURE);
+  }
+  try {
+    verbose_ = this->get_parameter(kVerboseParam).as_bool();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%i'", kVerboseParam.c_str(), verbose_);
   }
 }
 
@@ -179,17 +189,6 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_out_ = trajectory_planning_acados_get_nlp_out(acados_ocp_capsule_);
   nlp_solver_ = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule_);
   nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
-
-  // // initial condition
-  // double lbx0[TRAJECTORY_PLANNING_NBX0];
-  // double ubx0[TRAJECTORY_PLANNING_NBX0];
-  // for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; i++) {
-  //   lbx0[i] = 0.0;
-  //   ubx0[i] = 0.0;
-  // }
-
-  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
-  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
 
   // initialization for state values
   double x_init[TRAJECTORY_PLANNING_NX];
@@ -303,11 +302,6 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
-      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
-  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
-
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
 
@@ -319,17 +313,26 @@ void TrajectoryOptimizationNode::planningCycle() {
   for (int ii = 0; ii < nlp_dims_->N; ++ii)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
-  // print solution and statistics
-  printSolution(status);
+  if (verbose_) printSolution(status);
 
+  // convert output into trajectory message
+  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
+      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
   for (int i = 0; i <= n_states_; i++) {
     trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 0], i);
     trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 1], i);
+    trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 2], i);
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
+    trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
+    trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
+    // TODO: set Kappa and dKappa
   }
 
+  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false); // TODO: check if standstill
   trajectory->header.stamp = this->now();
-  trajectory->header.frame_id = "map";
+  trajectory->header.frame_id = "map";  // TODO: parameter or from reference trajectory?
 
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
@@ -343,18 +346,6 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
-  // // update initial condition
-  // double lbx0[TRAJECTORY_PLANNING_NBX0];
-  // double ubx0[TRAJECTORY_PLANNING_NBX0];
-  // // fill condition with the last state of the solution
-  // for (int i = 0; i < TRAJECTORY_PLANNING_NBX0; ++i) {
-  //   lbx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
-  //   ubx0[i] = xtraj_[TRAJECTORY_PLANNING_NX * (n_states_ + 1) - TRAJECTORY_PLANNING_NBX0 + i];
-  // }
-
-  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", lbx0);
-  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", ubx0);
-
   // set yref in ocp
   double yref[TRAJECTORY_PLANNING_NY];
   double vref;
