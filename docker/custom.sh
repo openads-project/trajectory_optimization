@@ -16,6 +16,3 @@ chmod +x /opt/acados/bin/t_renderer
 # write necessary environment variables to .bashrc
 echo "export ACADOS_SOURCE_DIR=/opt/acados" >> /root/.bashrc
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/opt/acados/lib" >> /root/.bashrc
-
-# write FindACADOS.cmake module
-cp /docker-ros/additional-files/FindACADOS.cmake /opt/acados
