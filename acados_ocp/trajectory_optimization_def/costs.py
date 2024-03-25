@@ -20,7 +20,7 @@ def set_costs(ocp, parameter):
     # Sum the squared differences and take the square root to get the distance
     distances = sqrt(squared_diffs[:, 0] + squared_diffs[:, 1])
     # Generate vector that stores a 1 at the index of the nearest sample
-    min_distance_index_vec = if_else(mmin(distances) == distances, 0, 1)
+    min_distance_index_vec = if_else(mmin(distances) == distances, 1, 0)
     # Use find to get the nearest sample index
     idx_min = find(min_distance_index_vec)
     # Find nearest adjacent sample
