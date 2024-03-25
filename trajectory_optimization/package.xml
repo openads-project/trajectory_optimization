@@ -14,7 +14,6 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>acados</depend>
   <depend>acados_ocp</depend>
   <depend>perception_msgs</depend>
   <depend>perception_msgs_utils</depend>
