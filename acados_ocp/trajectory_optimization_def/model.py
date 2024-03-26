@@ -53,11 +53,4 @@ def set_model(ocp, parameters):
     model.xdot = state_dot
     model.u = u
 
-    # parameters
-    v_ref = SX.sym('v_ref')
-
-    params = vertcat(v_ref)
-
-    model.p = params
-
     ocp.model = model

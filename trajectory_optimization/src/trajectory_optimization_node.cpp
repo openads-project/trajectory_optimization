@@ -357,11 +357,9 @@ void TrajectoryOptimizationNode::updateOcpInputs(
 
   // set yref in ocp
   double yref[TRAJECTORY_PLANNING_NY];
-  double vref;
   for (int i = 0; i <= nlp_dims_->N; i++) {
     yref[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
     yref[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
-    yref[2] = 0.0;
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "y_ref", yref);
 
     // TODO: parameterize this (dyn. reconfigure?)
@@ -375,12 +373,9 @@ void TrajectoryOptimizationNode::updateOcpInputs(
         }
       }
     }
-    W[0] = 0.0;
+
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "W", W);
 
-    // set model parameter for vref
-    vref = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
-    trajectory_planning_acados_update_params(acados_ocp_capsule_, i, &vref, 1);
   }
 }
 
