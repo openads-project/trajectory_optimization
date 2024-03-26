@@ -149,6 +149,7 @@ void TrajectoryOptimizationNode::setup() {
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
       kReferenceTrajectoryTopic, 10,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topic
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 10);

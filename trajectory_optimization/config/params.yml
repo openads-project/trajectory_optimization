@@ -1,4 +1,4 @@
-trajectory_optimization_node:
+/**:
   ros__parameters:
     optimization_frequency: 1.0
     n_states: 50
