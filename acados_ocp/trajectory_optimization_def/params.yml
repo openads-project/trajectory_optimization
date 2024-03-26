@@ -1,4 +1,4 @@
-#### general parameters defining the mpc
+#### general parameters defining the ocp
 model_name: 'trajectory_planning'
 horizon: 5.0                      # optimization horizon [s]
 nsteps: 50                        # number of shooting intervals in optimization horizon
