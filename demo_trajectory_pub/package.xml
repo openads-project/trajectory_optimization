@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+
+  <name>demo_trajectory_pub</name>
+  <version>0.0.0</version>
+  <description>TODO</description>
+
+  <maintainer email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp_components</depend>
+  <depend>rclcpp</depend>
+  <depend>trajectory_planning_msgs</depend>
+  <depend>trajectory_planning_msgs_utils</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+</package>

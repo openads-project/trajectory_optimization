@@ -1,63 +1,56 @@
 from acados_template import AcadosModel
-from casadi import SX, vertcat, sin, cos
-import numpy as np
+from casadi import SX, vertcat, sin, cos, tan
 
-def export_model() -> AcadosModel:
+def set_model(ocp, parameters):
+    
+    model = AcadosModel()
+    
+    # set model_name
+    model.name = parameters['model_name']
 
-    model_name = 'trajectory_planning'
+    # set constants
+    l = parameters['wheelbase']
 
-    # constants
-    M = 1. # mass of the cart [kg] -> now estimated
-    m = 0.1 # mass of the ball [kg]
-    g = 9.81 # gravity constant [m/s^2]
-    l = 0.8 # length of the rod [m]
+    # set up states
+    x      = SX.sym('x')
+    y      = SX.sym('y')
+    s      = SX.sym('s')
+    v      = SX.sym('v')
+    a_lon  = SX.sym('a_lon')
+    psi    = SX.sym('psi')
+    delta  = SX.sym('delta')
+    state = vertcat(x, y, s, v, a_lon, psi, delta)
 
-    # set up states & controls
-    x1      = SX.sym('x1')
-    theta   = SX.sym('theta')
-    v1      = SX.sym('v1')
-    dtheta  = SX.sym('dtheta')
+    # set up controls
+    j_lon = SX.sym('j_lon')
+    alpha = SX.sym('alpha')
+    u = vertcat(j_lon, alpha)
 
-    x = vertcat(x1, theta, v1, dtheta)
-
-    F = SX.sym('F')
-    u = vertcat(F)
-
-    # xdot
-    x1_dot      = SX.sym('x1_dot')
-    theta_dot   = SX.sym('theta_dot')
-    v1_dot      = SX.sym('v1_dot')
-    dtheta_dot  = SX.sym('dtheta_dot')
-
-    xdot = vertcat(x1_dot, theta_dot, v1_dot, dtheta_dot)
+    # derivatives
+    x_dot = SX.sym('x_dot')
+    y_dot = SX.sym('y_dot')
+    s_dot = SX.sym('s_dot')
+    v_dot = SX.sym('v_dot')
+    a_lon_dot = SX.sym('a_lon_dot')
+    psi_dot = SX.sym('psi_dot')
+    delta_dot = SX.sym('delta_dot')
+    state_dot = vertcat(x_dot, y_dot, s_dot, v_dot, a_lon_dot, psi_dot, delta_dot)
 
     # dynamics
-    cos_theta = cos(theta)
-    sin_theta = sin(theta)
-    denominator = M + m - m*cos_theta*cos_theta
-    f_expl = vertcat(v1,
-                     dtheta,
-                     (-m*l*sin_theta*dtheta*dtheta + m*g*cos_theta*sin_theta+F)/denominator,
-                     (-m*l*cos_theta*sin_theta*dtheta*dtheta + F*cos_theta+(M+m)*g*sin_theta)/(l*denominator)
-                     )
+    f_x_dot = v*cos(psi)
+    f_y_dot = v*sin(psi)
+    f_s_dot = v
+    f_v_dot = a_lon
+    f_a_lon_dot = j_lon
+    f_psi_dot = v/l*tan(delta)
+    f_delta_dot = alpha
+    f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_dot, f_a_lon_dot, f_psi_dot, f_delta_dot)
 
-    f_impl = xdot - f_expl
-
-    model = AcadosModel()
-
-    model.f_impl_expr = f_impl
+    # dynamics: implicit DAE
+    model.f_impl_expr = state_dot - f_expl
     model.f_expl_expr = f_expl
-    model.x = x
-    model.xdot = xdot
+    model.x = state
+    model.xdot = state_dot
     model.u = u
-    model.name = model_name
 
-    # In this case we're having an external cost type
-    # set cost
-    Q_mat = 2*np.diag([1e3, 1e3, 1e-2, 1e-2])
-    R_mat = 2*np.diag([1e-2])
-
-    model.cost_expr_ext_cost = model.x.T @ Q_mat @ model.x + model.u.T @ R_mat @ model.u
-    model.cost_expr_ext_cost_e = model.x.T @ Q_mat @ model.x
-
-    return model
+    ocp.model = model

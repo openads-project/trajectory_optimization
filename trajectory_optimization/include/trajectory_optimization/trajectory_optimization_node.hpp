@@ -35,6 +35,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kDriveableSpaceTopic;
   static const std::string kEgoDataTopic;
   static const std::string kObjectListTopic;
+  static const std::string kReferenceTrajectoryTopic;
   static const std::string kRouteTopic;
 
   // output topics
@@ -44,6 +45,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kOptimizationFreqParam;
   static const std::string kNStatesParam;
   static const std::string kOptimizationHoizonParam;
+  static const std::string kVerboseParam;
 
   void declareParameters();
   void loadParameters();
@@ -58,9 +60,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
+  void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
+  void updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
+                       const perception_msgs::msg::ObjectList &object_list,
+                       const route_planning_msgs::msg::DriveableSpace &driveable_space,
+                       const route_planning_msgs::msg::Route &route,
+                       const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -68,15 +76,24 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::DriveableSpace>::SharedPtr driveable_space_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
+  rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
+  // input data
+  perception_msgs::msg::EgoData ego_data_;
+  perception_msgs::msg::ObjectList object_list_;
+  route_planning_msgs::msg::DriveableSpace driveable_space_;
+  route_planning_msgs::msg::Route route_;
+  trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
+
   // parameters
   double optimization_freq_ = 10.0;
   int n_states_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
+  bool verbose_ = false;
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

@@ -1,5 +1,0 @@
-trajectory_optimization_node:
-  ros__parameters:
-    optimization_frequency: 1.0
-    n_states: 20
-    optimization_horizon: 1.0

@@ -1,9 +1,14 @@
 from acados_template import AcadosOcpDims
 
-def export_dims() -> AcadosOcpDims:    
+def set_dims(ocp, parameters):    
 
     dims = AcadosOcpDims()
 
-    dims.N = 20 # prediction horizon (number of intervals)
+    dims.N = parameters['nsteps'] # number of shooting intervals
+    dims.nx = ocp.model.x.rows() # number of states
+    dims.nu = ocp.model.u.rows() # number of inputs/controls
+    dims.ny = ocp.model.cost_y_expr.rows() # number of reference inputs
+    dims.ny_0 = ocp.model.cost_y_expr.rows() # number of reference inputs
+    dims.ny_e = ocp.model.cost_y_expr_e.rows() # number of reference inputs at terminal state
 
-    return dims
+    ocp.dims = dims

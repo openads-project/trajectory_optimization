@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
 
     config = os.path.join(
-        get_package_share_directory("trajectory_optimization"),
+        get_package_share_directory("demo_trajectory_pub"),
         "config",
         "params.yaml"
     )
@@ -16,9 +16,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         Node(
-            package="trajectory_optimization",
-            executable="trajectory_optimization_node",
-            name="trajectory_optimization_node",
+            package="demo_trajectory_pub",
+            executable="demo_trajectory_pub_node",
+            name="demo_trajectory_pub_node",
             output="screen",
             emulate_tty=True,
             parameters=[config]
