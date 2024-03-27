@@ -371,6 +371,25 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+
+  // set initial guess
+  double x_init[TRAJECTORY_PLANNING_NX];
+  for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
+    x_init[i] = 0.0;
+  }
+  for (int i = 0; i <= n_states_; ++i) {
+    x_init[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
+    x_init[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
+    x_init[3] = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
+    if (i == 0) {
+      // TODO: get from ego_data (high-level stabilization) or last valid trajectory (low-level stabilization)
+      ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
+      ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+    }
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
+  }
+
+  // update paramerter values (reference trajectory)
   for (int i = 0; i <= nlp_dims_->N; ++i) {
     for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++j) {
       double T = trajectory_planning_msgs::trajectory_access::getT(reference_trajectory, j);
