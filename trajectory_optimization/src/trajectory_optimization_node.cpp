@@ -28,7 +28,7 @@ const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
 const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
 
 const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimization_frequency";
-const std::string TrajectoryOptimizationNode::kNStatesParam = "n_states";
+const std::string TrajectoryOptimizationNode::kNStatesParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kWeightVelErrorParam = "w_vel";

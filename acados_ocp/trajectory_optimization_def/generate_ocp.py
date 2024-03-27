@@ -9,14 +9,15 @@ CURRENT_DIR_PATH = os.path.dirname(__file__)
 
 def parseArguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', help="configuaration file (.yml)", type=str, required=False, default='params.yml')
+    parser.add_argument('--config', help="configuration file (.yml)", type=str, required=False, default='params2.yml')
     args = parser.parse_args()
     return args
 
 def readConfig(config):
     with open(os.path.join(CURRENT_DIR_PATH, config)) as configFile:
         config_params = yaml.load(configFile, yaml.FullLoader)
-    return config_params
+        params = config_params[next(iter(config_params))][next(iter(config_params[next(iter(config_params))]))]
+    return params
 
 def main():
     args = parseArguments()

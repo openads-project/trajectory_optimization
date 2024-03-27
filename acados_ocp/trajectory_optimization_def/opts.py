@@ -11,6 +11,6 @@ def set_opts(ocp, parameters):
     opts.nlp_solver_type = "SQP"
 
     # set prediction horizon in s
-    opts.tf = parameters['horizon']
+    opts.tf = parameters['optimization_horizon']
 
     ocp.solver_options = opts
