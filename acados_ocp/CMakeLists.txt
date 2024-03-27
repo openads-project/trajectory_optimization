@@ -9,7 +9,6 @@ find_package(ament_cmake REQUIRED)
 include(codegeneration.cmake)
 
 add_library(${PROJECT_NAME} INTERFACE)
-add_dependencies(${PROJECT_NAME} acados_model)
 
 target_include_directories(${PROJECT_NAME} INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
