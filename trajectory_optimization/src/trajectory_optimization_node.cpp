@@ -31,6 +31,8 @@ const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimiza
 const std::string TrajectoryOptimizationNode::kNStatesParam = "n_states";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
+const std::string TrajectoryOptimizationNode::kWeightVelErrorParam = "w_vel";
+const std::string TrajectoryOptimizationNode::kWeightDLatErrorParam = "w_dlat";
 
 /**
  * @brief Creates a TrajectoryOptimizationNode node
@@ -87,6 +89,14 @@ void TrajectoryOptimizationNode::declareParameters() {
   // declare verbose parameter
   param_desc.description = "Print solver statistics";
   this->declare_parameter(kVerboseParam, verbose_, param_desc);
+
+  // declare weight for velocity error parameter
+  param_desc.description = "Weight for velocity error in the cost function";
+  this->declare_parameter(kWeightVelErrorParam, w_vel_error_, param_desc);
+
+  // declare weight for dlat error parameter
+  param_desc.description = "Weight for lateral offset error in the cost function";
+  this->declare_parameter(kWeightDLatErrorParam, w_dlat_error_, param_desc);
 }
 
 /**
@@ -116,6 +126,18 @@ void TrajectoryOptimizationNode::loadParameters() {
     verbose_ = this->get_parameter(kVerboseParam).as_bool();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%i'", kVerboseParam.c_str(), verbose_);
+  }
+  try {
+    w_vel_error_ = this->get_parameter(kWeightVelErrorParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%f'", kWeightVelErrorParam.c_str(),
+                w_vel_error_);
+  }
+  try {
+    w_dlat_error_ = this->get_parameter(kWeightDLatErrorParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%f'", kWeightDLatErrorParam.c_str(),
+                w_dlat_error_);
   }
 }
 
@@ -365,25 +387,14 @@ void TrajectoryOptimizationNode::updateOcpInputs(
       trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_v, &V, 1);
     }
 
-    // set yref in ocp
-    double yref[TRAJECTORY_PLANNING_NY];
-    yref[0] = 0.0;
-    yref[1] = 0.0;
-    yref[2] = 0.0;
-    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "y_ref", yref);
-
-    // TODO: parameterize this (dyn. reconfigure?)
+    // TODO: remove dx weight
     double W[TRAJECTORY_PLANNING_NY * TRAJECTORY_PLANNING_NY];
     for (int i = 0; i < TRAJECTORY_PLANNING_NY; ++i) {
-      for (int j = 0; j < TRAJECTORY_PLANNING_NY; ++j) {
-        if (i == j) {
-          W[i * TRAJECTORY_PLANNING_NY + j] = 1.0;
-        } else {
-          W[i * TRAJECTORY_PLANNING_NY + j] = 0.0;
-        }
-      }
+      W[i * TRAJECTORY_PLANNING_NY + i] = 1.0;
     }
-    W[8] = 0.0;
+    W[0] = 0.0;
+    W[4] = w_dlat_error_;
+    W[8] = w_vel_error_;
     ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "W", W);
   }
 }
