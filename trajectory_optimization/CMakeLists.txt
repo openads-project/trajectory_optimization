@@ -7,7 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(acados_ocp REQUIRED)
-find_package(acados_vendor_ros2 REQUIRED)
+find_package(acados REQUIRED)
 find_package(perception_msgs REQUIRED)
 find_package(perception_msgs_utils REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -20,6 +20,10 @@ find_package(trajectory_planning_msgs_utils REQUIRED)
 set(TARGET_NAME trajectory_optimization_node_component)
 
 add_library(${TARGET_NAME} SHARED src/trajectory_optimization_node.cpp)
+
+target_link_libraries(${TARGET_NAME}
+  acados
+)
 
 rclcpp_components_register_node(${TARGET_NAME}
   PLUGIN "trajectory_optimization::TrajectoryOptimizationNode"
@@ -34,7 +38,7 @@ target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
   acados_ocp
-  acados_vendor_ros2
+  acados
   perception_msgs
   perception_msgs_utils
   rclcpp

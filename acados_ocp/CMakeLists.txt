@@ -6,12 +6,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(acados_vendor_ros2 REQUIRED)
-
 include(codegeneration.cmake)
 
 add_library(${PROJECT_NAME} INTERFACE)
-add_dependencies(${PROJECT_NAME} acados_model)
 
 target_include_directories(${PROJECT_NAME} INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -21,8 +18,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 
 file(GLOB ACADOS_LIBS ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/*.so)
-# TODO: remove hardcoded library names
-target_link_libraries(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/libacados_ocp_solver_trajectory_planning.so ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/libacados_solver_trajectory_planning.so)
+target_link_libraries(${PROJECT_NAME} INTERFACE ${ACADOS_LIBS})
 
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}Targets

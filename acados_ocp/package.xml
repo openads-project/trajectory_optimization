@@ -12,8 +12,6 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>acados_vendor_ros2</depend>
-
   <export>
     <build_type>ament_cmake</build_type>
   </export>

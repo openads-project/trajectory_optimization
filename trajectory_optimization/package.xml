@@ -15,7 +15,6 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>acados_ocp</depend>
-  <depend>acados_vendor_ros2</depend>
   <depend>perception_msgs</depend>
   <depend>perception_msgs_utils</depend>
   <depend>rclcpp_components</depend>

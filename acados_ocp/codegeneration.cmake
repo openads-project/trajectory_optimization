@@ -1,22 +1,20 @@
-# Download t_renderer
-set(FILE_URL "https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux")
-set(DESTINATION_PATH "/docker-ros/ws/install/acados_vendor_ros2/opt/acados_vendor_ros2/bin/t_renderer")
-
-file(DOWNLOAD ${FILE_URL} ${DESTINATION_PATH}
-     TIMEOUT 60
-     SHOW_PROGRESS
-)
-# Make the file executable
-file(CHMOD ${DESTINATION_PATH} PERMISSIONS WORLD_EXECUTE OWNER_EXECUTE OWNER_READ OWNER_WRITE GROUP_EXECUTE GROUP_READ GROUP_WRITE)
-
 ## Generate OCP Model ##
-
 file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py" "trajectory_optimization_def/*.yml")
-file(COPY ${ACADOS_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+set(ACADOS_BUILD_FILES)
+foreach(input_file ${ACADOS_FILES})
+    # Extract name of the file for generate path of the file in the build tree
+    get_filename_component(input_file_name ${input_file} NAME)
+    # Path to the file created by copy
+    set(build_input_file ${CMAKE_CURRENT_BINARY_DIR}/${input_file_name})
+    # Copy file
+    configure_file(${input_file} ${build_input_file} COPYONLY)
+    # Add name of created file into the list
+    list(APPEND ACADOS_BUILD_FILES ${build_input_file})
+endforeach()
 
 set(GENERATOR generate_ocp.py)
 
-add_custom_target(acados_model ALL
-  COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}
-  COMMENT "Build ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}"
+execute_process(
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}"
 )
