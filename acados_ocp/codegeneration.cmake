@@ -1,6 +1,6 @@
 ## Generate OCP Model ##
 
-file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py")
+file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py" "trajectory_optimization_def/*.yml")
 
 set(ACADOS_BUILD_FILES)
 foreach(input_file ${ACADOS_FILES})
@@ -13,7 +13,6 @@ foreach(input_file ${ACADOS_FILES})
     # Add name of created file into the list
     list(APPEND ACADOS_BUILD_FILES ${build_input_file})
 endforeach()
-# file(COPY ${ACADOS_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(GENERATOR generate_ocp.py)
 

@@ -1,0 +1,5 @@
+demo_trajectory_pub_node:
+  ros__parameters:
+    n_states: 50
+    publish_frequency: 1.0
+    trajectory_horizon: 5.0
