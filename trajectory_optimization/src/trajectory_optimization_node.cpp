@@ -405,22 +405,12 @@ void TrajectoryOptimizationNode::updateOcpInputs(
       trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_y, &Y, 1);
       trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_v, &V, 1);
     }
-
-    // TODO: remove dx weight
-    double W[TRAJECTORY_PLANNING_NY * TRAJECTORY_PLANNING_NY];
-    for (int i = 0; i < TRAJECTORY_PLANNING_NY; ++i) {
-      W[i * TRAJECTORY_PLANNING_NY + i] = 1.0;
-    }
-    W[0] = 0.0;
-    W[4] = w_dlat_error_;
-    W[8] = w_vel_error_;
-    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, i, "W", W);
   }
 }
 
 /**
  * @brief This function prints the solution of the ocp
- * 
+ *
  */
 void TrajectoryOptimizationNode::printSolution(int status) {
   // get statistics
