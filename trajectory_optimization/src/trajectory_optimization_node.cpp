@@ -149,13 +149,14 @@ void TrajectoryOptimizationNode::setup() {
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
       kReferenceTrajectoryTopic, 10,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
+  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topic
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 10);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
 
   // create timer for planning cycle
-  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(optimization_freq_),
+  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
 
   // init reference trajectory
@@ -320,19 +321,21 @@ void TrajectoryOptimizationNode::planningCycle() {
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
+  double dt = optimization_horizon_ / n_states_;
   for (int i = 0; i <= n_states_; ++i) {
+    trajectory_planning_msgs::trajectory_access::setT(*trajectory, i * dt, i);
     trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 0], i);
     trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 1], i);
     trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 2], i);
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
-    // TODO: set Kappa and dKappa
+    // TODO: Kappa and dKappa
   }
 
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
   trajectory->header.stamp = this->now();
-  trajectory->header.frame_id = "map";  // TODO: parameter or from reference trajectory?
+  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
 
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
