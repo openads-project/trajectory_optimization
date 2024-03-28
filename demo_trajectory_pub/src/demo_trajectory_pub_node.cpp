@@ -105,11 +105,13 @@ void DemoTrajectoryPubNode::pubTrajectory() {
   trajectory->header.frame_id = "map";
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);
 
+  const double a = 1.0;
   for (int i = 0; i < n_states_ + 1; i++) {
     double t = (double)i * optimization_horizon_ / n_states_;
-    double v = 5.0;
+    double v = a * t;
+    double s = 0.5 * a * t * t;
     // std::vector<double> state = {t, t, 0.0, t};
-    std::vector<double> state = {t, t * v, 0.0, v};
+    std::vector<double> state = {t, s/sqrt(2), s/sqrt(2), v};
     trajectory_planning_msgs::trajectory_access::setState(*trajectory, state, i);
   }
 
