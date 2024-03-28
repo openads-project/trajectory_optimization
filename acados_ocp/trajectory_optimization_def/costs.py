@@ -21,8 +21,8 @@ def set_costs(ocp, config):
     ocp.cost = cost
 
     # initialize parameters
-    n_params_cost_weights = np.product(config["p_cost_weights_shape"])
-    n_params_ref_path = np.product(config["p_ref_path_shape"])
+    n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
+    n_params_ref_path = np.prod(config["p_ref_path_shape"])
     n_params = n_params_cost_weights + n_params_ref_path
     ocp.parameter_values = np.zeros(n_params)
 
@@ -31,14 +31,19 @@ def set_costs(ocp, config):
     p_ref_path = ocp.model.p[n_params_cost_weights:n_params_cost_weights + n_params_ref_path]
 
     # ca.find reference point (min distance) on reference path
-    n_ref_path = config["p_ref_path_shape"][0]
-    dx = ca.power(p_ref_path[n_ref_path * P_REF_PATH_INDEX_X : n_ref_path * P_REF_PATH_INDEX_X + n_ref_path] - ocp.model.x[STATE_INDEX_X], 2)
-    dy = ca.power(p_ref_path[n_ref_path * P_REF_PATH_INDEX_Y : n_ref_path * P_REF_PATH_INDEX_Y + n_ref_path] - ocp.model.x[STATE_INDEX_Y], 2)
+    ref_path_state_dim = config["p_ref_path_shape"][1]
+    # p_ref_path shuold be sortet like this: (t1, x1, y1, v1, t2, x2, y2, v2, ...)
+    x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim] # every 4th element starting from index 1
+    y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 4th element starting from index 2
+    v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 4th element starting from index 3
+    
+    dx = ca.power(x_ref_path[:] - ocp.model.x[STATE_INDEX_X], 2)
+    dy = ca.power(y_ref_path[:] - ocp.model.x[STATE_INDEX_Y], 2)
     dd = ca.sqrt(dx + dy)
     idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
-    x_ref = p_ref_path[n_ref_path * P_REF_PATH_INDEX_X + idx_min]
-    y_ref = p_ref_path[n_ref_path * P_REF_PATH_INDEX_Y + idx_min]
-    v_ref = p_ref_path[n_ref_path * P_REF_PATH_INDEX_V + idx_min]
+    x_ref = x_ref_path[idx_min]
+    y_ref = y_ref_path[idx_min]
+    v_ref = v_ref_path[idx_min]
 
     # cost term weights
     w_x = p_cost_weights[0]

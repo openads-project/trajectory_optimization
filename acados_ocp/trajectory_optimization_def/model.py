@@ -2,7 +2,6 @@ import numpy as np
 from acados_template import AcadosModel
 from casadi import MX, vertcat, sin, cos, tan
 
-
 def set_model(ocp, config):
 
     model = AcadosModel()
@@ -56,8 +55,8 @@ def set_model(ocp, config):
     model.u = u
 
     # parameters
-    p_cost_weights = MX.sym('cost_weights', config['p_cost_weights_shape'][0])
-    p_ref_path = MX.sym('ref_path', np.product(config['p_ref_path_shape'])) # (N, (t, x, y, v))
+    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape']))
+    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N, (t, x, y, v))
     params = vertcat(p_cost_weights, p_ref_path)
     model.p = params
 

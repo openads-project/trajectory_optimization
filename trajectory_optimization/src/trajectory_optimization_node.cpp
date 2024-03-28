@@ -405,32 +405,22 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // cost weights
     idx = 0;
-    int idx_cost_weights = idx;
     n = p_cost_weights_shape_[0];
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_cost_weights, cost_weights.data(), n);
+    std::vector<int> idx_cost_weights(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(), cost_weights.data(), n);
 
     // ref path
     idx += n;
-    int idx_ref_path = idx;
     n = p_ref_path_shape_[0] * p_ref_path_shape_[1];
-    RCLCPP_INFO(this->get_logger(), "start"); // TODO: remove
-    std::vector<double> ref_path(n, 0.0);
-    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", ref_path.size()); // TODO: remove
-    for (int j = 0; j < p_ref_path_shape_[0]; ++j) {
-      RCLCPP_INFO(this->get_logger(), "j = %d", j); // TODO: remove
-      // TODO: might also be able to structure vector as (t0,x0,y0,v0) instead of (t0,t1,...,x0,x1,...), because it is now flattened in Python anyways and costs.py is also using 1D-indexing
-      std::vector<double> state = trajectory_planning_msgs::trajectory_access::getState(reference_trajectory, j);
-      if (state.size() != p_ref_path_shape_[1]) {
-        RCLCPP_ERROR(this->get_logger(), "Invalid state size in reference trajectory: %ld, expected %ld", state.size(), p_ref_path_shape_[1]);
-        return;
-      }
-      for (int k = 0; k < state.size(); ++k)
-        ref_path[j + k * p_ref_path_shape_[0]] = state[k];
-    }
-    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", n); // TODO: remove
-    // TODO: why does this next line crash? dont use params sparse?
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_ref_path, ref_path.data(), n);
-    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", n);
+    std::vector<int> idx_ref_path(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
+    // fill ref_path vector with values from reference_trajectory
+    std::vector<double> ref_path(n);
+    std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
   }
 }
 
