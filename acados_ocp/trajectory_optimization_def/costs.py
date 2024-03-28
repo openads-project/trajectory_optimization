@@ -1,11 +1,8 @@
 import numpy as np
 from acados_template import AcadosOcpCost
+from constants import *
 import casadi as ca
 
-
-STATE_INDEX_X = 0
-STATE_INDEX_Y = 1
-STATE_INDEX_V = 3
 
 P_REF_PATH_INDEX_X = 1
 P_REF_PATH_INDEX_Y = 2
@@ -81,7 +78,9 @@ def set_costs(ocp, config):
     # individual cost terms
     dlon_term = ca.power(dlon, 2)
     dlat_term = ca.power(dlat, 2)
-    v_term = ca.power(ocp.model.x[3] - v_ref, 2)
+    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
+    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
+    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref, 2)
 
     # cost functions
     ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
