@@ -373,7 +373,6 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
-
   // set initial guess
   double x_init[TRAJECTORY_PLANNING_NX];
   for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
@@ -395,12 +394,10 @@ void TrajectoryOptimizationNode::updateOcpInputs(
   this->setOcpParameters(cost_weights_, reference_trajectory);
 }
 
-void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weights,
-                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
-
+void TrajectoryOptimizationNode::setOcpParameters(
+    std::vector<double>& cost_weights, const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // loop over shooting intervals
   for (int i = 0; i <= n_states_; ++i) {
-
     int idx, n;
 
     // cost weights
@@ -409,7 +406,8 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_cost_weights(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(), cost_weights.data(), n);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
+                                                    cost_weights.data(), n);
 
     // ref path
     idx += n;
@@ -418,7 +416,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
     // fill ref_path vector with values from reference_trajectory
-    std::vector<double> ref_path(n);
+    std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
     std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
   }
