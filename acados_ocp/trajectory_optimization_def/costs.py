@@ -45,17 +45,45 @@ def set_costs(ocp, config):
     y_ref = y_ref_path[idx_min]
     v_ref = v_ref_path[idx_min]
 
+    # Find nearest adjacent sample on reference path
+    condition_begin = (idx_min == 0)
+    condition_end = (idx_min == p_ref_path.rows()-1)
+    condition_intermediate = ca.logic_and(ca.logic_not(condition_begin), ca.logic_not(condition_end))
+    dist_1 = ca.if_else(condition_intermediate, dd[idx_min-1], ca.MX_inf(1,1), True)
+    dist_2 = ca.if_else(condition_intermediate, dd[idx_min+1], ca.MX_inf(1,1), True)
+    condition_dist = (dist_1 < dist_2)
+    next_idx_min = ca.if_else(condition_begin, idx_min+1, ca.if_else(condition_end, idx_min-1, ca.if_else(condition_dist, idx_min-1, idx_min+1, True), True), True)
+    
+    # We now want to compute the shortest distance between the state-point and a line segment idx_min---next_idx_min
+    # Extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
+    # Values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
+    # Note that lambda must be >=0 due to the way we defined the line segment
+    x1 = p_ref_path[idx_min,1]
+    y1 = p_ref_path[idx_min,2]
+    v1 = p_ref_path[idx_min,3]
+    x2 = p_ref_path[next_idx_min,1]
+    y2 = p_ref_path[next_idx_min,2]
+    v2 = p_ref_path[next_idx_min,3]
+
+    c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
+    lmd = ((ocp.model.x[0] - x1)*(x2-x1) + (ocp.model.x[1] - y1)*(y2-y1))/ c_square
+    x_ref = x1 + lmd * (x2-x1)
+    y_ref = y1 + lmd * (y2-y1)
+    v_ref = v1 + lmd * (v2-v1)
+    dlon = lmd * ca.sqrt(c_square)
+    dlat = ca.sqrt(ca.power(ocp.model.x[0]-x_ref,2)+ca.power(ocp.model.x[1]-y_ref,2))
+
     # cost term weights
     w_x = p_cost_weights[0]
     w_y = p_cost_weights[1]
     w_v = p_cost_weights[2]
 
     # individual cost terms
-    x_term = ca.power(ocp.model.x[0] - x_ref, 2)
-    y_term = ca.power(ocp.model.x[1] - y_ref, 2)
+    dlon_term = ca.power(dlon, 2)
+    dlat_term = ca.power(dlat, 2)
     v_term = ca.power(ocp.model.x[3] - v_ref, 2)
 
     # cost functions
-    ocp.model.cost_expr_ext_cost = w_x * x_term + w_y * y_term + w_v * v_term
-    ocp.model.cost_expr_ext_cost_0 = w_x * x_term + w_y * y_term + w_v * v_term
-    ocp.model.cost_expr_ext_cost_e = w_x * x_term + w_y * y_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
