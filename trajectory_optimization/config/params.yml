@@ -21,9 +21,11 @@
     alpha_max: 0.5                    # max. absolute steering rate [rad/s]
     jerk_max: 4.0                     # max. absolute longitudinal jerk [m/s²]
 
-    #### weights
-    w_vel: 1.0
-    w_dlat: 1.0
+    #### cost weights
+    # [x, y, v]
+    cost_weights: [1.0, 1.0, 1.0]
 
-    #### reference information parameters
-    nrefsamples: 50
+    ### parameter vector structure
+    # [cost_weights, ref_path]
+    p_cost_weights_shape: [3]
+    p_ref_path_shape: [50, 4]

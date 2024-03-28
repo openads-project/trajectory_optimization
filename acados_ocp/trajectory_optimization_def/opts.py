@@ -1,7 +1,7 @@
 from acados_template import AcadosOcpOptions
 
-def set_opts(ocp, parameters):
-    
+def set_opts(ocp, config):
+
     opts = AcadosOcpOptions()
 
     # set options
@@ -11,6 +11,6 @@ def set_opts(ocp, parameters):
     opts.nlp_solver_type = "SQP"
 
     # set prediction horizon in s
-    opts.tf = parameters['optimization_horizon']
+    opts.tf = config['optimization_horizon']
 
     ocp.solver_options = opts

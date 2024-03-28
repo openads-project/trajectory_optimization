@@ -1,15 +1,17 @@
+import numpy as np
 from acados_template import AcadosModel
 from casadi import MX, vertcat, sin, cos, tan
 
-def set_model(ocp, parameters):
-    
+
+def set_model(ocp, config):
+
     model = AcadosModel()
-    
+
     # set model_name
-    model.name = parameters['model_name']
+    model.name = config['model_name']
 
     # set constants
-    l = parameters['wheelbase']
+    l = config['wheelbase']
 
     # set up states
     x      = MX.sym('x')
@@ -54,11 +56,9 @@ def set_model(ocp, parameters):
     model.u = u
 
     # parameters
-    # ref_path is represented as matrix (t, x, y, v)
-    ref_path = MX.sym('ref_path', parameters['nrefsamples'], 4)
-
-    params = vertcat(ref_path)
-
+    p_cost_weights = MX.sym('cost_weights', config['p_cost_weights_shape'][0])
+    p_ref_path = MX.sym('ref_path', np.product(config['p_ref_path_shape'])) # (N, (t, x, y, v))
+    params = vertcat(p_cost_weights, p_ref_path)
     model.p = params
 
     ocp.model = model

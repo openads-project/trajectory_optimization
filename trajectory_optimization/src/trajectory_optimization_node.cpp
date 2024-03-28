@@ -31,8 +31,10 @@ const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimiza
 const std::string TrajectoryOptimizationNode::kNStatesParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
-const std::string TrajectoryOptimizationNode::kWeightVelErrorParam = "w_vel";
-const std::string TrajectoryOptimizationNode::kWeightDLatErrorParam = "w_dlat";
+const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
+
+const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
+const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
 
 /**
  * @brief Creates a TrajectoryOptimizationNode node
@@ -74,29 +76,26 @@ TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
 void TrajectoryOptimizationNode::declareParameters() {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
 
-  // declare optimization frequency parameter
   param_desc.description = "Optimization Frequency in Hz";
   this->declare_parameter(kOptimizationFreqParam, optimization_freq_, param_desc);
 
-  // declare number of states parameter
   param_desc.description = "Number of states in the optimization problem";
   this->declare_parameter(kNStatesParam, n_states_, param_desc);
 
-  // declare optimization horizon parameter
   param_desc.description = "Optimization Horizon in seconds";
   this->declare_parameter(kOptimizationHoizonParam, optimization_horizon_, param_desc);
 
-  // declare verbose parameter
   param_desc.description = "Print solver statistics";
   this->declare_parameter(kVerboseParam, verbose_, param_desc);
 
-  // declare weight for velocity error parameter
-  param_desc.description = "Weight for velocity error in the cost function";
-  this->declare_parameter(kWeightVelErrorParam, w_vel_error_, param_desc);
+  param_desc.description = "Cost function weights";
+  this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
 
-  // declare weight for dlat error parameter
-  param_desc.description = "Weight for lateral offset error in the cost function";
-  this->declare_parameter(kWeightDLatErrorParam, w_dlat_error_, param_desc);
+  param_desc.description = "OCP parameter vector shape for cost weights";
+  this->declare_parameter(kPCostWeightsShapeParam, p_cost_weights_shape_, param_desc);
+
+  param_desc.description = "OCP parameter vector shape for reference path";
+  this->declare_parameter(kPRefPathShapeParam, p_ref_path_shape_, param_desc);
 }
 
 /**
@@ -128,16 +127,19 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%i'", kVerboseParam.c_str(), verbose_);
   }
   try {
-    w_vel_error_ = this->get_parameter(kWeightVelErrorParam).as_double();
+    cost_weights_ = this->get_parameter(kCostWeightsParam).as_double_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%f'", kWeightVelErrorParam.c_str(),
-                w_vel_error_);
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kCostWeightsParam.c_str());
   }
   try {
-    w_dlat_error_ = this->get_parameter(kWeightDLatErrorParam).as_double();
+    p_cost_weights_shape_ = this->get_parameter(kPCostWeightsShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%f'", kWeightDLatErrorParam.c_str(),
-                w_dlat_error_);
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPCostWeightsShapeParam.c_str());
+  }
+  try {
+    p_ref_path_shape_ = this->get_parameter(kPRefPathShapeParam).as_integer_array();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPRefPathShapeParam.c_str());
   }
 }
 
@@ -389,22 +391,46 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
   }
 
-  // update paramerter values (reference trajectory)
-  for (int i = 0; i <= nlp_dims_->N; ++i) {
-    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++j) {
-      double T = trajectory_planning_msgs::trajectory_access::getT(reference_trajectory, j);
-      int idx_t = j;
-      double X = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, j);
-      int idx_x = j + 50;
-      double Y = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, j);
-      int idx_y = j + 100;
-      double V = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, j);
-      int idx_v = j + 150;
-      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_t, &T, 1);
-      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_x, &X, 1);
-      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_y, &Y, 1);
-      trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_v, &V, 1);
+  // update ocp parameters
+  this->setOcpParameters(cost_weights_, reference_trajectory);
+}
+
+void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weights,
+                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+
+  // loop over shooting intervals
+  for (int i = 0; i <= n_states_; ++i) {
+
+    int idx, n;
+
+    // cost weights
+    idx = 0;
+    int idx_cost_weights = idx;
+    n = p_cost_weights_shape_[0];
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_cost_weights, cost_weights.data(), n);
+
+    // ref path
+    idx += n;
+    int idx_ref_path = idx;
+    n = p_ref_path_shape_[0] * p_ref_path_shape_[1];
+    RCLCPP_INFO(this->get_logger(), "start"); // TODO: remove
+    std::vector<double> ref_path(n, 0.0);
+    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", ref_path.size()); // TODO: remove
+    for (int j = 0; j < p_ref_path_shape_[0]; ++j) {
+      RCLCPP_INFO(this->get_logger(), "j = %d", j); // TODO: remove
+      // TODO: might also be able to structure vector as (t0,x0,y0,v0) instead of (t0,t1,...,x0,x1,...), because it is now flattened in Python anyways and costs.py is also using 1D-indexing
+      std::vector<double> state = trajectory_planning_msgs::trajectory_access::getState(reference_trajectory, j);
+      if (state.size() != p_ref_path_shape_[1]) {
+        RCLCPP_ERROR(this->get_logger(), "Invalid state size in reference trajectory: %ld, expected %ld", state.size(), p_ref_path_shape_[1]);
+        return;
+      }
+      for (int k = 0; k < state.size(); ++k)
+        ref_path[j + k * p_ref_path_shape_[0]] = state[k];
     }
+    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", n); // TODO: remove
+    // TODO: why does this next line crash? dont use params sparse?
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, &idx_ref_path, ref_path.data(), n);
+    RCLCPP_INFO(this->get_logger(), "ref_path size = %ld", n);
   }
 }
 

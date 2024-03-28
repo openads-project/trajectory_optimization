@@ -46,8 +46,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kNStatesParam;
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
-  static const std::string kWeightVelErrorParam;
-  static const std::string kWeightDLatErrorParam;
+  static const std::string kCostWeightsParam;
+  static const std::string kPCostWeightsShapeParam;
+  static const std::string kPRefPathShapeParam;
 
   void declareParameters();
   void loadParameters();
@@ -71,6 +72,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const route_planning_msgs::msg::DriveableSpace &driveable_space,
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
+
+  void setOcpParameters(std::vector<double>& cost_weights,
+                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -97,9 +101,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
 
-  // weights
-  double w_vel_error_ = 1.0;
-  double w_dlat_error_ = 1.0;
+  // cost weights
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0};
+
+  // ocp parameter vector structure
+  std::vector<long int> p_cost_weights_shape_ = {3};
+  std::vector<long int> p_ref_path_shape_ = {100, 4};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
