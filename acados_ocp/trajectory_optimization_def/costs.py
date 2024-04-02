@@ -64,11 +64,11 @@ def set_costs(ocp, config):
 
     c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
     lmd = ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square
-    x_ref = x1 + lmd * (x2-x1)
-    y_ref = y1 + lmd * (y2-y1)
-    v_ref = v1 + lmd * (v2-v1)
+    x_ref_inter = x1 + lmd * (x2-x1)
+    y_ref_inter = y1 + lmd * (y2-y1)
+    v_ref_inter = v1 + lmd * (v2-v1)
     dlon = lmd * ca.sqrt(c_square)
-    dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref,2))
+    dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter,2))
 
     # cost term weights
     w_lon = p_cost_weights[0]
