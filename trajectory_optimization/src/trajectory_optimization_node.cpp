@@ -153,6 +153,37 @@ void TrajectoryOptimizationNode::loadParameters() {
 }
 
 /**
+ * @brief Handles reconfiguration when a parameter value is changed
+ *
+ * @param parameters parameters
+ * @return parameter change result
+ */
+rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
+    const std::vector<rclcpp::Parameter>& parameters) {
+  // update timer with newly configured period parameter value
+  for (const auto& param : parameters) {
+    if (param.get_name() == kVerboseParam) {
+      verbose_ = param.as_bool();
+    } else if (param.get_name() == kCostWeightsParam) {
+      cost_weights_ = param.as_double_array();
+    } else if (param.get_name() == kInitAsRefParam) {
+      init_as_ref_ = param.as_bool();
+    } else if (param.get_name() == kPCostWeightsShapeParam) {
+      p_cost_weights_shape_ = param.as_integer_array();
+    } else if (param.get_name() == kPRefPathShapeParam) {
+      p_ref_path_shape_ = param.as_integer_array();
+    }
+  }
+
+  // mark parameter change successful
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  result.reason = "success";
+
+  return result;
+}
+
+/**
  * @brief Sets up subscribers, publishers, and more.
  *
  */
@@ -247,30 +278,6 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_states_ + 1)];
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_states_];
-}
-
-/**
- * @brief This callback is invoked when a parameter value has changed
- *
- * @param[in] parameters                                  input
- *
- * @return    rcl_interfaces::msg::SetParametersResult    output
- */
-rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
-    const std::vector<rclcpp::Parameter>& parameters) {
-  // update timer with newly configured period parameter value
-  rcl_interfaces::msg::SetParametersResult result;
-  for (const auto& param : parameters) {
-    if (param.get_name() == kOptimizationFreqParam) {
-      optimization_freq_ = param.as_double();
-    }
-  }
-
-  // mark parameter change successful
-  result.successful = true;
-  result.reason = "success";
-
-  return result;
 }
 
 /**
@@ -383,21 +390,21 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   if (init_as_ref_) {
-  // set initial guess
-  double x_init[TRAJECTORY_PLANNING_NX];
-  for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
-    x_init[i] = 0.0;
-  }
-  for (int i = 0; i <= n_states_; ++i) {
-    x_init[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
-    x_init[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
-    x_init[3] = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
-    if (i == 0) {
-      // TODO: get from ego_data (high-level stabilization) or last valid trajectory (low-level stabilization)
-      ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
-      ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+    // set initial guess
+    double x_init[TRAJECTORY_PLANNING_NX];
+    for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
+      x_init[i] = 0.0;
     }
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
+    for (int i = 0; i <= n_states_; ++i) {
+      x_init[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
+      x_init[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
+      x_init[3] = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
+      if (i == 0) {
+        // TODO: get from ego_data (high-level stabilization) or last valid trajectory (low-level stabilization)
+        ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
+        ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+      }
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
     }
   }
 

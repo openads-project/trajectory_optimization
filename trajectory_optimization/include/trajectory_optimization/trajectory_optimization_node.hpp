@@ -53,13 +53,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void declareParameters();
   void loadParameters();
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   void setup();
   void setupSolver();
 
   void printSolution(int status);
-
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
