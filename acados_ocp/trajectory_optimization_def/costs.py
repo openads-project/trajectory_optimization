@@ -63,14 +63,16 @@ def set_costs(ocp, config):
     v2 = p_ref_path[next_idx_min,3]
 
     c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
-    lmd = ((ocp.model.x[0] - x1)*(x2-x1) + (ocp.model.x[1] - y1)*(y2-y1))/ c_square
+    lmd = ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square
     x_ref = x1 + lmd * (x2-x1)
     y_ref = y1 + lmd * (y2-y1)
     v_ref = v1 + lmd * (v2-v1)
     dlon = lmd * ca.sqrt(c_square)
-    dlat = ca.sqrt(ca.power(ocp.model.x[0]-x_ref,2)+ca.power(ocp.model.x[1]-y_ref,2))
+    dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref,2))
 
     # cost term weights
+    w_lon = 1.0
+    w_lat = 1.0
     w_x = p_cost_weights[0]
     w_y = p_cost_weights[1]
     w_v = p_cost_weights[2]
@@ -83,6 +85,6 @@ def set_costs(ocp, config):
     v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref, 2)
 
     # cost functions
-    ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
-    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
-    ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term
+    ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term
