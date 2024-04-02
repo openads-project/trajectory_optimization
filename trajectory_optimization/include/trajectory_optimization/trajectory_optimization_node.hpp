@@ -47,6 +47,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
   static const std::string kCostWeightsParam;
+  static const std::string kInitAsRefParam;
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
 
@@ -100,6 +101,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   int n_states_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  bool init_as_ref_ = false;
 
   // cost weights
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0};

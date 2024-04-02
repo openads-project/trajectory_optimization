@@ -32,6 +32,7 @@ const std::string TrajectoryOptimizationNode::kNStatesParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
+const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
 
 const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
 const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
@@ -91,6 +92,9 @@ void TrajectoryOptimizationNode::declareParameters() {
   param_desc.description = "Cost function weights";
   this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
 
+  param_desc.description = "Initialize as reference trajectory";
+  this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
+
   param_desc.description = "OCP parameter vector shape for cost weights";
   this->declare_parameter(kPCostWeightsShapeParam, p_cost_weights_shape_, param_desc);
 
@@ -130,6 +134,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     cost_weights_ = this->get_parameter(kCostWeightsParam).as_double_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kCostWeightsParam.c_str());
+  }
+  try {
+    init_as_ref_ = this->get_parameter(kInitAsRefParam).as_bool();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kInitAsRefParam.c_str());
   }
   try {
     p_cost_weights_shape_ = this->get_parameter(kPCostWeightsShapeParam).as_integer_array();
@@ -373,6 +382,7 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+  if (init_as_ref_) {
   // set initial guess
   double x_init[TRAJECTORY_PLANNING_NX];
   for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
@@ -388,6 +398,7 @@ void TrajectoryOptimizationNode::updateOcpInputs(
       ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
     }
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
+    }
   }
 
   // update ocp parameters
