@@ -55,12 +55,12 @@ def set_costs(ocp, config):
     # Extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
     # Values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
     # Note that lambda must be >=0 due to the way we defined the line segment
-    x1 = p_ref_path[idx_min,1]
-    y1 = p_ref_path[idx_min,2]
-    v1 = p_ref_path[idx_min,3]
-    x2 = p_ref_path[next_idx_min,1]
-    y2 = p_ref_path[next_idx_min,2]
-    v2 = p_ref_path[next_idx_min,3]
+    x1 = x_ref_path[idx_min]
+    y1 = y_ref_path[idx_min]
+    v1 = v_ref_path[idx_min]
+    x2 = x_ref_path[next_idx_min]
+    y2 = y_ref_path[next_idx_min]
+    v2 = v_ref_path[next_idx_min]
 
     c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
     lmd = ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square
