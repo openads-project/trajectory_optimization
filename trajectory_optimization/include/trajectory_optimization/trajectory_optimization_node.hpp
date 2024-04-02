@@ -102,10 +102,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool verbose_ = false;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0};
 
   // ocp parameter vector structure
-  std::vector<long int> p_cost_weights_shape_ = {3};
+  std::vector<long int> p_cost_weights_shape_ = {5};
   std::vector<long int> p_ref_path_shape_ = {100, 4};
 
   // ocp variables

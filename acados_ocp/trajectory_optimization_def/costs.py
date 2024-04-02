@@ -71,11 +71,11 @@ def set_costs(ocp, config):
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref,2))
 
     # cost term weights
-    w_lon = 1.0
-    w_lat = 1.0
-    w_x = p_cost_weights[0]
-    w_y = p_cost_weights[1]
-    w_v = p_cost_weights[2]
+    w_lon = p_cost_weights[0]
+    w_lat = p_cost_weights[1]
+    w_x = p_cost_weights[2]
+    w_y = p_cost_weights[3]
+    w_v = p_cost_weights[4]
 
     # individual cost terms
     dlon_term = ca.power(dlon, 2)
