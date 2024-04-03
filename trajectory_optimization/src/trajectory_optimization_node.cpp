@@ -215,7 +215,7 @@ void TrajectoryOptimizationNode::setup() {
   // setupSolver();
 }
 
-void TrajectoryOptimizationNode::setupSolver() {
+void TrajectoryOptimizationNode::setupSolver(const perception_msgs::msg::EgoData& ego_data) {
   // setup acados solver
   acados_ocp_capsule_ = trajectory_planning_acados_create_capsule();
 
@@ -261,6 +261,15 @@ void TrajectoryOptimizationNode::setupSolver() {
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_states_, "x", x_init);
   ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &rti_phase);
 
+  // if ego data revceived set initial state
+  if (received_ego_data_) {
+    x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
+    ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
+    ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+  } else {
+    RCLCPP_WARN(this->get_logger(), "Ego data not received. Using default initial state.");
+  }
+
   xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_states_ + 1)];
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_states_];
 }
@@ -290,6 +299,7 @@ void TrajectoryOptimizationNode::freeSolver() {
  */
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "Received ego data");
+  received_ego_data_ = true;
   ego_data_ = *msg;
 }
 
@@ -345,7 +355,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle.");
     return;
   }
-  setupSolver();
+  setupSolver(ego_data_);
 
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);

@@ -56,7 +56,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   void setup();
-  void setupSolver();
+  void setupSolver(const perception_msgs::msg::EgoData &ego_data);
   void freeSolver();
 
   void printSolution(int status);
@@ -95,6 +95,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   route_planning_msgs::msg::DriveableSpace driveable_space_;
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
+
+  // received data flags
+  bool received_ego_data_ = false;
 
   // parameters
   double optimization_freq_ = 10.0;
