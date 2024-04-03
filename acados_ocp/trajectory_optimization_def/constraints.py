@@ -13,7 +13,7 @@ def set_constraints(ocp, parameters):
     # set -delta_max < delta < delta_max [rad]
     cons.lbx = np.array([parameters['v_min'], -parameters['acceleration_lon_max'], -parameters['delta_max']])
     cons.ubx = np.array([parameters['v_max'], parameters['acceleration_lon_max'], parameters['delta_max']])
-    cons.idxbx = np.array([3, 4, 6])
+    cons.idxbx = np.array([STATE_INDEX_V, STATE_INDEX_A_LON, STATE_INDEX_DELTA])
 
 
     # set constraints on controls
@@ -21,7 +21,7 @@ def set_constraints(ocp, parameters):
     j_lon = parameters['jerk_max']
     cons.lbu = np.array([-j_lon, -alpha])
     cons.ubu = np.array([+j_lon, +alpha])
-    cons.idxbu = np.array([0, 1])
+    cons.idxbu = np.array([CONTROL_INDEX_J_LON, CONTROL_INDEX_ALPHA])
 
     # define nonlinear constraint expression for acceleration
     # a <= sqrt(a_lon^2 + a_lat^2) i.e. a^2 <= a_lon^2 + a_lat^2
