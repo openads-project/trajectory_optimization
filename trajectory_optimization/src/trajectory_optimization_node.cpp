@@ -369,6 +369,10 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
   if (verbose_) printSolution(status);
+  if (status == 3) {
+    RCLCPP_WARN(this->get_logger(), "Solver failed. Skipping trajectory publication.");
+    return;
+  }
 
   // convert output into trajectory message
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
