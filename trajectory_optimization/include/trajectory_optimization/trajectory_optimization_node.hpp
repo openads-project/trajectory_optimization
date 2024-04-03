@@ -57,6 +57,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void setup();
   void setupSolver();
+  void freeSolver();
 
   void printSolution(int status);
 

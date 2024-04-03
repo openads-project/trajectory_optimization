@@ -53,22 +53,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
  *
  */
 TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
-  // deallocate memory
-  delete[] xtraj_;
-  delete[] utraj_;
-
-  int status;
-  // free solver
-  status = trajectory_planning_acados_free(acados_ocp_capsule_);
-  if (status) {
-    printf("trajectory_planning_acados_free() returned status %d. \n", status);
-  }
-  // free solver capsule
-  status = trajectory_planning_acados_free_capsule(acados_ocp_capsule_);
-  if (status) {
-    printf("trajectory_planning_acados_free_capsule() returned status %d. \n", status);
-  }
-  RCLCPP_INFO(this->get_logger(), "TrajectoryOptimizationNode destroyed");
+  freeSolver();
 }
 
 /**
@@ -227,7 +212,7 @@ void TrajectoryOptimizationNode::setup() {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       reference_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
 
-  setupSolver();
+  // setupSolver();
 }
 
 void TrajectoryOptimizationNode::setupSolver() {
@@ -278,6 +263,24 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_states_ + 1)];
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_states_];
+}
+
+void TrajectoryOptimizationNode::freeSolver() {
+  // deallocate memory
+  delete[] xtraj_;
+  delete[] utraj_;
+
+  int status;
+  // free solver
+  status = trajectory_planning_acados_free(acados_ocp_capsule_);
+  if (status) {
+    printf("trajectory_planning_acados_free() returned status %d. \n", status);
+  }
+  // free solver capsule
+  status = trajectory_planning_acados_free_capsule(acados_ocp_capsule_);
+  if (status) {
+    printf("trajectory_planning_acados_free_capsule() returned status %d. \n", status);
+  }
 }
 
 /**
@@ -342,6 +345,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle.");
     return;
   }
+  setupSolver();
 
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
@@ -379,6 +383,8 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
+
+  freeSolver();
 }
 
 /**
