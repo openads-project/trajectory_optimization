@@ -14,6 +14,11 @@
 #include <perception_msgs_utils/object_access.hpp>
 #include <trajectory_planning_msgs_utils/trajectory_access.hpp>
 
+// tf2
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 // acados
 #include <acados/utils/math.h>
 #include <acados/utils/print.h>
@@ -53,13 +58,17 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void declareParameters();
   void loadParameters();
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
   void setupSolver(const perception_msgs::msg::EgoData &ego_data);
   void freeSolver();
 
   void printSolution(int status);
+
+  void lowLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
+                           double &output_y);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
@@ -74,8 +83,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
-  void setOcpParameters(std::vector<double>& cost_weights,
-                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
+  void setOcpParameters(std::vector<double> &cost_weights,
+                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -88,6 +97,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
   // input data
   perception_msgs::msg::EgoData ego_data_;
@@ -105,6 +117,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool init_as_ref_ = false;
+
+  // latest valid trajectory
+  trajectory_planning_msgs::msg::Trajectory latest_trajectory_;
 
   // cost weights
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0};

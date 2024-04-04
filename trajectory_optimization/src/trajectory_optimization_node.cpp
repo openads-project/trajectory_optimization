@@ -173,6 +173,9 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
  *
  */
 void TrajectoryOptimizationNode::setup() {
+  tf2_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
+
   // create a callback for dynamic parameter configuration
   parameters_callback_ = this->add_on_set_parameters_callback(
       std::bind(&TrajectoryOptimizationNode::parametersCallback, this, std::placeholders::_1));
@@ -211,6 +214,10 @@ void TrajectoryOptimizationNode::setup() {
   // init reference trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       reference_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
+
+  // init latest trajectory
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+      latest_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
 
   // setupSolver();
 }
@@ -261,17 +268,110 @@ void TrajectoryOptimizationNode::setupSolver(const perception_msgs::msg::EgoData
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_states_, "x", x_init);
   ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &rti_phase);
 
-  // if ego data revceived set initial state
-  if (received_ego_data_) {
-    x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
-    ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
-    ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
-  } else {
-    RCLCPP_WARN(this->get_logger(), "Ego data not received. Using default initial state.");
-  }
-
   xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_states_ + 1)];
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_states_];
+}
+
+void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
+  double des_time = (now() - latest_trajectory_.header.stamp).seconds();
+  RCLCPP_WARN(this->get_logger(), "Desired time: %f", des_time);
+  double v_tgt;
+  double x_tgt;
+  double y_tgt;
+  double theata_tgt;
+  std::vector<double> TIME, V, X, Y, THETA;
+  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(latest_trajectory_); i++) {
+    TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(latest_trajectory_, i));
+    V.push_back(trajectory_planning_msgs::trajectory_access::getV(latest_trajectory_, i));
+    X.push_back(trajectory_planning_msgs::trajectory_access::getX(latest_trajectory_, i));
+    Y.push_back(trajectory_planning_msgs::trajectory_access::getY(latest_trajectory_, i));
+    THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(latest_trajectory_, i));
+  }
+
+  // Interpolate target states by time
+  if (!linearInterpolation(TIME, V, des_time, v_tgt)) return;
+  if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
+  if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
+  if (!linearInterpolation(TIME, THETA, des_time, theata_tgt)) return;
+
+  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, theata_tgt: %f", x_tgt, y_tgt, v_tgt, theata_tgt);
+
+  geometry_msgs::msg::TransformStamped tf;
+  try {
+    tf = tf2_buffer_->lookupTransform("base_link", now(), "base_link", latest_trajectory_.header.stamp, "map",
+                                      rclcpp::Duration::from_seconds(1.0));
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Tranformation is not available");
+  }
+  geometry_msgs::msg::PoseStamped pose_new;
+  geometry_msgs::msg::PoseStamped pose_old;
+  pose_old.pose.position.x = x_tgt;
+  pose_old.pose.position.y = y_tgt;
+  pose_old.pose.position.z = 0.0;
+  tf2::Quaternion q;
+  q.setRPY(0, 0, theata_tgt);
+  pose_old.pose.orientation = tf2::toMsg(q);
+
+  tf2::doTransform(pose_old, pose_new, tf);
+
+  // if difference between v_tgt and ego_data.vel_lon is greater than 1 m/s, set v_tgt to ego_data.vel_lon
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > 10.0) {
+    v_tgt = perception_msgs::object_access::getVelLon(ego_data);
+  }
+  if (fabs(pose_new.pose.position.x) > 1.0) {
+    pose_new.pose.position.x = 0.0;
+  }
+  if (fabs(pose_new.pose.position.y) > 1.0) {
+    pose_new.pose.position.y = 0.0;
+  }
+
+  double x_init[TRAJECTORY_PLANNING_NX];
+  x_init[0] = pose_new.pose.position.x;
+  x_init[1] = pose_new.pose.position.y;
+  x_init[3] = v_tgt;
+  // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
+  x_init[4] = 0.0;
+  // get yaw from pose_new
+  tf2::Quaternion q_new;
+  tf2::fromMsg(pose_new.pose.orientation, q_new);
+  double roll, pitch, yaw;
+  tf2::Matrix3x3(q_new).getRPY(roll, pitch, yaw);
+  x_init[5] = yaw;
+  x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, v: %f, theta: %f", x_init[0], x_init[1], x_init[3],
+              x_init[5]);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+}
+
+bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& X, const std::vector<double>& Y,
+                                                     const double& desired_x, double& output_y) {
+  if (desired_x < *min_element(X.begin(), X.end()) || desired_x > *max_element(X.begin(), X.end())) {
+    RCLCPP_ERROR(get_logger(), "Desired Time is not in between of Time-Min and Time-Max of the given vector!");
+    RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
+    RCLCPP_DEBUG(get_logger(), "Time-Min: %f s", *min_element(X.begin(), X.end()));
+    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
+    return false;
+  }
+  if (X.size() != Y.size()) {
+    RCLCPP_ERROR(get_logger(), "Input vectors don't have the same length!");
+    return false;
+  }
+
+  //go through array and search for sampling points
+  size_t i;
+  for (i = 0; i < X.size(); i++) {
+    if (X[i] < desired_x) {
+      continue;
+    } else if (X[i] == desired_x) {
+      output_y = Y[i];
+      return true;
+    } else {
+      break;
+    }
+  }
+  output_y = Y[i - 1] + ((Y[i] - Y[i - 1]) / (X[i] - X[i - 1])) * (desired_x - X[i - 1]);
+  return true;
 }
 
 void TrajectoryOptimizationNode::freeSolver() {
@@ -357,6 +457,13 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   setupSolver(ego_data_);
 
+  if (received_ego_data_ && !trajectory_planning_msgs::trajectory_access::getStandstill(latest_trajectory_)) {
+    lowLevelInitialization(ego_data_);
+  } else {
+    RCLCPP_WARN(this->get_logger(),
+                "Ego data not received or no latest trajectory available. Using default initial state. (0)");
+  }
+
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
 
@@ -396,6 +503,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
+  latest_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 
@@ -460,7 +568,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
       std::copy(reference_trajectory.states.begin(), reference_trajectory.states.begin() + n, ref_path.begin());
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
-    std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
+      std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
     }
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
   }
