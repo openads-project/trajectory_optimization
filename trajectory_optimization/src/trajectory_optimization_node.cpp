@@ -360,6 +360,14 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
 
+  // init trajectory message and set header
+  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
+      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
+  trajectory->header.stamp = this->now();
+  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
+
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
   // get solution
@@ -375,10 +383,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // convert output into trajectory message
-  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
-      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
-  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
   double dt = optimization_horizon_ / n_states_;
   for (int i = 0; i <= n_states_; ++i) {
     trajectory_planning_msgs::trajectory_access::setT(*trajectory, i * dt, i);
@@ -390,10 +394,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
     // TODO: Kappa and dKappa
   }
-
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
-  trajectory->header.stamp = this->now();
-  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
 
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
