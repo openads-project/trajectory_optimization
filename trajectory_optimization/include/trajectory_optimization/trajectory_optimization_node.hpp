@@ -53,6 +53,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kVerboseParam;
   static const std::string kCostWeightsParam;
   static const std::string kInitAsRefParam;
+  static const std::string kHighLevelStabilizationParam;
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
 
@@ -67,6 +68,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void printSolution(int status);
 
   void lowLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  void highLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y);
 
@@ -117,6 +119,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool init_as_ref_ = false;
+  bool high_level_stabilization_ = false;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_trajectory_;

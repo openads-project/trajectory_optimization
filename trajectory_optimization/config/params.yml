@@ -2,7 +2,8 @@
   ros__parameters:
     #### ROS node parameters
     optimization_frequency: 1.0
-    init_as_ref: True
+    init_as_ref: False
+    high_level_stabilization: False # False: use low-level initialization
     verbose: True
 
     #### general parameters defining the ocp

@@ -33,6 +33,7 @@ const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimi
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
 const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
+const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
 
 const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
 const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
@@ -80,6 +81,9 @@ void TrajectoryOptimizationNode::declareParameters() {
   param_desc.description = "Initialize as reference trajectory";
   this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
 
+  param_desc.description = "Use high-level stabilization strategy for init state";
+  this->declare_parameter(kHighLevelStabilizationParam, high_level_stabilization_, param_desc);
+
   param_desc.description = "OCP parameter vector shape for cost weights";
   this->declare_parameter(kPCostWeightsShapeParam, p_cost_weights_shape_, param_desc);
 
@@ -126,6 +130,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kInitAsRefParam.c_str());
   }
   try {
+    high_level_stabilization_ = this->get_parameter(kHighLevelStabilizationParam).as_bool();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kHighLevelStabilizationParam.c_str());
+  }
+  try {
     p_cost_weights_shape_ = this->get_parameter(kPCostWeightsShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPCostWeightsShapeParam.c_str());
@@ -153,6 +162,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       cost_weights_ = param.as_double_array();
     } else if (param.get_name() == kInitAsRefParam) {
       init_as_ref_ = param.as_bool();
+    } else if (param.get_name() == kHighLevelStabilizationParam) {
+      high_level_stabilization_ = param.as_bool();
     } else if (param.get_name() == kPCostWeightsShapeParam) {
       p_cost_weights_shape_ = param.as_integer_array();
     } else if (param.get_name() == kPRefPathShapeParam) {
@@ -328,6 +339,7 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   double x_init[TRAJECTORY_PLANNING_NX];
   x_init[0] = pose_new.pose.position.x;
   x_init[1] = pose_new.pose.position.y;
+  x_init[2] = 0.0;
   x_init[3] = v_tgt;
   // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
   x_init[4] = 0.0;
@@ -372,6 +384,21 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
   }
   output_y = Y[i - 1] + ((Y[i] - Y[i - 1]) / (X[i] - X[i - 1])) * (desired_x - X[i - 1]);
   return true;
+}
+
+void TrajectoryOptimizationNode::highLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
+  double x_init[TRAJECTORY_PLANNING_NX];
+  for (int i = 0; i < TRAJECTORY_PLANNING_NX; ++i) {
+    x_init[i] = 0.0;
+  }
+  x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
+  // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
+  x_init[4] = 0.0
+  x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+              x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
 }
 
 void TrajectoryOptimizationNode::freeSolver() {
@@ -458,7 +485,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   setupSolver(ego_data_);
 
   if (received_ego_data_ && !trajectory_planning_msgs::trajectory_access::getStandstill(latest_trajectory_)) {
-    lowLevelInitialization(ego_data_);
+    high_level_stabilization_ ? highLevelInitialization(ego_data_) : lowLevelInitialization(ego_data_);
   } else {
     RCLCPP_WARN(this->get_logger(),
                 "Ego data not received or no latest trajectory available. Using default initial state. (0)");
