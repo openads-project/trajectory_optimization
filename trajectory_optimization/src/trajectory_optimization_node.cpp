@@ -393,7 +393,7 @@ void TrajectoryOptimizationNode::highLevelInitialization(const perception_msgs::
   }
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
   // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
-  x_init[4] = 0.0
+  x_init[4] = 0.0;
   x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
               x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
@@ -526,7 +526,9 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
-    // TODO: Kappa and dKappa
+    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / 2.711; // TODO: make this a parameter
+    trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
+    // TODO: dKappa
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
