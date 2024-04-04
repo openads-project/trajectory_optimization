@@ -477,9 +477,19 @@ void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::R
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
+  // init trajectory message and set header
+  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
+      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
+  trajectory->header.stamp = this->now();
+  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
+
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
-    RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle.");
+    RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
+    trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
+    trajectory_pub_->publish(std::move(trajectory));
     return;
   }
   setupSolver(ego_data_);
@@ -494,13 +504,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
 
-  // init trajectory message and set header
-  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
-      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
-  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_states_ + 1);
+  // reset header stamp of output trajectory
   trajectory->header.stamp = this->now();
-  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
 
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
