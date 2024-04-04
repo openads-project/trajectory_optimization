@@ -455,7 +455,12 @@ void TrajectoryOptimizationNode::setOcpParameters(
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
     // fill ref_path vector with values from reference_trajectory
     std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
+    if (reference_trajectory.states.size() >= n) {
+      std::copy(reference_trajectory.states.begin(), reference_trajectory.states.begin() + n, ref_path.begin());
+    } else {
+      // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
     std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
+    }
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
   }
 }
