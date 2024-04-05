@@ -531,7 +531,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
-    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / 2.711; // TODO: make this a parameter
+    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / 2.711;  // TODO: make this a parameter
     trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
     // TODO: dKappa
   }
@@ -583,7 +583,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
 
     // cost weights
     idx = 0;
-    n = p_cost_weights_shape_[0];
+    n = p_cost_weights_shape_[0] * p_cost_weights_shape_[1];
     std::vector<int> idx_cost_weights(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
@@ -605,6 +605,33 @@ void TrajectoryOptimizationNode::setOcpParameters(
       std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
     }
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
+
+    // max_vel
+    double max_vel = 5.0;  // TODO: get this from somewhere and rename to v_max
+    idx += n;
+    n = p_max_vel_shape_[0] * p_max_vel_shape_[1];
+    std::vector<int> idx_max_vel(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_max_vel.begin(), idx_max_vel.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_max_vel.data(), &max_vel, n);
+
+    // s_ref
+    // TODO: move to access functions
+    double s_ref = 0.0;
+    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory) - 1;
+         ++i) {
+      double x_0 = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
+      double y_0 = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
+      double x_1 = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i + 1);
+      double y_1 = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i + 1);
+      s_ref += sqrt(pow(x_1 - x_0, 2) + pow(y_1 - y_0, 2));
+    }
+    idx += n;
+    n = p_s_ref_shape_[0] * p_s_ref_shape_[1];
+    std::vector<int> idx_s_ref(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_s_ref.begin(), idx_s_ref.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_s_ref.data(), &s_ref, n);
   }
 }
 

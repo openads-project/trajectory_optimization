@@ -125,11 +125,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   trajectory_planning_msgs::msg::Trajectory latest_trajectory_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
   // ocp parameter vector structure
-  std::vector<long int> p_cost_weights_shape_ = {5};
+  std::vector<long int> p_cost_weights_shape_ = {7, 1};
   std::vector<long int> p_ref_path_shape_ = {100, 4};
+  std::vector<long int> p_max_vel_shape_ = {1, 1};
+  std::vector<long int> p_s_ref_shape_ = {1, 1};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

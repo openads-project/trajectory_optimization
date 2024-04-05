@@ -56,9 +56,11 @@ def set_model(ocp, config):
     model.u = u
 
     # parameters
-    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape']))
-    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N, (t, x, y, v))
-    params = vertcat(p_cost_weights, p_ref_path)
+    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts x 1)
+    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v))
+    p_max_vel = MX.sym('max_vel', np.prod(config['p_max_vel_shape'])) # (1 x 1)
+    p_s_ref = MX.sym('s_ref', np.prod(config['p_s_ref_shape'])) # (1 x 1)
+    params = vertcat(p_cost_weights, p_ref_path, p_max_vel, p_s_ref)
     model.p = params
 
     ocp.model = model
