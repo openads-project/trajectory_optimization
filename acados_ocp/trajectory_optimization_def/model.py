@@ -60,7 +60,8 @@ def set_model(ocp, config):
     p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v))
     p_max_vel = MX.sym('max_vel', np.prod(config['p_max_vel_shape'])) # (1 x 1)
     p_s_ref = MX.sym('s_ref', np.prod(config['p_s_ref_shape'])) # (1 x 1)
-    params = vertcat(p_cost_weights, p_ref_path, p_max_vel, p_s_ref)
+    p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacles_shape'])) # (nObstacles x (x, y, r))
+    params = vertcat(p_cost_weights, p_ref_path, p_max_vel, p_s_ref, p_obstacles)
     model.p = params
 
     ocp.model = model

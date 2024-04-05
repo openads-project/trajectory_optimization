@@ -89,6 +89,8 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "OCP parameter vector shape for reference path";
   this->declare_parameter(kPRefPathShapeParam, p_ref_path_shape_, param_desc);
+
+  // TODO: add missing shape params: v_max, s_ref, obstacles, ... ?
 }
 
 /**
@@ -632,6 +634,19 @@ void TrajectoryOptimizationNode::setOcpParameters(
     // fill vector with values from idx to idx + n
     std::iota(idx_s_ref.begin(), idx_s_ref.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_s_ref.data(), &s_ref, n);
+
+    // obstacles
+    // TODO: get obstacles from object list predictions
+    double x_obs = 5.0;
+    double y_obs = 0.0;
+    double r_obs = 0.5;
+    std::vector<double> obstacles = {x_obs, y_obs, r_obs};
+    idx += n;
+    n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
+    std::vector<int> idx_obstacles(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
   }
 }
 
