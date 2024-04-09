@@ -288,20 +288,34 @@ void TrajectoryOptimizationNode::setupSolver(const perception_msgs::msg::EgoData
 void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
   double des_time = (now() - latest_trajectory_.header.stamp).seconds();
   RCLCPP_WARN(this->get_logger(), "Desired time: %f", des_time);
+
+  // transform latest trajectory to current base_link frame
+  geometry_msgs::msg::TransformStamped tf;
+  try {
+    tf = tf2_buffer_->lookupTransform("base_link", now(), "base_link", latest_trajectory_.header.stamp, "map",
+                                      rclcpp::Duration::from_seconds(1.0));
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Tranformation is not available");
+  }
+  trajectory_planning_msgs::msg::Trajectory transformed_trajectory;
+  tf2::doTransform(latest_trajectory_, transformed_trajectory, tf);
+
+  // interpolate target states by time from the transformed trajectory
   double v_tgt, x_tgt, y_tgt, a_tgt, theata_tgt, delta_tgt;
   std::vector<double> TIME, V, X, Y, A, THETA, DELTA;
-  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(latest_trajectory_); i++) {
-    TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(latest_trajectory_, i));
-    X.push_back(trajectory_planning_msgs::trajectory_access::getX(latest_trajectory_, i));
-    Y.push_back(trajectory_planning_msgs::trajectory_access::getY(latest_trajectory_, i));
-    V.push_back(trajectory_planning_msgs::trajectory_access::getV(latest_trajectory_, i));
-    A.push_back(trajectory_planning_msgs::trajectory_access::getA(latest_trajectory_, i));
-    THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(latest_trajectory_, i));
-    double delta = atan(2.711 * trajectory_planning_msgs::trajectory_access::getKappa(latest_trajectory_, i)); // TODO: get L from parameter ; export to trajectory_access?
+  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(transformed_trajectory); i++) {
+    TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(transformed_trajectory, i));
+    X.push_back(trajectory_planning_msgs::trajectory_access::getX(transformed_trajectory, i));
+    Y.push_back(trajectory_planning_msgs::trajectory_access::getY(transformed_trajectory, i));
+    V.push_back(trajectory_planning_msgs::trajectory_access::getV(transformed_trajectory, i));
+    A.push_back(trajectory_planning_msgs::trajectory_access::getA(transformed_trajectory, i));
+    THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(transformed_trajectory, i));
+    double delta =
+        atan(2.711 * trajectory_planning_msgs::trajectory_access::getKappa(
+                         transformed_trajectory, i));  // TODO: get L from parameter ; export to trajectory_access?
     DELTA.push_back(delta);
   }
 
-  // Interpolate target states by time
   if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) return;
@@ -312,51 +326,28 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, a_tgt: %f, theata_tgt: %f, delta_tgt: %f", x_tgt,
               y_tgt, v_tgt, a_tgt, theata_tgt, delta_tgt);
 
-  geometry_msgs::msg::TransformStamped tf;
-  try {
-    tf = tf2_buffer_->lookupTransform("base_link", now(), "base_link", latest_trajectory_.header.stamp, "map",
-                                      rclcpp::Duration::from_seconds(1.0));
-  } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Tranformation is not available");
-  }
-  geometry_msgs::msg::PoseStamped pose_new;
-  geometry_msgs::msg::PoseStamped pose_old;
-  pose_old.pose.position.x = x_tgt;
-  pose_old.pose.position.y = y_tgt;
-  pose_old.pose.position.z = 0.0;
-  tf2::Quaternion q;
-  q.setRPY(0, 0, theata_tgt);
-  pose_old.pose.orientation = tf2::toMsg(q);
-
-  tf2::doTransform(pose_old, pose_new, tf);
-
-  // if difference between v_tgt and ego_data.vel_lon is greater than 1 m/s, set v_tgt to ego_data.vel_lon
+  // if difference between v_tgt and ego_data.vel_lon is greater than 10 m/s, set v_tgt to ego_data.vel_lon
   if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > 10.0) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   }
-  if (fabs(pose_new.pose.position.x) > 1.5) { // TODO: param
-    pose_new.pose.position.x = 0.0;
+  if (fabs(x_tgt) > 1.5) {  // TODO: param
+    x_tgt = 0.0;
   }
-  if (fabs(pose_new.pose.position.y) > 1.5) { // TODO: param
-    pose_new.pose.position.y = 0.0;
+  if (fabs(y_tgt) > 1.5) {  // TODO: param
+    y_tgt = 0.0;
   }
 
   double x_init[TRAJECTORY_PLANNING_NX];
-  x_init[0] = pose_new.pose.position.x;
-  x_init[1] = pose_new.pose.position.y;
+  x_init[0] = x_tgt;
+  x_init[1] = y_tgt;
   x_init[2] = 0.0;
   x_init[3] = v_tgt;
   x_init[4] = a_tgt;
   // x_init[4] = 0.0;
-  // get yaw from pose_new
-  tf2::Quaternion q_new;
-  tf2::fromMsg(pose_new.pose.orientation, q_new);
-  double roll, pitch, yaw;
-  tf2::Matrix3x3(q_new).getRPY(roll, pitch, yaw);
-  x_init[5] = yaw;
+  x_init[5] = theata_tgt;
   x_init[6] = delta_tgt;
-  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, v: %f, theta: %f", x_init[0], x_init[1], x_init[3],
-              x_init[5]);
+  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+              x_init[1], x_init[3], x_init[4], x_init[5], x_init[6]);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
 }
