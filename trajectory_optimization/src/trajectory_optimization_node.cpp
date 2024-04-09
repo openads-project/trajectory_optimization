@@ -288,26 +288,29 @@ void TrajectoryOptimizationNode::setupSolver(const perception_msgs::msg::EgoData
 void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
   double des_time = (now() - latest_trajectory_.header.stamp).seconds();
   RCLCPP_WARN(this->get_logger(), "Desired time: %f", des_time);
-  double v_tgt;
-  double x_tgt;
-  double y_tgt;
-  double theata_tgt;
-  std::vector<double> TIME, V, X, Y, THETA;
+  double v_tgt, x_tgt, y_tgt, a_tgt, theata_tgt, delta_tgt;
+  std::vector<double> TIME, V, X, Y, A, THETA, DELTA;
   for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(latest_trajectory_); i++) {
     TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(latest_trajectory_, i));
-    V.push_back(trajectory_planning_msgs::trajectory_access::getV(latest_trajectory_, i));
     X.push_back(trajectory_planning_msgs::trajectory_access::getX(latest_trajectory_, i));
     Y.push_back(trajectory_planning_msgs::trajectory_access::getY(latest_trajectory_, i));
+    V.push_back(trajectory_planning_msgs::trajectory_access::getV(latest_trajectory_, i));
+    A.push_back(trajectory_planning_msgs::trajectory_access::getA(latest_trajectory_, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(latest_trajectory_, i));
+    double delta = atan(2.711 * trajectory_planning_msgs::trajectory_access::getKappa(latest_trajectory_, i)); // TODO: get L from parameter ; export to trajectory_access?
+    DELTA.push_back(delta);
   }
 
   // Interpolate target states by time
-  if (!linearInterpolation(TIME, V, des_time, v_tgt)) return;
   if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
+  if (!linearInterpolation(TIME, V, des_time, v_tgt)) return;
+  if (!linearInterpolation(TIME, A, des_time, a_tgt)) return;
   if (!linearInterpolation(TIME, THETA, des_time, theata_tgt)) return;
+  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) return;
 
-  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, theata_tgt: %f", x_tgt, y_tgt, v_tgt, theata_tgt);
+  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, a_tgt: %f, theata_tgt: %f, delta_tgt: %f", x_tgt,
+              y_tgt, v_tgt, a_tgt, theata_tgt, delta_tgt);
 
   geometry_msgs::msg::TransformStamped tf;
   try {
@@ -331,10 +334,10 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > 10.0) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   }
-  if (fabs(pose_new.pose.position.x) > 1.0) {
+  if (fabs(pose_new.pose.position.x) > 1.5) { // TODO: param
     pose_new.pose.position.x = 0.0;
   }
-  if (fabs(pose_new.pose.position.y) > 1.0) {
+  if (fabs(pose_new.pose.position.y) > 1.5) { // TODO: param
     pose_new.pose.position.y = 0.0;
   }
 
@@ -343,15 +346,15 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   x_init[1] = pose_new.pose.position.y;
   x_init[2] = 0.0;
   x_init[3] = v_tgt;
-  // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
-  x_init[4] = 0.0;
+  x_init[4] = a_tgt;
+  // x_init[4] = 0.0;
   // get yaw from pose_new
   tf2::Quaternion q_new;
   tf2::fromMsg(pose_new.pose.orientation, q_new);
   double roll, pitch, yaw;
   tf2::Matrix3x3(q_new).getRPY(roll, pitch, yaw);
   x_init[5] = yaw;
-  x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  x_init[6] = delta_tgt;
   RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, v: %f, theta: %f", x_init[0], x_init[1], x_init[3],
               x_init[5]);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
