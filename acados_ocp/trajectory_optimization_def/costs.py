@@ -77,13 +77,36 @@ def set_costs(ocp, config):
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter,2))
 
     # obstacles
-    r_ego = p_obstacles[2] # TODO: param for r_ego?
-    d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
+    # r_ego = p_obstacles[2] # TODO: param for r_ego?
+    # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
     # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - p_obstacles[0], 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1], 2))
-    dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - 5, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - 0, 2))
+    # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - 5, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - 0, 2))
     # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + p_obstacles[2] + d_obstacles_min, dist_obstacles - (r_ego + p_obstacles[2] + d_obstacles_min), 0)
-    conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
-    obstacles_term = ca.power(conditional_obstacles_term, 2)
+    # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
+    # obstacles_term = ca.power(conditional_obstacles_term, 2)
+
+    MIN_D_LONG = 1.0
+    MIN_D_LAT = 1.0
+    obj_length = 1.0
+    obj_width = 1.0
+    ego_length = 1.0
+    ego_width = 1.0
+    # dT = v_ego * tau
+    dLongMin = MIN_D_LONG + 0.5 * obj_length + 0.5 * ego_length # + dT ; positions in geometric center
+    dLatMin = MIN_D_LAT + 0.5 * obj_width + 0.5 * ego_width
+
+    # TODO: handle more objects
+    dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - p_obstacles[0])
+    dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1])
+
+    aLat = ca.pi / dLatMin # TODO: get dLatMin from param
+    cLat = ca.cos(aLat * dLat) + 1
+    aLong = ca.pi / dLongMin # TODO: get dLongMin from param
+    cLong = ca.cos(aLong * dLong) + 1
+    cObst = cLat * cLong
+
+    obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin) 
+    obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
     # cost term weights
     w_lon = p_cost_weights[0]
