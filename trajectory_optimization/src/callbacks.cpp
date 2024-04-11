@@ -29,8 +29,32 @@ void TrajectoryOptimizationNode::driveableSpaceCallback(
  * @param[in] msg   input object list
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received object list");
-  object_list_ = *msg;
+  RCLCPP_INFO(this->get_logger(), "Received object list");
+  if (msg->header.frame_id != "base_link") {
+    RCLCPP_ERROR(this->get_logger(), "Object frame_id is not base_link"); // TODO: transform
+    return;
+  }
+  object_list_.header = msg->header;
+  object_list_.objects.clear();
+  
+  // calculate distance to each object
+  std::vector<double> object_distances;
+  for (size_t i = 0; i < msg->objects.size(); ++i) {
+    double distance = sqrt(pow(perception_msgs::object_access::getX(msg->objects[i]), 2) +
+                           pow(perception_msgs::object_access::getY(msg->objects[i]), 2));
+    object_distances.push_back(distance);
+  }
+  // sort objects by distance
+  std::vector<size_t> indices(object_distances.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::sort(indices.begin(), indices.end(), [&object_distances](size_t i1, size_t i2) {
+    return object_distances[i1] < object_distances[i2];
+  });
+  // keep only first N objects
+  for (size_t i = 0; i < std::min<size_t>(p_obstacles_shape_[0], indices.size()); ++i) {
+    object_list_.objects.push_back(msg->objects[indices[i]]);
+  }
+
   received_object_list_ = true;
 }
 
