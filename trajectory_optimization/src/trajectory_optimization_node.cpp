@@ -358,36 +358,6 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
 }
 
-bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& X, const std::vector<double>& Y,
-                                                     const double& desired_x, double& output_y) {
-  if (desired_x < *min_element(X.begin(), X.end()) || desired_x > *max_element(X.begin(), X.end())) {
-    RCLCPP_ERROR(get_logger(), "Desired Time is not in between of Time-Min and Time-Max of the given vector!");
-    RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
-    RCLCPP_DEBUG(get_logger(), "Time-Min: %f s", *min_element(X.begin(), X.end()));
-    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
-    return false;
-  }
-  if (X.size() != Y.size()) {
-    RCLCPP_ERROR(get_logger(), "Input vectors don't have the same length!");
-    return false;
-  }
-
-  //go through array and search for sampling points
-  size_t i;
-  for (i = 0; i < X.size(); i++) {
-    if (X[i] < desired_x) {
-      continue;
-    } else if (X[i] == desired_x) {
-      output_y = Y[i];
-      return true;
-    } else {
-      break;
-    }
-  }
-  output_y = Y[i - 1] + ((Y[i] - Y[i - 1]) / (X[i] - X[i - 1])) * (desired_x - X[i - 1]);
-  return true;
-}
-
 void TrajectoryOptimizationNode::highLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
   double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
@@ -416,59 +386,6 @@ void TrajectoryOptimizationNode::freeSolver() {
   if (status) {
     printf("trajectory_planning_acados_free_capsule() returned status %d. \n", status);
   }
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input ego data
- */
-void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received ego data");
-  ego_data_ = *msg;
-  received_ego_data_ = true;
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input drivable space
- */
-void TrajectoryOptimizationNode::driveableSpaceCallback(
-    const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received driveable space");
-  driveable_space_ = *msg;
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input object list
- */
-void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received object list");
-  object_list_ = *msg;
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input reference trajectory
- */
-void TrajectoryOptimizationNode::referenceTrajectoryCallback(
-    const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received reference trajectory");
-  reference_trajectory_ = *msg;
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input route
- */
-void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received route");
-  route_ = *msg;
 }
 
 /**
@@ -645,40 +562,6 @@ void TrajectoryOptimizationNode::setOcpParameters(
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
   }
-}
-
-/**
- * @brief This function prints the solution of the ocp
- *
- */
-void TrajectoryOptimizationNode::printSolution(int status) {
-  // get statistics
-  double kkt_norm_inf;
-  double elapsed_time;
-  int sqp_iter;
-  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
-  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
-
-  printf("\n--- xtraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
-  printf("\n--- utraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
-  // ocp_nlp_out_print(nlp_solver_->dims, nlp_out_);
-
-  printf("\nsolved ocp %d times, solution printed above\n\n", 1);
-
-  if (status == ACADOS_SUCCESS) {
-    printf("trajectory_planning_acados_solve(): SUCCESS!\n");
-  } else {
-    printf("trajectory_planning_acados_solve() failed with status %d.\n", status);
-  }
-
-  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
-
-  printf("\nSolver info:\n");
-  printf(" SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
-         kkt_norm_inf);
 }
 
 }  // namespace trajectory_optimization
