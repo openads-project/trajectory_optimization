@@ -58,6 +58,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kHighLevelStabilizationParam;
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
+  static const std::string kPVMaxShapeParam;
+  static const std::string kPSRefShapeParam;
+  static const std::string kPObstaclesShapeParam;
 
   void declareParameters();
   void loadParameters();
@@ -135,7 +138,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<long int> p_ref_path_shape_ = {100, 4};
   std::vector<long int> p_v_max_shape_ = {1, 1};
   std::vector<long int> p_s_ref_shape_ = {1, 1};
-  std::vector<long int> p_obstacles_shape_ = {1, 3};
+  std::vector<long int> p_obstacles_shape_ = {10, 3};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
