@@ -481,6 +481,10 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory->header.stamp = this->now();
   trajectory->header.frame_id = reference_trajectory_.header.frame_id;
 
+  // init time-steps of trajectory to ensure increasing time-steps even for standstill trajectories
+  double dt = optimization_horizon_ / n_states_;
+  for (int i = 0; i <= n_states_; ++i) trajectory_planning_msgs::trajectory_access::setT(*trajectory, i * dt, i);
+
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
@@ -519,9 +523,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // convert output into trajectory message
-  double dt = optimization_horizon_ / n_states_;
   for (int i = 0; i <= n_states_; ++i) {
-    trajectory_planning_msgs::trajectory_access::setT(*trajectory, i * dt, i);
     trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 0], i);
     trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 1], i);
     trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 2], i);
