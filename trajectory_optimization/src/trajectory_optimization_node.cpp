@@ -512,8 +512,9 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
   if (verbose_) printSolution(status);
-  if (status == 3) {
-    RCLCPP_WARN(this->get_logger(), "Solver failed. Skipping trajectory publication.");
+  if (status == 1 || status == 3 || status == 4) {
+    RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d. Publishing latest valid trajectory.", status);
+    trajectory_pub_->publish(latest_trajectory_);
     return;
   }
 
