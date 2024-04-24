@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     #### ROS node parameters
-    optimization_frequency: 1.0
+    optimization_frequency: 2.0
     init_as_ref: False
     high_level_stabilization: True # False: use low-level initialization
     verbose: True
@@ -25,7 +25,7 @@
 
     #### cost weights
     # [dlon, dlat, x, y, v, v_max, s_ref, obstacles]
-    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0]
+    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]
