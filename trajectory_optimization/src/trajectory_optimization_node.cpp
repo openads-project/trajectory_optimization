@@ -753,12 +753,15 @@ void TrajectoryOptimizationNode::setOcpParameters(
 
     // obstacles
     // TODO: get obstacles from object list predictions
-    double x_obs = 5.0;
-    double y_obs = 0.0;
-    double r_obs = 0.5;
-    std::vector<double> obstacles = {x_obs, y_obs, r_obs};
+    double r_obs = 1.0; // TODO: 
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
+    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity());
+    for (int i = 0; i < object_list_.objects.size(); ++i) {
+      obstacles.push_back(perception_msgs::object_access::getX(object_list_.objects[i]));
+      obstacles.push_back(perception_msgs::object_access::getY(object_list_.objects[i]));
+      obstacles.push_back(r_obs);
+    }
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);

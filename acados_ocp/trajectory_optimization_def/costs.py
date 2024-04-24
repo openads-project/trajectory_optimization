@@ -8,6 +8,9 @@ P_REF_PATH_INDEX_X = 1
 P_REF_PATH_INDEX_Y = 2
 P_REF_PATH_INDEX_V = 3
 
+P_OBSTACLES_INDEX_X = 0
+P_OBSTACLES_INDEX_Y = 1
+P_OBSTACLES_INDEX_R = 2
 
 def set_costs(ocp: AcadosOcp, config):
 
@@ -89,7 +92,7 @@ def set_costs(ocp: AcadosOcp, config):
     dlon = lmd * ca.sqrt(dxy_sq)
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter,2))
 
-    # obstacles
+    # obstacles: LRE implementation
     # r_ego = p_obstacles[2] # TODO: param for r_ego?
     # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
     # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - p_obstacles[0], 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1], 2))
@@ -98,6 +101,22 @@ def set_costs(ocp: AcadosOcp, config):
     # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
     # obstacles_term = ca.power(conditional_obstacles_term, 2)
 
+    # currently not working and overwriting with adp implementation
+    n_obstacles = config["p_obstacles_shape"][0]
+    obstacle_state_dim = config["p_obstacles_shape"][1]
+    # p_obstacles shuold be sortet like this: (x1, y1, r1, x2, y2, r2, ...)
+    for i in range(n_obstacles):
+        x_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_X]
+        y_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_Y]
+        r_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_R]
+        dist_obstacle = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - x_obstacle, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - y_obstacle, 2))
+        conditional_obstacle_term = ca.if_else(dist_obstacle <= r_obstacle, r_obstacle - dist_obstacle, 0)
+        if i == 0:
+            obstacles_term = ca.power(conditional_obstacle_term, 2)
+        else:
+            obstacles_term += ca.power(conditional_obstacle_term, 2)
+    
+    ## adp implementation
     MIN_D_LONG = 1.0
     MIN_D_LAT = 1.0
     obj_length = 1.0
