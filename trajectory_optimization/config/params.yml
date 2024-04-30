@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     #### ROS node parameters
-    optimization_frequency: 2.0
+    optimization_frequency: 4.0
     init_as_ref: False
     high_level_stabilization: True # False: use low-level initialization
     verbose: True
