@@ -33,6 +33,13 @@ def set_costs(ocp, config):
     p_s_ref = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_max_vel:n_params_cost_weights + n_params_ref_path + n_params_max_vel + n_params_s_ref]
     p_obstacles = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_max_vel + n_params_s_ref:n_params]
 
+    idx_inf = n_params_ref_path
+    for i in range(n_params_ref_path):
+        if p_ref_path[i] == ca.MX_inf:
+            idx_inf = i
+            break
+    p_ref_path = p_ref_path[:idx_inf]
+
     # ca.find reference point (min distance) on reference path
     ref_path_state_dim = config["p_ref_path_shape"][1]
     # p_ref_path shuold be sortet like this: (t1, x1, y1, v1, t2, x2, y2, v2, ...)
