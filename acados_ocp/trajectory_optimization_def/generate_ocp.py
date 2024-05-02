@@ -27,6 +27,7 @@ def main():
     model.set_model(ocp, parameters)
     constraints.set_constraints(ocp, parameters)
     costs.set_costs(ocp, parameters)
+    constraints.set_constraints(ocp, parameters) # Set constraints AFTER costs as soft constraints need to modify cost
     dims.set_dims(ocp, parameters)
     opts.set_opts(ocp, parameters)
     ocp.code_export_directory = os.path.join(CURRENT_DIR_PATH, 'c_generated_code')

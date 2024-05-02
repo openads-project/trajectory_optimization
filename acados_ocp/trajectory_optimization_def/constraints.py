@@ -1,9 +1,9 @@
-from acados_template import AcadosOcpConstraints
+from acados_template import AcadosOcpConstraints, AcadosOcp
 from casadi import vertcat
 from constants import *
 import numpy as np
 
-def set_constraints(ocp, parameters):
+def set_constraints(ocp : AcadosOcp, parameters):
     
     cons = AcadosOcpConstraints()
 
@@ -14,7 +14,6 @@ def set_constraints(ocp, parameters):
     cons.lbx = np.array([parameters['v_min'], -parameters['acceleration_lon_max'], -parameters['delta_max']])
     cons.ubx = np.array([parameters['v_max'], parameters['acceleration_lon_max'], parameters['delta_max']])
     cons.idxbx = np.array([STATE_INDEX_V, STATE_INDEX_A_LON, STATE_INDEX_DELTA])
-
 
     # set constraints on controls
     alpha = parameters['alpha_max']
@@ -31,6 +30,18 @@ def set_constraints(ocp, parameters):
     a_squared = ocp.model.x[STATE_INDEX_A_LON]**2 + a_lat**2
     ocp.model.con_h_expr = vertcat(a_squared)
     ocp.model.con_h_expr_e = vertcat(a_squared)
+    
+    # Add slack to state constraints
+    # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
+    # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
+    cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
+    cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
+    # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
+    # So here, we have      v,    a_lon, a_squared
+    ocp.cost.Zl = np.diag( [10,   1000,  1000])   # Quadratic cost on lower bound slack variables 
+    ocp.cost.Zu = np.diag( [1000, 1000,  1000])   # Quadratic cost on upper bound slack variables
+    ocp.cost.zl = np.array([0.1,  0.1,   0.1])    # Linear cost on lower bound slack variables
+    ocp.cost.zu = np.array([0.1,  0.1,   0.1])    # Linear cost on upper bound slack variables
 
     # set boundaries for acceleration values through nonlinear constraints
     a_max = parameters['acceleration_max']

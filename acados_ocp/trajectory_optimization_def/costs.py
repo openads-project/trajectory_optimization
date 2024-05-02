@@ -1,5 +1,5 @@
 import numpy as np
-from acados_template import AcadosOcpCost
+from acados_template import AcadosOcpCost, AcadosOcp
 from constants import *
 import casadi as ca
 
@@ -9,7 +9,7 @@ P_REF_PATH_INDEX_Y = 2
 P_REF_PATH_INDEX_V = 3
 
 
-def set_costs(ocp, config):
+def set_costs(ocp: AcadosOcp, config):
 
     # set up as external cost function
     cost = AcadosOcpCost()
