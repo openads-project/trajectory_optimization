@@ -53,6 +53,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
   static const std::string kCostWeightsParam;
+  static const std::string kDynamicWeightParam;
   static const std::string kInitAsRefParam;
   static const std::string kHighLevelStabilizationParam;
   static const std::string kPCostWeightsShapeParam;
@@ -127,6 +128,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // cost weights
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  double dynamic_weight_ = 1.05;
 
   // ocp parameter vector structure
   std::vector<long int> p_cost_weights_shape_ = {8, 1};

@@ -32,6 +32,7 @@ const std::string TrajectoryOptimizationNode::kNStatesParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
+const std::string TrajectoryOptimizationNode::kDynamicWeightParam = "dynamic_weight";
 const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
 const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
 
@@ -77,6 +78,9 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "Cost function weights";
   this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
+
+  param_desc.description = "Dynamic weight alpha";
+  this->declare_parameter(kDynamicWeightParam, dynamic_weight_, param_desc);
 
   param_desc.description = "Initialize as reference trajectory";
   this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
@@ -127,6 +131,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kCostWeightsParam.c_str());
   }
   try {
+    dynamic_weight_ = this->get_parameter(kDynamicWeightParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kDynamicWeightParam.c_str());
+  }
+  try {
     init_as_ref_ = this->get_parameter(kInitAsRefParam).as_bool();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kInitAsRefParam.c_str());
@@ -162,6 +171,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       verbose_ = param.as_bool();
     } else if (param.get_name() == kCostWeightsParam) {
       cost_weights_ = param.as_double_array();
+    } else if (param.get_name() == kDynamicWeightParam) {
+      dynamic_weight_ = param.as_double();
     } else if (param.get_name() == kInitAsRefParam) {
       init_as_ref_ = param.as_bool();
     } else if (param.get_name() == kHighLevelStabilizationParam) {
@@ -577,6 +588,7 @@ void TrajectoryOptimizationNode::updateOcpInputs(
 void TrajectoryOptimizationNode::setOcpParameters(
     std::vector<double>& cost_weights, const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // loop over shooting intervals
+  double floating_dynamic_weight = 1.0;
   for (int i = 0; i <= n_states_; ++i) {
     int idx, n;
 
@@ -588,6 +600,16 @@ void TrajectoryOptimizationNode::setOcpParameters(
     std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
                                                     cost_weights.data(), n);
+
+    // dynamic weight
+    idx += n;
+    n = 1;
+    std::vector<int> idx_dynamic_weight(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
+                                                    &floating_dynamic_weight, n);  
+    floating_dynamic_weight *= dynamic_weight_;                                             
 
     // ref path
     idx += n;

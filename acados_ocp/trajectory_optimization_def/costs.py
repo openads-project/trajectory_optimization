@@ -19,19 +19,23 @@ def set_costs(ocp: AcadosOcp, config):
 
     # initialize parameters
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
+    n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
     n_params_max_vel = np.prod(config["p_max_vel_shape"])
     n_params_s_ref = np.prod(config["p_s_ref_shape"])
     n_obstacles = np.prod(config["p_obstacles_shape"])
-    n_params = n_params_cost_weights + n_params_ref_path + n_params_max_vel + n_params_s_ref + n_obstacles
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_max_vel + n_params_s_ref + n_obstacles
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
-    p_cost_weights = ocp.model.p[0:n_params_cost_weights]
-    p_ref_path = ocp.model.p[n_params_cost_weights:n_params_cost_weights + n_params_ref_path]
-    p_max_vel = ocp.model.p[n_params_cost_weights + n_params_ref_path:n_params_cost_weights + n_params_ref_path + n_params_max_vel]
-    p_s_ref = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_max_vel:n_params_cost_weights + n_params_ref_path + n_params_max_vel + n_params_s_ref]
-    p_obstacles = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_max_vel + n_params_s_ref:n_params]
+    ind_params = 0
+    p_cost_weights = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_cost_weights)]
+    p_dynamic_weight = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_dynamic_weight)]
+    p_ref_path = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_ref_path)]
+    p_max_vel = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_max_vel)]
+    p_s_ref = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_s_ref)]
+    p_obstacles = ocp.model.p[ind_params:(ind_params:=ind_params+n_obstacles)]
+    assert ind_params == n_params
 
     idx_inf = n_params_ref_path
     for i in range(n_params_ref_path):
@@ -134,7 +138,8 @@ def set_costs(ocp: AcadosOcp, config):
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_max_vel, 2)
     s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
 
+
     # cost functions
-    ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term
+    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term)
     ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term
     ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_s_ref * s_ref_term + w_obstacles * obstacles_term
