@@ -57,7 +57,7 @@ def set_costs(ocp, config):
 
     # Find nearest adjacent sample on reference path
     condition_begin = (idx_min == 0)
-    condition_end = (idx_min == p_ref_path.rows()-1)
+    condition_end = (idx_min == x_ref_path.rows()-1)
     condition_intermediate = ca.logic_and(ca.logic_not(condition_begin), ca.logic_not(condition_end))
     dist_1 = ca.if_else(condition_intermediate, dd[idx_min-1], ca.MX_inf(1,1), True)
     dist_2 = ca.if_else(condition_intermediate, dd[idx_min+1], ca.MX_inf(1,1), True)
@@ -76,7 +76,7 @@ def set_costs(ocp, config):
     v2 = v_ref_path[next_idx_min]
 
     c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
-    lmd = ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square
+    lmd = ca.if_else((c_square == 0), 0, ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square)
     x_ref_inter = x1 + lmd * (x2-x1)
     y_ref_inter = y1 + lmd * (y2-y1)
     v_ref_inter = v1 + lmd * (v2-v1)

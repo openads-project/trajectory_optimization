@@ -3,3 +3,7 @@ demo_trajectory_pub_node:
     n_states: 51 # n_states = n_shots + 1
     publish_frequency: 1.0
     trajectory_horizon: 5.0
+    a: 0.0
+    v0: 5.0
+    omega: 5.0
+    theta0: 30.0
