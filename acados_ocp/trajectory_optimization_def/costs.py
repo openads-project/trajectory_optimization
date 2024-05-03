@@ -78,6 +78,7 @@ def set_costs(ocp, config):
 
     dxy_sq = ca.power(x2 - x1, 2) + ca.power(y2 - y1, 2)
     lmd = ca.if_else((dxy_sq == 0), 0, ((ocp.model.x[STATE_INDEX_X] - x1) * (x2 - x1) + (ocp.model.x[STATE_INDEX_Y] - y1) * (y2 - y1)) / dxy_sq)
+    lmd = ca.fmin(ca.fmax(lmd, 0), 1)
     x_ref_inter = x1 + lmd * (x2 - x1)
     y_ref_inter = y1 + lmd * (y2 - y1)
     v_ref_inter = v1 + lmd * (v2 - v1)
@@ -131,7 +132,7 @@ def set_costs(ocp, config):
     dlat_term = ca.power(dlat, 2)
     x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
     y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
-    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref, 2)
+    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_v_max, 2)
     s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
 
