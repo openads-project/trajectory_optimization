@@ -81,6 +81,7 @@ def set_costs(ocp: AcadosOcp, config):
 
     c_square = ca.power(x2-x1,2)+ca.power(y2-y1,2)
     lmd = ca.if_else((c_square == 0), 0, ((ocp.model.x[STATE_INDEX_X] - x1)*(x2-x1) + (ocp.model.x[STATE_INDEX_Y] - y1)*(y2-y1))/ c_square)
+    lmd = ca.fmin(ca.fmax(lmd, 0), 1)
     x_ref_inter = x1 + lmd * (x2-x1)
     y_ref_inter = y1 + lmd * (y2-y1)
     v_ref_inter = v1 + lmd * (v2-v1)
@@ -119,6 +120,10 @@ def set_costs(ocp: AcadosOcp, config):
     obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin) 
     obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
+    # input costs
+    j_lon = ocp.model.u[CONTROL_INDEX_J_LON]
+    alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
+
     # cost term weights
     w_lon = p_cost_weights[0]
     w_lat = p_cost_weights[1]
@@ -128,18 +133,22 @@ def set_costs(ocp: AcadosOcp, config):
     w_v_max = p_cost_weights[5]
     w_s_ref = p_cost_weights[6]
     w_obstacles = p_cost_weights[7]
+    w_j_lon = p_cost_weights[8]
+    w_alpha = p_cost_weights[9]    
 
     # individual cost terms
     dlon_term = ca.power(dlon, 2)
     dlat_term = ca.power(dlat, 2)
     x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
     y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
-    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref, 2)
+    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_max_vel, 2)
     s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
+    j_lon_term = ca.power(j_lon, 2)
+    alpha_term = ca.power(alpha, 2)
 
 
     # cost functions
-    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term)
-    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term
+    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term) + w_j_lon * j_lon_term + w_alpha * alpha_term
+    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term + w_j_lon * j_lon_term + w_alpha * alpha_term
     ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_s_ref * s_ref_term + w_obstacles * obstacles_term

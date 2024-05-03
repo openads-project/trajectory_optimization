@@ -31,17 +31,17 @@ def set_constraints(ocp : AcadosOcp, parameters):
     ocp.model.con_h_expr = vertcat(a_squared)
     ocp.model.con_h_expr_e = vertcat(a_squared)
     
-    # Add slack to state constraints
-    # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
-    # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
-    cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
-    cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
-    # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
-    # So here, we have      v,    a_lon, a_squared
-    ocp.cost.Zl = np.diag( [10,   1000,  1000])   # Quadratic cost on lower bound slack variables 
-    ocp.cost.Zu = np.diag( [1000, 1000,  1000])   # Quadratic cost on upper bound slack variables
-    ocp.cost.zl = np.array([0.1,  0.1,   0.1])    # Linear cost on lower bound slack variables
-    ocp.cost.zu = np.array([0.1,  0.1,   0.1])    # Linear cost on upper bound slack variables
+    # # Add slack to state constraints
+    # # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
+    # # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
+    # cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
+    # cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
+    # # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
+    # # So here, we have      v,    a_lon, a_squared
+    # ocp.cost.Zl = np.diag( [10,   1000,  1000])   # Quadratic cost on lower bound slack variables 
+    # ocp.cost.Zu = np.diag( [1000, 1000,  1000])   # Quadratic cost on upper bound slack variables
+    # ocp.cost.zl = np.array([0.1,  0.1,   0.1])    # Linear cost on lower bound slack variables
+    # ocp.cost.zu = np.array([0.1,  0.1,   0.1])    # Linear cost on upper bound slack variables
 
     # set boundaries for acceleration values through nonlinear constraints
     a_max = parameters['acceleration_max']
