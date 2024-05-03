@@ -26,7 +26,7 @@
     #### cost weights
     # [dlon, dlat, x, y, v, v_max, s_ref, obstacles, j_lon, alpha]
     cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0]
-    dynamic_weight: 1.1
+    dynamic_weight: 1.05
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]
