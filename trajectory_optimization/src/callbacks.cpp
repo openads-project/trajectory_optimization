@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
 namespace trajectory_optimization {
@@ -29,32 +31,46 @@ void TrajectoryOptimizationNode::driveableSpaceCallback(
  * @param[in] msg   input object list
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
+
   RCLCPP_INFO(this->get_logger(), "Received object list");
-  if (msg->header.frame_id != "base_link") {
-    RCLCPP_ERROR(this->get_logger(), "Object frame_id is not base_link"); // TODO: transform
+
+  // transform to reference frame
+  perception_msgs::msg::ObjectList tf_object_list;
+  geometry_msgs::msg::TransformStamped tf;
+  try {
+    geometry_msgs::msg::TransformStamped tf = tf2_buffer_->lookupTransform(vehicle_frame_id_, msg->header.frame_id, msg->header.stamp);
+  } catch (tf2::TransformException &ex) {
+    RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s': %s",
+                 msg->header.frame_id.c_str(), vehicle_frame_id_.c_str(), ex.what());
     return;
   }
-  object_list_.header = msg->header;
-  object_list_.objects.clear();
-  
+  tf2::doTransform(*msg, tf_object_list, tf);
+
   // calculate distance to each object
-  std::vector<double> object_distances;
-  for (size_t i = 0; i < msg->objects.size(); ++i) {
-    double distance = sqrt(pow(perception_msgs::object_access::getX(msg->objects[i]), 2) +
-                           pow(perception_msgs::object_access::getY(msg->objects[i]), 2));
-    object_distances.push_back(distance);
-  }
-  // sort objects by distance
-  std::vector<size_t> indices(object_distances.size());
-  std::iota(indices.begin(), indices.end(), 0);
-  std::sort(indices.begin(), indices.end(), [&object_distances](size_t i1, size_t i2) {
-    return object_distances[i1] < object_distances[i2];
-  });
-  // keep only first N objects
-  for (size_t i = 0; i < std::min<size_t>(p_obstacles_shape_[0], indices.size()); ++i) {
-    object_list_.objects.push_back(msg->objects[indices[i]]);
+  std::vector<double> distances;
+  for (size_t i = 0; i < tf_object_list.objects.size(); ++i) {
+    double distance = std::sqrt(std::pow(perception_msgs::object_access::getX(tf_object_list.objects[i]), 2) +
+                                std::pow(perception_msgs::object_access::getY(tf_object_list.objects[i]), 2));
+    distances.push_back(distance);
   }
 
+  // sort objects by distance
+  std::vector<size_t> indices_sorted_by_distance(distances.size());
+  std::iota(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), 0);
+  std::sort(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), [&distances](size_t i1, size_t i2) {
+    return distances[i1] < distances[i2];
+  });
+
+  // keep only the closest objects
+  std::vector<perception_msgs::msg::Object> closest_objects;
+  const int n_objects = std::min<size_t>(p_obstacles_shape_[0], indices_sorted_by_distance.size());
+  for (size_t i = 0; i < n_objects; ++i) {
+    closest_objects.push_back(tf_object_list.objects[indices_sorted_by_distance[i]]);
+  }
+  tf_object_list.objects = closest_objects;
+
+  // store as current object list
+  object_list_ = tf_object_list;
   received_object_list_ = true;
 }
 
