@@ -31,6 +31,7 @@ const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimiza
 const std::string TrajectoryOptimizationNode::kNStatesParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
 const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
+const std::string TrajectoryOptimizationNode::kWheelBaseParam = "wheelbase";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
 const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
 const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
@@ -74,6 +75,9 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "Print solver statistics";
   this->declare_parameter(kVerboseParam, verbose_, param_desc);
+
+  param_desc.description = "Wheelbase of the vehicle [m]";
+  this->declare_parameter(kWheelBaseParam, wheelbase_, param_desc);
 
   param_desc.description = "Cost function weights";
   this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
@@ -120,6 +124,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     verbose_ = this->get_parameter(kVerboseParam).as_bool();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%i'", kVerboseParam.c_str(), verbose_);
+  }
+  try {
+    wheelbase_ = this->get_parameter(kWheelBaseParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kWheelBaseParam.c_str());
   }
   try {
     cost_weights_ = this->get_parameter(kCostWeightsParam).as_double_array();
@@ -311,7 +320,7 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
     A.push_back(trajectory_planning_msgs::trajectory_access::getA(transformed_trajectory, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(transformed_trajectory, i));
     double delta =
-        atan(2.711 * trajectory_planning_msgs::trajectory_access::getKappa(
+        atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
                          transformed_trajectory, i));  // TODO: get L from parameter ; export to trajectory_access?
     DELTA.push_back(delta);
   }
