@@ -9,14 +9,15 @@ CURRENT_DIR_PATH = os.path.dirname(__file__)
 
 def parseArguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', help="configuaration file (.yml)", type=str, required=False, default='params.yml')
+    parser.add_argument('--config', help="configuration file (.yml)", type=str, required=False, default='params.yml')
     args = parser.parse_args()
     return args
 
 def readConfig(config):
     with open(os.path.join(CURRENT_DIR_PATH, config)) as configFile:
         config_params = yaml.load(configFile, yaml.FullLoader)
-    return config_params
+        params = config_params[next(iter(config_params))][next(iter(config_params[next(iter(config_params))]))]
+    return params
 
 def main():
     args = parseArguments()
@@ -32,7 +33,7 @@ def main():
 
     builder = builders.CMakeBuilder()
     builder.options_on = ['BUILD_ACADOS_SOLVER_LIB', 'BUILD_ACADOS_OCP_SOLVER_LIB']
-    
+
     acados_tp_ocp = AcadosOcpSolver(ocp, json_file = 'acados_tp_ocp.json', simulink_opts=None, build=True, generate=True, cmake_builder=builder)
 
 if __name__ == '__main__':

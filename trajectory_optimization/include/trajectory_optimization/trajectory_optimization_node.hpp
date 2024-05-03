@@ -14,6 +14,12 @@
 #include <perception_msgs_utils/object_access.hpp>
 #include <trajectory_planning_msgs_utils/trajectory_access.hpp>
 
+// tf2
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
+
 // acados
 #include <acados/utils/math.h>
 #include <acados/utils/print.h>
@@ -43,19 +49,30 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // parameter names
   static const std::string kOptimizationFreqParam;
-  static const std::string kNStatesParam;
+  static const std::string kNShotsParam;
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
+  static const std::string kWheelBaseParam;
+  static const std::string kCostWeightsParam;
+  static const std::string kInitAsRefParam;
+  static const std::string kHighLevelStabilizationParam;
+  static const std::string kPCostWeightsShapeParam;
+  static const std::string kPRefPathShapeParam;
 
   void declareParameters();
   void loadParameters();
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
   void setupSolver();
+  void freeSolver();
 
   void printSolution(int status);
 
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
+  void lowLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  void highLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
+                           double &output_y);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
@@ -70,6 +87,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
+  void setOcpParameters(std::vector<double> &cost_weights,
+                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
+
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
@@ -82,6 +102,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
+  std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
+
   // input data
   perception_msgs::msg::EgoData ego_data_;
   perception_msgs::msg::ObjectList object_list_;
@@ -89,11 +112,30 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
+  // received data flags
+  bool received_ego_data_ = false;
+
   // parameters
   double optimization_freq_ = 10.0;
-  int n_states_ = TRAJECTORY_PLANNING_N;
+  int n_shots_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  double wheelbase_ = 2.711;
+  bool init_as_ref_ = false;
+  bool high_level_stabilization_ = false;
+
+  // latest valid trajectory
+  trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
+
+  // cost weights
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+
+  // ocp parameter vector structure
+  std::vector<long int> p_cost_weights_shape_ = {8, 1};
+  std::vector<long int> p_ref_path_shape_ = {100, 4};
+  std::vector<long int> p_v_max_shape_ = {1, 1};
+  std::vector<long int> p_s_ref_shape_ = {1, 1};
+  std::vector<long int> p_obstacles_shape_ = {1, 3};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

@@ -14,6 +14,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(route_planning_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs_utils REQUIRED)
 
@@ -45,6 +47,8 @@ ament_target_dependencies(${TARGET_NAME}
   rclcpp_components
   route_planning_msgs
   std_msgs
+  tf2
+  tf2_trajectory_planning_msgs
   trajectory_planning_msgs
   trajectory_planning_msgs_utils
 )
