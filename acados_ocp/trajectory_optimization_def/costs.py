@@ -147,7 +147,6 @@ def set_costs(ocp: AcadosOcp, config):
     j_lon_term = ca.power(j_lon, 2)
     alpha_term = ca.power(alpha, 2)
 
-
     # cost functions
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term) + w_j_lon * j_lon_term + w_alpha * alpha_term
     ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term + w_j_lon * j_lon_term + w_alpha * alpha_term

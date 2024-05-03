@@ -18,13 +18,13 @@ def set_opts(ocp, config):
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP"
     opts.rti_log_residuals = 1
-    opts.nlp_solver_max_iter = 100  # default
+    opts.nlp_solver_max_iter = 70  # default 100
     opts.tol = 1e-4 # default 1e-6
-    opts.qp_solver_iter_max = 50    # default
+    opts.qp_solver_iter_max = 50    # default 50
     opts.qp_solver_warm_start = 0   # default. 1 slower, 2 diverges
     opts.qp_tol = 1e-4
-    opts.sim_method_num_stages = 4  # default
-    opts.sim_method_num_steps = 1   # default
+    opts.sim_method_num_stages = 4  # default 4
+    opts.sim_method_num_steps = 2   # default 1. 2 seems to make it slightly faster
     opts.globalization = 'FIXED_STEP' # String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0 # default
     opts.line_search_use_sufficient_descent = 0 # default
