@@ -39,12 +39,12 @@ def set_model(ocp, config):
     state_dot = vertcat(x_dot, y_dot, s_dot, v_dot, a_lon_dot, psi_dot, delta_dot)
 
     # dynamics
-    f_x_dot = state[STATE_INDEX_V]*cos(state[STATE_INDEX_PSI])
-    f_y_dot = state[STATE_INDEX_V]*sin(state[STATE_INDEX_PSI])
+    f_x_dot = state[STATE_INDEX_V] * cos(state[STATE_INDEX_PSI])
+    f_y_dot = state[STATE_INDEX_V] * sin(state[STATE_INDEX_PSI])
     f_s_dot = state[STATE_INDEX_V]
     f_v_dot = state[STATE_INDEX_A_LON]
     f_a_lon_dot = u[CONTROL_INDEX_J_LON]
-    f_psi_dot = state[STATE_INDEX_V]/l*tan(state[STATE_INDEX_DELTA])
+    f_psi_dot = state[STATE_INDEX_V] / l * tan(state[STATE_INDEX_DELTA])
     f_delta_dot = u[CONTROL_INDEX_ALPHA]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_dot, f_a_lon_dot, f_psi_dot, f_delta_dot)
 

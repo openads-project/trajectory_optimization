@@ -78,10 +78,10 @@ void TrajectoryOptimizationNode::declareParameters() {
   param_desc.description = "Cost function weights";
   this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
 
-  param_desc.description = "Initialize as reference trajectory";
+  param_desc.description = "Init solution of optimization problem as reference trajectory";
   this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
 
-  param_desc.description = "Use high-level stabilization strategy for init state";
+  param_desc.description = "Use high-level stabilization strategy for init state (= init with current EgoData)";
   this->declare_parameter(kHighLevelStabilizationParam, high_level_stabilization_, param_desc);
 
   param_desc.description = "OCP parameter vector shape for cost weights";
