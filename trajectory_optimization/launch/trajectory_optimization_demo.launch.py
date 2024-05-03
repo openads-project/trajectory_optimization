@@ -34,6 +34,7 @@ def generate_launch_description():
             launch_arguments=[
                 ("reference_trajectory_topic", "/demo_trajectory_pub_node/demo_trajectory"),
                 ("ego_data_topic", "/demo_trajectory_pub_node/ego_data")
+                ("object_list_topic", "/demo_trajectory_pub_node/demo_object_list"),
             ]
         ),
         IncludeLaunchDescription(

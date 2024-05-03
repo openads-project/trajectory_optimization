@@ -40,7 +40,7 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
   try {
     geometry_msgs::msg::TransformStamped tf = tf2_buffer_->lookupTransform(vehicle_frame_id_, msg->header.frame_id, msg->header.stamp);
   } catch (tf2::TransformException &ex) {
-    RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s': %s",
+    RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s', skipping: %s",
                  msg->header.frame_id.c_str(), vehicle_frame_id_.c_str(), ex.what());
     return;
   }
@@ -64,7 +64,7 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
   // keep only the closest objects
   std::vector<perception_msgs::msg::Object> closest_objects;
   const int n_objects = std::min<size_t>(p_obstacles_shape_[0], indices_sorted_by_distance.size());
-  for (size_t i = 0; i < n_objects; ++i) {
+  for (int i = 0; i < n_objects; ++i) {
     closest_objects.push_back(tf_object_list.objects[indices_sorted_by_distance[i]]);
   }
   tf_object_list.objects = closest_objects;

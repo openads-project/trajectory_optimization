@@ -753,14 +753,16 @@ void TrajectoryOptimizationNode::setOcpParameters(
 
     // obstacles
     // TODO: get obstacles from object list predictions
-    double r_obs = 1.0; // TODO: 
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
-    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity());
-    for (int i = 0; i < object_list_.objects.size(); ++i) {
-      obstacles.push_back(perception_msgs::object_access::getX(object_list_.objects[i]));
-      obstacles.push_back(perception_msgs::object_access::getY(object_list_.objects[i]));
-      obstacles.push_back(r_obs);
+    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
+    for (size_t i = 0; i < object_list_.objects.size(); ++i) {
+      double l = perception_msgs::object_access::getLength(object_list_.objects[i]);
+      double w = perception_msgs::object_access::getWidth(object_list_.objects[i]);
+      double circle_approximation_radius = std::sqrt(std::pow(l, 2) + std::pow(w, 2)) / 2;
+      obstacles[p_obstacles_shape_[1] * i + 0] = perception_msgs::object_access::getX(object_list_.objects[i]);
+      obstacles[p_obstacles_shape_[1] * i + 1] = perception_msgs::object_access::getY(object_list_.objects[i]);
+      obstacles[p_obstacles_shape_[1] * i + 2] = circle_approximation_radius;
     }
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
