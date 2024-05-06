@@ -532,6 +532,16 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
   latest_valid_trajectory_ = *trajectory;
+
+  // transform trajectory to output frame
+  geometry_msgs::msg::TransformStamped output_trajectory_transform;
+  try {
+    output_trajectory_transform = tf2_buffer_->lookupTransform(trajectory_frame_id_, trajectory->header.frame_id, trajectory->header.stamp);
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
+  }
+  tf2::doTransform(*trajectory, *trajectory, output_trajectory_transform);
+
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 
