@@ -55,9 +55,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
  * @brief Destroys a TrajectoryOptimizationNode node
  *
  */
-TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
-  freeSolver();
-}
+TrajectoryOptimizationNode::~TrajectoryOptimizationNode() { freeSolver(); }
 
 /**
  * @brief Declares all parameters that this node uses
@@ -175,7 +173,7 @@ void TrajectoryOptimizationNode::loadParameters() {
 rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
-    if (param.get_name() == kOptimizationFreqParam){
+    if (param.get_name() == kOptimizationFreqParam) {
       optimization_freq_ = param.as_double();
     } else if (param.get_name() == kNShotsParam) {
       n_shots_ = param.as_int();
@@ -259,7 +257,7 @@ void TrajectoryOptimizationNode::setup() {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       latest_valid_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
 
-  // setupSolver();
+  setupSolver();
 }
 
 void TrajectoryOptimizationNode::setupSolver() {
@@ -311,8 +309,9 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   // transform latest trajectory to current base_link frame
   geometry_msgs::msg::TransformStamped tf;
   try {
-    tf = tf2_buffer_->lookupTransform(latest_valid_trajectory_.header.frame_id, now(), latest_valid_trajectory_.header.frame_id, latest_valid_trajectory_.header.stamp, "map",
-                                      rclcpp::Duration::from_seconds(0.01));
+    tf = tf2_buffer_->lookupTransform(latest_valid_trajectory_.header.frame_id, now(),
+                                      latest_valid_trajectory_.header.frame_id, latest_valid_trajectory_.header.stamp,
+                                      "map", rclcpp::Duration::from_seconds(0.01));
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Tranformation is not available");
   }
@@ -329,9 +328,8 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
     V.push_back(trajectory_planning_msgs::trajectory_access::getV(transformed_trajectory, i));
     A.push_back(trajectory_planning_msgs::trajectory_access::getA(transformed_trajectory, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(transformed_trajectory, i));
-    double delta =
-        atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
-                         transformed_trajectory, i));  // export to trajectory_access?
+    double delta = atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
+                                         transformed_trajectory, i));  // export to trajectory_access?
     DELTA.push_back(delta);
   }
 
@@ -346,10 +344,11 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
               y_tgt, v_tgt, a_tgt, theta_tgt, delta_tgt);
 
   // define thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
-  double dx_max = 1.5; // maximum x-offset before bi-level stabilization hits; TODO: param
-  double dy_max = 1.5; // maximum y-offset before bi-level stabilization hits; TODO: param
-  double dv_max = 10.0; // maximum v difference before bi-level stabilization hits; TODO: param
-  if (fabs(x_tgt) > dx_max || fabs(y_tgt) > dy_max || fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max) {
+  double dx_max = 1.5;   // maximum x-offset before bi-level stabilization hits; TODO: param
+  double dy_max = 1.5;   // maximum y-offset before bi-level stabilization hits; TODO: param
+  double dv_max = 10.0;  // maximum v difference before bi-level stabilization hits; TODO: param
+  if (fabs(x_tgt) > dx_max || fabs(y_tgt) > dy_max ||
+      fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max) {
     x_tgt = 0.0;
     y_tgt = 0.0;
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
@@ -506,7 +505,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_pub_->publish(std::move(trajectory));
     return;
   }
-  setupSolver();
+  // setupSolver();
 
   if (received_ego_data_ && !trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     high_level_stabilization_ ? highLevelInitialization(ego_data_) : lowLevelInitialization(ego_data_);
@@ -514,6 +513,20 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(),
                 "Ego data not received or no latest trajectory available. Using default initial state. (0)");
   }
+  // TEMPORARY TESTING BLOCK
+  // double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
+  // // x_init[0] = 0;
+  // // x_init[3] = 5;
+  // // // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
+  // // x_init[4] = 0;
+  // // x_init[5] = 30.0*M_PI/180.0;
+  // // x_init[6] = 0.0;
+  // RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+  //             x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
+  // std::vector<double> x_init_v(7,0);
+  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init_v.data());
+  // ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+  // UNTIL HERE
 
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
@@ -554,7 +567,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 
-  freeSolver();
+  // freeSolver();
 }
 
 /**
@@ -608,8 +621,8 @@ void TrajectoryOptimizationNode::setOcpParameters(
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
-                                                    &floating_dynamic_weight, n);  
-    floating_dynamic_weight *= dynamic_weight_;                                             
+                                                    &floating_dynamic_weight, n);
+    floating_dynamic_weight *= dynamic_weight_;
 
     // ref path
     idx += n;
