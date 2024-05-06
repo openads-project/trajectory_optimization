@@ -49,9 +49,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // parameter names
   static const std::string kOptimizationFreqParam;
-  static const std::string kNStatesParam;
+  static const std::string kNShotsParam;
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
+  static const std::string kWheelBaseParam;
   static const std::string kCostWeightsParam;
   static const std::string kDynamicWeightParam;
   static const std::string kInitAsRefParam;
@@ -64,7 +65,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
-  void setupSolver(const perception_msgs::msg::EgoData &ego_data);
+  void setupSolver();
   void freeSolver();
 
   void printSolution(int status);
@@ -117,14 +118,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // parameters
   double optimization_freq_ = 10.0;
-  int n_states_ = TRAJECTORY_PLANNING_N;
+  int n_shots_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  double wheelbase_ = 2.711;
   bool init_as_ref_ = false;
   bool high_level_stabilization_ = false;
 
   // latest valid trajectory
-  trajectory_planning_msgs::msg::Trajectory latest_trajectory_;
+  trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
 
   // cost weights
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
@@ -133,7 +135,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // ocp parameter vector structure
   std::vector<long int> p_cost_weights_shape_ = {10, 1};
   std::vector<long int> p_ref_path_shape_ = {100, 4};
-  std::vector<long int> p_max_vel_shape_ = {1, 1};
+  std::vector<long int> p_v_max_shape_ = {1, 1};
   std::vector<long int> p_s_ref_shape_ = {1, 1};
   std::vector<long int> p_obstacles_shape_ = {1, 3};
 
