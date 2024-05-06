@@ -127,17 +127,17 @@ void TrajectoryOptimizationNode::loadParameters() {
   try {
     vehicle_frame_id_ = this->get_parameter(kVehicleFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(), vehicle_frame_id_);
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(), vehicle_frame_id_.c_str());
   }
   try {
     trajectory_frame_id_ = this->get_parameter(kTrajectoryFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(), trajectory_frame_id_);
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(), trajectory_frame_id_.c_str());
   }
   try {
     fixed_over_time_frame_id_ = this->get_parameter(kFixedOverTimeFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(), fixed_over_time_frame_id_);
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(), fixed_over_time_frame_id_.c_str());
   }
   try {
     optimization_freq_ = this->get_parameter(kOptimizationFreqParam).as_double();
@@ -351,7 +351,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_shots_];
 }
 
-void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
+std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
   // transform latest trajectory to current base_link frame
   geometry_msgs::msg::TransformStamped tf;
   try {
@@ -411,7 +411,7 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
-  double x_init[TRAJECTORY_PLANNING_NX];
+  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
   x_init[0] = 0.0;
   x_init[1] = y_tgt;
   x_init[2] = 0.0;
@@ -419,22 +419,16 @@ void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::m
   x_init[4] = a_tgt;
   x_init[5] = theta_tgt;
   x_init[6] = delta_tgt;
-  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
-              x_init[1], x_init[3], x_init[4], x_init[5], x_init[6]);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+  return x_init;
 }
 
-void TrajectoryOptimizationNode::highLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
-  double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
+std::vector<double> TrajectoryOptimizationNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
+  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
   // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
   x_init[4] = 0.0;
   x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
-              x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
+  return x_init;
 }
 
 /**
@@ -493,15 +487,22 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   setupSolver();
 
+  // set initial state
+  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
   if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
-    high_level_stabilization_ ? highLevelInitialization(ego_data_) : lowLevelInitialization(ego_data_);
+    x_init = high_level_stabilization_ ? getHighLevelX0(ego_data_) : getBiLevelX0(ego_data_);
   } else {
     RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
   }
+  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+              x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
 
+  // solve the optimization problem
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
   // get solution
@@ -557,30 +558,20 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // transform inputs to target base_link frame
-  geometry_msgs::msg::TransformStamped reference_trajectory_transform, object_list_transform;
-  try {
-    reference_trajectory_transform =
-      tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, reference_trajectory.header.frame_id,
-                                     reference_trajectory.header.stamp, fixed_over_time_frame_id_, rclcpp::Duration::from_seconds(0.01));
-    object_list_transform =
-      tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, object_list.header.frame_id,
-                                     object_list.header.stamp, fixed_over_time_frame_id_, rclcpp::Duration::from_seconds(0.01));
-  } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
-  }
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
-  tf2::doTransform(reference_trajectory, tf_reference_trajectory, reference_trajectory_transform);
+  transformToOcpTargetFrame(reference_trajectory, tf_reference_trajectory);
+
   perception_msgs::msg::ObjectList tf_object_list;
-  tf2::doTransform(object_list, tf_object_list, object_list_transform);
+  if (received_object_list_) transformToOcpTargetFrame(object_list, tf_object_list);
   
   if (init_as_ref_) {
     // set initial guess
-    double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
+    double initial_guess[TRAJECTORY_PLANNING_NX] = {0.0};
     for (int i = 0; i <= n_shots_; ++i) {
-      x_init[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
-      x_init[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
-      x_init[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
-      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
+      initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
+      initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
+      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess);
     }
   }
 

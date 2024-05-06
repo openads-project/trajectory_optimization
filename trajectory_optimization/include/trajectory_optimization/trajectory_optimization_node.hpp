@@ -74,9 +74,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
+  template <typename T>
+  void transformToOcpTargetFrame(const T& object_in, T& object_out);
 
-  void lowLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
-  void highLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
+  std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y);
 
@@ -120,6 +122,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // received data flags
   bool received_ego_data_ = false;
+  bool received_object_list_ = false;
 
   // parameters
   std::string vehicle_frame_id_ = "base_link";

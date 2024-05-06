@@ -31,6 +31,7 @@ void TrajectoryOptimizationNode::driveableSpaceCallback(
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received object list");
   object_list_ = *msg;
+  received_object_list_ = true;
 }
 
 /**
