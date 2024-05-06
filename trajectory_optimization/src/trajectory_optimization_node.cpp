@@ -352,58 +352,67 @@ void TrajectoryOptimizationNode::setupSolver() {
 }
 
 void TrajectoryOptimizationNode::lowLevelInitialization(const perception_msgs::msg::EgoData& ego_data) {
-  double des_time = (now() - latest_valid_trajectory_.header.stamp).seconds();
-  RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
-
   // transform latest trajectory to current base_link frame
   geometry_msgs::msg::TransformStamped tf;
   try {
-    tf = tf2_buffer_->lookupTransform(latest_valid_trajectory_.header.frame_id, now(), latest_valid_trajectory_.header.frame_id, latest_valid_trajectory_.header.stamp, "map",
+        tf = tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, latest_valid_trajectory_.header.frame_id,
+                                      latest_valid_trajectory_.header.stamp, fixed_over_time_frame_id_,
                                       rclcpp::Duration::from_seconds(0.01));
   } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Tranformation is not available");
+    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
   }
-  trajectory_planning_msgs::msg::Trajectory transformed_trajectory;
-  tf2::doTransform(latest_valid_trajectory_, transformed_trajectory, tf);
+  trajectory_planning_msgs::msg::Trajectory tf_trajectory;
+  tf2::doTransform(latest_valid_trajectory_, tf_trajectory, tf);
 
   // interpolate target states by time from the transformed trajectory
-  double v_tgt, x_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
-  std::vector<double> TIME, V, X, Y, A, THETA, DELTA;
-  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(transformed_trajectory); i++) {
-    TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(transformed_trajectory, i));
-    X.push_back(trajectory_planning_msgs::trajectory_access::getX(transformed_trajectory, i));
-    Y.push_back(trajectory_planning_msgs::trajectory_access::getY(transformed_trajectory, i));
-    V.push_back(trajectory_planning_msgs::trajectory_access::getV(transformed_trajectory, i));
-    A.push_back(trajectory_planning_msgs::trajectory_access::getA(transformed_trajectory, i));
-    THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(transformed_trajectory, i));
+  double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
+  RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
+  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
+  std::vector<double> TIME, V, Y, A, THETA, DELTA;
+  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_trajectory); i++) {
+    TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(tf_trajectory, i));
+    Y.push_back(trajectory_planning_msgs::trajectory_access::getY(tf_trajectory, i));
+    V.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_trajectory, i));
+    A.push_back(trajectory_planning_msgs::trajectory_access::getA(tf_trajectory, i));
+    THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_trajectory, i));
     double delta =
         atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
-                         transformed_trajectory, i));  // export to trajectory_access?
+                         tf_trajectory, i));  // export to trajectory_access?
     DELTA.push_back(delta);
   }
 
-  if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
-  if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
-  if (!linearInterpolation(TIME, V, des_time, v_tgt)) return;
-  if (!linearInterpolation(TIME, A, des_time, a_tgt)) return;
-  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) return;
-  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) return;
+  // interpolate target states; if not successful, set to ego state (high-level initialization)
+  if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
+  if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
+  if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
+  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) theta_tgt = 0.0;
+  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
-  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", x_tgt,
+  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", 0.0,
               y_tgt, v_tgt, a_tgt, theta_tgt, delta_tgt);
 
   // define thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
-  double dx_max = 1.5; // maximum x-offset before bi-level stabilization hits; TODO: param
-  double dy_max = 1.5; // maximum y-offset before bi-level stabilization hits; TODO: param
   double dv_max = 10.0; // maximum v difference before bi-level stabilization hits; TODO: param
-  if (fabs(x_tgt) > dx_max || fabs(y_tgt) > dy_max || fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max) {
-    x_tgt = 0.0;
-    y_tgt = 0.0;
+  double da_max = 10.0; // maximum a difference before bi-level stabilization hits; TODO: param
+  double dy_max = 1.5; // maximum y-offset before bi-level stabilization hits; TODO: param
+  double dyaw_max = 15.0; // maximum yaw difference before bi-level stabilization hits [degree]; TODO: param
+  double ddelta_max = 35.0; // maximum ackermann delta difference before bi-level stabilization hits [degree]; TODO: param
+  // longitudinal reinits
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > da_max) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
+    a_tgt = perception_msgs::object_access::getAccLon(ego_data);
+  }
+  // lateral reinits
+  if (fabs(y_tgt) > dy_max || fabs(theta_tgt) > dyaw_max * M_PI / 180.0) {
+    y_tgt = 0.0;
+    theta_tgt = 0.0;
+    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > ddelta_max) {
+    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
   double x_init[TRAJECTORY_PLANNING_NX];
-  x_init[0] = x_tgt;
+  x_init[0] = 0.0;
   x_init[1] = y_tgt;
   x_init[2] = 0.0;
   x_init[3] = v_tgt;
@@ -459,12 +468,17 @@ void TrajectoryOptimizationNode::freeSolver() {
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
+  if (!received_ego_data_) {
+    RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
+    return;
+  }
   // init trajectory message and set header
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
-  trajectory->header.frame_id = reference_trajectory_.header.frame_id;
+  trajectory->header.frame_id = vehicle_frame_id_;
+  trajectory->header.stamp = ego_data_.header.stamp; // set to ego_data stamp
 
   // init time-steps of trajectory to ensure increasing time-steps even for standstill trajectories
   double dt = optimization_horizon_ / n_shots_;
@@ -473,25 +487,20 @@ void TrajectoryOptimizationNode::planningCycle() {
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
-    trajectory->header.stamp = this->now();
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
     return;
   }
   setupSolver();
 
-  if (received_ego_data_ && !trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
+  if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     high_level_stabilization_ ? highLevelInitialization(ego_data_) : lowLevelInitialization(ego_data_);
   } else {
-    RCLCPP_WARN(this->get_logger(),
-                "Ego data not received or no latest trajectory available. Using default initial state. (0)");
+    RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
   }
 
   // update inputs to the ocp
   updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
-
-  // set header stamp of output trajectory
-  trajectory->header.stamp = this->now();
 
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
 
@@ -516,7 +525,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
-    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / 2.711;  // TODO: make this a parameter
+    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / wheelbase_;
     trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
     // TODO: dKappa
   }
@@ -537,24 +546,36 @@ void TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+  // transform inputs to target base_link frame
+  geometry_msgs::msg::TransformStamped reference_trajectory_transform, object_list_transform;
+  try {
+    reference_trajectory_transform =
+      tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, reference_trajectory.header.frame_id,
+                                     reference_trajectory.header.stamp, fixed_over_time_frame_id_, rclcpp::Duration::from_seconds(0.01));
+    object_list_transform =
+      tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, object_list.header.frame_id,
+                                     object_list.header.stamp, fixed_over_time_frame_id_, rclcpp::Duration::from_seconds(0.01));
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
+  }
+  trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
+  tf2::doTransform(reference_trajectory, tf_reference_trajectory, reference_trajectory_transform);
+  perception_msgs::msg::ObjectList tf_object_list;
+  tf2::doTransform(object_list, tf_object_list, object_list_transform);
+  
   if (init_as_ref_) {
     // set initial guess
     double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
     for (int i = 0; i <= n_shots_; ++i) {
-      x_init[0] = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
-      x_init[1] = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
-      x_init[3] = trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i);
-      if (i == 0) {
-        // TODO: get from ego_data (high-level stabilization) or last valid trajectory (low-level stabilization)
-        ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init);
-        ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init);
-      }
+      x_init[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
+      x_init[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
+      x_init[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
       ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
     }
   }
 
   // update ocp parameters
-  this->setOcpParameters(cost_weights_, reference_trajectory);
+  this->setOcpParameters(cost_weights_, tf_reference_trajectory);
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(
