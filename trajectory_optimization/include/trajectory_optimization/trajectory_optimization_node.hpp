@@ -48,6 +48,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kTrajectoryTopic;
 
   // parameter names
+  static const std::string kVehicleFrameIdParam;
+  static const std::string kTrajectoryFrameIdParam;
+  static const std::string kFixedOverTimeFrameIdParam;
   static const std::string kOptimizationFreqParam;
   static const std::string kNShotsParam;
   static const std::string kOptimizationHoizonParam;
@@ -119,6 +122,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_ego_data_ = false;
 
   // parameters
+  std::string vehicle_frame_id_ = "base_link";
+  std::string trajectory_frame_id_ = "base_link";
+  std::string fixed_over_time_frame_id_ = "map";
   double optimization_freq_ = 10.0;
   int n_shots_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;

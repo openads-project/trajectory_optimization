@@ -1,6 +1,9 @@
 /**:
   ros__parameters:
     #### ROS node parameters
+    vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame)
+    trajectory_frame_id: base_link  # Frame ID of output trajectory
+    fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
     high_level_stabilization: True  # init first trajectory point with with: current EgoData (True); interpoation of last trajectory (False)

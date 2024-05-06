@@ -27,6 +27,9 @@ const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
 
 const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
 
+const std::string TrajectoryOptimizationNode::kVehicleFrameIdParam = "vehicle_frame_id";
+const std::string TrajectoryOptimizationNode::kTrajectoryFrameIdParam = "trajectory_frame_id";
+const std::string TrajectoryOptimizationNode::kFixedOverTimeFrameIdParam = "fixed_over_time_frame_id";
 const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimization_frequency";
 const std::string TrajectoryOptimizationNode::kNShotsParam = "n_shots";
 const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
@@ -66,6 +69,15 @@ TrajectoryOptimizationNode::~TrajectoryOptimizationNode() {
  */
 void TrajectoryOptimizationNode::declareParameters() {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
+
+  param_desc.description = "Frame ID of local vehicle frame (the ocp is defined in this frame)";
+  this->declare_parameter(kVehicleFrameIdParam, vehicle_frame_id_, param_desc);
+
+  param_desc.description = "Frame ID of output trajectory";
+  this->declare_parameter(kTrajectoryFrameIdParam, trajectory_frame_id_, param_desc);
+
+  param_desc.description = "Frame ID of frame that is fixed over time for finding temporal transforms";
+  this->declare_parameter(kFixedOverTimeFrameIdParam, fixed_over_time_frame_id_, param_desc);
 
   param_desc.description = "Optimization Frequency in Hz";
   this->declare_parameter(kOptimizationFreqParam, optimization_freq_, param_desc);
@@ -112,6 +124,21 @@ void TrajectoryOptimizationNode::declareParameters() {
  *
  */
 void TrajectoryOptimizationNode::loadParameters() {
+  try {
+    vehicle_frame_id_ = this->get_parameter(kVehicleFrameIdParam).as_string();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(), vehicle_frame_id_);
+  }
+  try {
+    trajectory_frame_id_ = this->get_parameter(kTrajectoryFrameIdParam).as_string();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(), trajectory_frame_id_);
+  }
+  try {
+    fixed_over_time_frame_id_ = this->get_parameter(kFixedOverTimeFrameIdParam).as_string();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(), fixed_over_time_frame_id_);
+  }
   try {
     optimization_freq_ = this->get_parameter(kOptimizationFreqParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
