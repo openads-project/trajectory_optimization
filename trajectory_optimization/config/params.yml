@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     #### ROS node parameters
-    optimization_frequency: 10.0     # frequency of the optimization loop [Hz]
+    optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
     high_level_stabilization: True  # init first trajectory point with with: current EgoData (True); interpoation of last trajectory (False)
     verbose: True                   # print debug infromation and solver statistics
@@ -25,7 +25,7 @@
 
     #### cost weights
     # [dlon, dlat, x, y, v, v_max, s_ref, obstacles, j_lon, alpha]
-    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.1, 0.1]
     dynamic_weight: 1.1
 
     ### parameter vector structure
