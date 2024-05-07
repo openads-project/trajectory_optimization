@@ -51,19 +51,28 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kVehicleFrameIdParam;
   static const std::string kTrajectoryFrameIdParam;
   static const std::string kFixedOverTimeFrameIdParam;
+
   static const std::string kOptimizationFreqParam;
   static const std::string kNShotsParam;
   static const std::string kOptimizationHoizonParam;
   static const std::string kVerboseParam;
   static const std::string kWheelBaseParam;
+
   static const std::string kCostWeightsParam;
   static const std::string kInitAsRefParam;
   static const std::string kHighLevelStabilizationParam;
+
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
   static const std::string kPVMaxShapeParam;
   static const std::string kPSRefShapeParam;
   static const std::string kPObstaclesShapeParam;
+
+  static const std::string kBiLevelThresholdVParam;
+  static const std::string kBiLevelThresholdAParam;
+  static const std::string kBiLevelThresholdYParam;
+  static const std::string kBiLevelThresholdYawParam;
+  static const std::string kBiLevelThresholdDeltaParam;
 
   void declareParameters();
   void loadParameters();
@@ -133,6 +142,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double wheelbase_ = 2.711;
   bool init_as_ref_ = false;
   bool high_level_stabilization_ = false;
+
+  // bi-level thresholds
+  double bi_level_dV_ = 5.0;
+  double bi_level_dA_ = 2.0;
+  double bi_level_dY_ = 0.1;
+  double bi_level_dYaw_ = 5.0;
+  double bi_level_dDelta_ = 90.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;

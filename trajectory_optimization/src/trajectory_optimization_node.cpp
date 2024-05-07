@@ -45,6 +45,12 @@ const std::string TrajectoryOptimizationNode::kPVMaxShapeParam = "p_v_max_shape"
 const std::string TrajectoryOptimizationNode::kPSRefShapeParam = "p_s_ref_shape";
 const std::string TrajectoryOptimizationNode::kPObstaclesShapeParam = "p_obstacles_shape";
 
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdVParam = "bi_level_dV";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdAParam = "bi_level_dA";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdYParam = "bi_level_dY";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdYawParam = "bi_level_dYaw";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdDeltaParam = "bi_level_dDelta";
+
 /**
  * @brief Creates a TrajectoryOptimizationNode node
  *
@@ -117,6 +123,21 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "OCP parameter vector shape for obstacles";
   this->declare_parameter(kPObstaclesShapeParam, p_obstacles_shape_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum velocity difference [m/s]";
+  this->declare_parameter(kBiLevelThresholdVParam, bi_level_dV_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]";
+  this->declare_parameter(kBiLevelThresholdAParam, bi_level_dA_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum y-offset [m]";
+  this->declare_parameter(kBiLevelThresholdYParam, bi_level_dY_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum yaw difference [degree]";
+  this->declare_parameter(kBiLevelThresholdYawParam, bi_level_dYaw_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum steering angle difference [degree]";
+  this->declare_parameter(kBiLevelThresholdDeltaParam, bi_level_dDelta_, param_desc);
 }
 
 /**
@@ -206,6 +227,31 @@ void TrajectoryOptimizationNode::loadParameters() {
     p_obstacles_shape_ = this->get_parameter(kPObstaclesShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPObstaclesShapeParam.c_str());
+  }
+  try {
+    bi_level_dV_ = this->get_parameter(kBiLevelThresholdVParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdVParam.c_str());
+  }
+  try {
+    bi_level_dA_ = this->get_parameter(kBiLevelThresholdAParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdAParam.c_str());
+  }
+  try {
+    bi_level_dY_ = this->get_parameter(kBiLevelThresholdYParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYParam.c_str());
+  }
+  try {
+    bi_level_dYaw_ = this->get_parameter(kBiLevelThresholdYawParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYawParam.c_str());
+  }
+  try {
+    bi_level_dDelta_ = this->get_parameter(kBiLevelThresholdDeltaParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdDeltaParam.c_str());
   }
 }
 
@@ -399,23 +445,18 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f",
               y_tgt, v_tgt, a_tgt, theta_tgt, delta_tgt);
 
-  // define thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
-  double dv_max = 10.0; // maximum v difference before bi-level stabilization hits; TODO: param
-  double da_max = 10.0; // maximum a difference before bi-level stabilization hits; TODO: param
-  double dy_max = 1.5; // maximum y-offset before bi-level stabilization hits; TODO: param
-  double dyaw_max = 15.0; // maximum yaw difference before bi-level stabilization hits [degree]; TODO: param
-  double ddelta_max = 35.0; // maximum ackermann delta difference before bi-level stabilization hits [degree]; TODO: param
+  // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
-  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > da_max) {
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
     a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   }
   // lateral reinits
-  if (fabs(y_tgt) > dy_max || fabs(theta_tgt) > dyaw_max * M_PI / 180.0) {
+  if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
     y_tgt = 0.0;
     theta_tgt = 0.0;
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > ddelta_max) {
+  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_) {
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
