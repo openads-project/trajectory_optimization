@@ -18,6 +18,7 @@ namespace demo_trajectory_pub {
 
 // constants
 const std::string DemoTrajectoryPubNode::kTrajectoryTopic = "~/demo_trajectory";
+const std::string DemoTrajectoryPubNode::kEgoDataTopic = "~/ego_data";
 const std::string DemoTrajectoryPubNode::kNStatesParam = "n_states";
 const std::string DemoTrajectoryPubNode::kPubFreqParam = "publish_frequency";
 const std::string DemoTrajectoryPubNode::kTrajectoryHorizonParam = "trajectory_horizon";
@@ -183,7 +184,10 @@ void DemoTrajectoryPubNode::setup() {
 
   // set up publisher for output topic
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 10);
-  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
+  RCLCPP_INFO(this->get_logger(), "Publishing Trajectories to '%s'", trajectory_pub_->get_topic_name());
+
+  egodata_pub_ = this->create_publisher<perception_msgs::msg::EgoData>(kEgoDataTopic, 10);
+  RCLCPP_INFO(this->get_logger(), "Publishing EgoData to '%s'", egodata_pub_->get_topic_name());
 
   // create a callback for dynamic parameter configuration
   parameters_callback_ = this->add_on_set_parameters_callback(
@@ -199,6 +203,13 @@ void DemoTrajectoryPubNode::setup() {
  *
  */
 void DemoTrajectoryPubNode::pubTrajectory() {
+
+  perception_msgs::msg::EgoData::UniquePtr egodata = std::make_unique<perception_msgs::msg::EgoData>();
+  perception_msgs::object_access::initializeState(*egodata, perception_msgs::msg::EGO::MODEL_ID);
+  egodata->header.stamp = this->now();
+  egodata->header.frame_id = "map";
+  egodata_pub_->publish(std::move(egodata));
+
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(

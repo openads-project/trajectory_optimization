@@ -4,6 +4,8 @@
 
 #include <trajectory_planning_msgs/msg/trajectory.hpp>
 #include <trajectory_planning_msgs_utils/trajectory_access.hpp>
+#include <perception_msgs/msg/ego_data.hpp>
+#include <perception_msgs_utils/object_access.hpp>
 
 namespace demo_trajectory_pub {
 
@@ -15,6 +17,7 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
 
   // output topics
   static const std::string kTrajectoryTopic;
+  static const std::string kEgoDataTopic;
 
   // parameter names
   static const std::string kNStatesParam;
@@ -34,6 +37,7 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   void pubTrajectory();
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
+  rclcpp::Publisher<perception_msgs::msg::EgoData>::SharedPtr egodata_pub_;
   rclcpp::TimerBase::SharedPtr planning_timer_;
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
