@@ -29,6 +29,13 @@ def set_constraints(ocp : AcadosOcp, parameters):
     a_squared = ocp.model.x[STATE_INDEX_A_LON]**2 + a_lat**2
     ocp.model.con_h_expr = vertcat(a_squared)
     ocp.model.con_h_expr_e = vertcat(a_squared)
+
+    # set boundaries for acceleration values through nonlinear constraints
+    a_max = parameters['acceleration_max']
+    cons.lh = np.array([0])
+    cons.lh_e = np.array([0])
+    cons.uh = np.array([a_max**2])
+    cons.uh_e = np.array([a_max**2])
     
     # Add slack to state constraints
     # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
@@ -37,19 +44,13 @@ def set_constraints(ocp : AcadosOcp, parameters):
     cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
     # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
     # So here, we have      v,    a_lon, a_squared
-    ocp.cost.Zl = np.diag( [10,   1000,  1000])   # Quadratic cost on lower bound slack variables 
-    ocp.cost.Zu = np.diag( [1000, 1000,  1000])   # Quadratic cost on upper bound slack variables
-    ocp.cost.zl = np.array([0.1,  0.1,   0.1])    # Linear cost on lower bound slack variables
-    ocp.cost.zu = np.array([0.1,  0.1,   0.1])    # Linear cost on upper bound slack variables
-
-    # set boundaries for acceleration values through nonlinear constraints
-    a_max = parameters['acceleration_max']
-    cons.lh = np.array([0])
-    cons.lh_e = np.array([0])
-    cons.uh = np.array([a_max**2])
-    cons.uh_e = np.array([a_max**2])
+    ocp.cost.Zl = np.diag(parameters["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables 
+    ocp.cost.Zu = np.diag(parameters["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
+    ocp.cost.zl = np.array(parameters["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
+    ocp.cost.zu = np.array(parameters["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
 
     # set initial condition
+    # Note that this internally is mapped to idxbx_0=range(nx), lbx_0=x0, ubx_0=x0, so when setting these in the C++ node for step 0, all variables can be constrained.
     cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     ocp.constraints = cons
