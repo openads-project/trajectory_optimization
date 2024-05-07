@@ -539,7 +539,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
-    trajectory->header.frame_id = trajectory_frame_id_; // remove?
+    // TODO: tf into trajectory_frame_id_? (discuss)
     trajectory->header.stamp = now();
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
