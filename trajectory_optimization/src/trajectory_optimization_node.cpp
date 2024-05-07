@@ -561,7 +561,6 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_pub_->publish(std::move(trajectory));
     return;
   }
-  // setupSolver();
 
   // set initial state
   std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
@@ -578,7 +577,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
-    freeSolver();
     return;
   }
 
@@ -628,7 +626,6 @@ void TrajectoryOptimizationNode::planningCycle() {
                 "Transformation into output frame is not available. Publishing latest valid trajectory. Ex: %s",
                 ex.what());
     trajectory_pub_->publish(latest_valid_trajectory_);
-    freeSolver();
     return;
   }
 
@@ -636,7 +633,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 
-  // freeSolver();
 }
 
 /**
