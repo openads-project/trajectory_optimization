@@ -46,6 +46,12 @@ const std::string TrajectoryOptimizationNode::kPVMaxShapeParam = "p_v_max_shape"
 const std::string TrajectoryOptimizationNode::kPSRefShapeParam = "p_s_ref_shape";
 const std::string TrajectoryOptimizationNode::kPObstaclesShapeParam = "p_obstacles_shape";
 
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdVParam = "bi_level_dV";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdAParam = "bi_level_dA";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdYParam = "bi_level_dY";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdYawParam = "bi_level_dYaw";
+const std::string TrajectoryOptimizationNode::kBiLevelThresholdDeltaParam = "bi_level_dDelta";
+
 /**
  * @brief Creates a TrajectoryOptimizationNode node
  *
@@ -119,6 +125,21 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "OCP parameter vector shape for obstacles";
   this->declare_parameter(kPObstaclesShapeParam, p_obstacles_shape_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum velocity difference [m/s]";
+  this->declare_parameter(kBiLevelThresholdVParam, bi_level_dV_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]";
+  this->declare_parameter(kBiLevelThresholdAParam, bi_level_dA_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum y-offset [m]";
+  this->declare_parameter(kBiLevelThresholdYParam, bi_level_dY_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum yaw difference [degree]";
+  this->declare_parameter(kBiLevelThresholdYawParam, bi_level_dYaw_, param_desc);
+
+  param_desc.description = "Threshold for bi-level stabilization: maximum steering angle difference [degree]";
+  this->declare_parameter(kBiLevelThresholdDeltaParam, bi_level_dDelta_, param_desc);
 }
 
 /**
@@ -213,6 +234,31 @@ void TrajectoryOptimizationNode::loadParameters() {
     p_obstacles_shape_ = this->get_parameter(kPObstaclesShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPObstaclesShapeParam.c_str());
+  }
+  try {
+    bi_level_dV_ = this->get_parameter(kBiLevelThresholdVParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdVParam.c_str());
+  }
+  try {
+    bi_level_dA_ = this->get_parameter(kBiLevelThresholdAParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdAParam.c_str());
+  }
+  try {
+    bi_level_dY_ = this->get_parameter(kBiLevelThresholdYParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYParam.c_str());
+  }
+  try {
+    bi_level_dYaw_ = this->get_parameter(kBiLevelThresholdYawParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYawParam.c_str());
+  }
+  try {
+    bi_level_dDelta_ = this->get_parameter(kBiLevelThresholdDeltaParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdDeltaParam.c_str());
   }
 }
 
@@ -373,21 +419,15 @@ void TrajectoryOptimizationNode::setupSolver() {
  */
 std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
   // transform latest trajectory to current base_link frame
-  geometry_msgs::msg::TransformStamped tf;
-  try {
-    tf = tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data.header.stamp, latest_valid_trajectory_.header.frame_id,
-                                      latest_valid_trajectory_.header.stamp, fixed_over_time_frame_id_,
-                                      rclcpp::Duration::from_seconds(0.01));
-  } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
-  }
   trajectory_planning_msgs::msg::Trajectory tf_trajectory;
-  tf2::doTransform(latest_valid_trajectory_, tf_trajectory, tf);
+  try {
+    tf_trajectory = tf2_buffer_->transform(latest_valid_trajectory_, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Transformation is not available. Init high-level instead. Ex: %s", ex.what());
+    return getHighLevelX0(ego_data);
+  }
 
-  // interpolate target states by time from the transformed trajectory
-  double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
-  RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
-  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
+  // fill vectors with state values from the transformed trajectory
   std::vector<double> TIME, V, Y, A, THETA, DELTA;
   for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_trajectory); i++) {
     TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(tf_trajectory, i));
@@ -401,33 +441,31 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     DELTA.push_back(delta);
   }
 
-  // interpolate target states; if not successful, set to ego state (high-level initialization)
+  // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
+  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
+  double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
+  RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) theta_tgt = 0.0;
   if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
-  RCLCPP_WARN(this->get_logger(), "x_tgt: %f, y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", 0.0,
+  RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f",
               y_tgt, v_tgt, a_tgt, theta_tgt, delta_tgt);
 
-  // define thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
-  double dv_max = 10.0; // maximum v difference before bi-level stabilization hits; TODO: param
-  double da_max = 10.0; // maximum a difference before bi-level stabilization hits; TODO: param
-  double dy_max = 1.5; // maximum y-offset before bi-level stabilization hits; TODO: param
-  double dyaw_max = 15.0; // maximum yaw difference before bi-level stabilization hits [degree]; TODO: param
-  double ddelta_max = 35.0; // maximum ackermann delta difference before bi-level stabilization hits [degree]; TODO: param
+  // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
-  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > dv_max || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > da_max) {
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
     a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   }
   // lateral reinits
-  if (fabs(y_tgt) > dy_max || fabs(theta_tgt) > dyaw_max * M_PI / 180.0) {
+  if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
     y_tgt = 0.0;
     theta_tgt = 0.0;
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > ddelta_max) {
+  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_) {
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
@@ -510,7 +548,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
-    trajectory->header.frame_id = trajectory_frame_id_; // remove?
+    // TODO: tf into trajectory_frame_id_? (discuss)
     trajectory->header.stamp = now();
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
@@ -525,7 +563,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   } else {
     RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
   }
-  RCLCPP_WARN(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+  RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
               x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
@@ -568,12 +606,15 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
   // transform trajectory to output frame
-  geometry_msgs::msg::TransformStamped output_trajectory_transform;
   try {
-    output_trajectory_transform = tf2_buffer_->lookupTransform(trajectory_frame_id_, trajectory->header.frame_id, trajectory->header.stamp);
-    tf2::doTransform(*trajectory, *trajectory, output_trajectory_transform);
+    if (trajectory_frame_id_ != vehicle_frame_id_){
+      trajectory_planning_msgs::msg::Trajectory::UniquePtr tf_trajectory;
+      tf_trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>(tf2_buffer_->transform(*trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01)));
+      trajectory = std::move(tf_trajectory);
+    }
   } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Do not publish trajectory. Ex: %s", ex.what());
+    RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Publishing latest valid trajectory. Ex: %s", ex.what());
+    trajectory_pub_->publish(latest_valid_trajectory_);
     freeSolver();
     return;
   }
