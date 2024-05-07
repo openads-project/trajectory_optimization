@@ -150,17 +150,20 @@ void TrajectoryOptimizationNode::loadParameters() {
   try {
     vehicle_frame_id_ = this->get_parameter(kVehicleFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(), vehicle_frame_id_.c_str());
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(),
+                vehicle_frame_id_.c_str());
   }
   try {
     trajectory_frame_id_ = this->get_parameter(kTrajectoryFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(), trajectory_frame_id_.c_str());
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(),
+                trajectory_frame_id_.c_str());
   }
   try {
     fixed_over_time_frame_id_ = this->get_parameter(kFixedOverTimeFrameIdParam).as_string();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(), fixed_over_time_frame_id_.c_str());
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(),
+                fixed_over_time_frame_id_.c_str());
   }
   try {
     optimization_freq_ = this->get_parameter(kOptimizationFreqParam).as_double();
@@ -421,7 +424,9 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   // transform latest trajectory to current base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_trajectory;
   try {
-    tf_trajectory = tf2_buffer_->transform(latest_valid_trajectory_, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+    tf_trajectory =
+        tf2_buffer_->transform(latest_valid_trajectory_, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Init high-level instead. Ex: %s", ex.what());
     return getHighLevelX0(ego_data);
@@ -435,28 +440,30 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     V.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_trajectory, i));
     A.push_back(trajectory_planning_msgs::trajectory_access::getA(tf_trajectory, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_trajectory, i));
-    double delta =
-        atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
-                         tf_trajectory, i));  // export to trajectory_access?
+    double delta = atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
+                                         tf_trajectory, i));  // export to trajectory_access?
     DELTA.push_back(delta);
   }
 
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
   double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
-  double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
+  double des_time =
+      (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
   RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) theta_tgt = 0.0;
-  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
+    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
-  RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f",
-              y_tgt, v_tgt, a_tgt, theta_tgt, delta_tgt);
+  RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", y_tgt, v_tgt, a_tgt,
+               theta_tgt, delta_tgt);
 
   // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
-  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ || fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ ||
+      fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
     v_tgt = perception_msgs::object_access::getVelLon(ego_data);
     a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   }
@@ -539,7 +546,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
   trajectory->header.frame_id = vehicle_frame_id_;
-  trajectory->header.stamp = ego_data_.header.stamp; // use latest ego_data stamp as trajectory stamp
+  trajectory->header.stamp = ego_data_.header.stamp;  // use latest ego_data stamp as trajectory stamp
 
   // init time-steps of trajectory to ensure increasing time-steps even for standstill trajectories
   double dt = optimization_horizon_ / n_shots_;
@@ -564,7 +571,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
   }
   RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
-              x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
+               x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 
@@ -588,6 +595,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d. Publishing latest valid trajectory.", status);
     trajectory_pub_->publish(latest_valid_trajectory_);
+    // reset control problem
+    freeSolver();
+    setupSolver();
     return;
   }
 
@@ -607,13 +617,16 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // transform trajectory to output frame
   try {
-    if (trajectory_frame_id_ != vehicle_frame_id_){
+    if (trajectory_frame_id_ != vehicle_frame_id_) {
       trajectory_planning_msgs::msg::Trajectory::UniquePtr tf_trajectory;
-      tf_trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>(tf2_buffer_->transform(*trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01)));
+      tf_trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>(
+          tf2_buffer_->transform(*trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01)));
       trajectory = std::move(tf_trajectory);
     }
   } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Publishing latest valid trajectory. Ex: %s", ex.what());
+    RCLCPP_WARN(this->get_logger(),
+                "Transformation into output frame is not available. Publishing latest valid trajectory. Ex: %s",
+                ex.what());
     trajectory_pub_->publish(latest_valid_trajectory_);
     freeSolver();
     return;
@@ -644,15 +657,18 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;
   try {
-    tf_reference_trajectory = tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+    tf_reference_trajectory =
+        tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
     if (!object_list.objects.empty()) {
-      tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+      tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+                                              fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
     }
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
   }
-  
+
   if (init_as_ref_) {
     // set initial guess
     double initial_guess[TRAJECTORY_PLANNING_NX] = {0.0};
