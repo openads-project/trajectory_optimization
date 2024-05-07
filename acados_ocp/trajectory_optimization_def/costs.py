@@ -28,14 +28,14 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
-    ind_params = 0
-    p_cost_weights = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_cost_weights)]
-    p_dynamic_weight = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_dynamic_weight)]
-    p_ref_path = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_ref_path)]
-    p_v_max = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_v_max)]
-    p_s_ref = ocp.model.p[ind_params:(ind_params:=ind_params+n_params_s_ref)]
-    p_obstacles = ocp.model.p[ind_params:(ind_params:=ind_params+n_obstacles)]
-    assert ind_params == n_params
+    idx_params = 0
+    p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
+    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
+    p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
+    p_v_max = ocp.model.p[idx_params:(idx_params := idx_params + n_params_v_max)]
+    p_s_ref = ocp.model.p[idx_params:(idx_params := idx_params + n_params_s_ref)]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_obstacles)]
+    assert idx_params == n_params
 
     # consider only the actual reference path (could be smaller than the parameter space; identify by first infinite value)
     idx_inf = n_params_ref_path
