@@ -21,7 +21,11 @@ find_package(trajectory_planning_msgs_utils REQUIRED)
 
 set(TARGET_NAME trajectory_optimization_node_component)
 
-add_library(${TARGET_NAME} SHARED src/trajectory_optimization_node.cpp)
+add_library(${TARGET_NAME} SHARED 
+  src/callbacks.cpp
+  src/trajectory_optimization_node.cpp
+  src/utils.cpp
+)
 
 target_link_libraries(${TARGET_NAME}
   acados

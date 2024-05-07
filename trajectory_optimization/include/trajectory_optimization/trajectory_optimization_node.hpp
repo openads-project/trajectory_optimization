@@ -48,6 +48,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kTrajectoryTopic;
 
   // parameter names
+  static const std::string kVehicleFrameIdParam;
+  static const std::string kTrajectoryFrameIdParam;
+  static const std::string kFixedOverTimeFrameIdParam;
   static const std::string kOptimizationFreqParam;
   static const std::string kNShotsParam;
   static const std::string kOptimizationHoizonParam;
@@ -59,6 +62,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kHighLevelStabilizationParam;
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
+  static const std::string kPVMaxShapeParam;
+  static const std::string kPSRefShapeParam;
+  static const std::string kPObstaclesShapeParam;
 
   void declareParameters();
   void loadParameters();
@@ -70,8 +76,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void printSolution(int status);
 
-  void lowLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
-  void highLevelInitialization(const perception_msgs::msg::EgoData &ego_data);
+  std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
+  std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y);
 
@@ -82,7 +88,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
-  void updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
+  bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
                        const route_planning_msgs::msg::DriveableSpace &driveable_space,
                        const route_planning_msgs::msg::Route &route,
@@ -115,8 +121,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // received data flags
   bool received_ego_data_ = false;
+  bool received_object_list_ = false;
 
   // parameters
+  std::string vehicle_frame_id_ = "base_link";
+  std::string trajectory_frame_id_ = "base_link";
+  std::string fixed_over_time_frame_id_ = "map";
   double optimization_freq_ = 10.0;
   int n_shots_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
@@ -137,7 +147,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<long int> p_ref_path_shape_ = {100, 4};
   std::vector<long int> p_v_max_shape_ = {1, 1};
   std::vector<long int> p_s_ref_shape_ = {1, 1};
-  std::vector<long int> p_obstacles_shape_ = {1, 3};
+  std::vector<long int> p_obstacles_shape_ = {10, 3};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
