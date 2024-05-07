@@ -74,8 +74,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
-  template <typename T>
-  void transformToOcpTargetFrame(const T& object_in, T& object_out);
 
   std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
   std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
@@ -89,7 +87,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
-  void updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
+  bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
                        const route_planning_msgs::msg::DriveableSpace &driveable_space,
                        const route_planning_msgs::msg::Route &route,

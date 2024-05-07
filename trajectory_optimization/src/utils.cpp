@@ -46,28 +46,6 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
   return true;
 }
 
-
-/**
- * @brief Transforms any input object to the target frame of the trajectory optimization problem.
- *
- * This function transforms any input object to the target frame of the trajectory optimization problem.
- *
- * @tparam T The type of the object to be transformed.
- * @param object_in The input object to be transformed.
- * @param object_out The output object after transformation.
- */
-template <typename T>
-void TrajectoryOptimizationNode::transformToOcpTargetFrame(const T& object_in, T& object_out) {
-  geometry_msgs::msg::TransformStamped tf;
-  try {
-    tf = tf2_buffer_->lookupTransform(vehicle_frame_id_, ego_data_.header.stamp, object_in.header.frame_id,
-                                     object_in.header.stamp, fixed_over_time_frame_id_, rclcpp::Duration::from_seconds(0.01));
-  } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
-  }
-  tf2::doTransform(object_in, object_out, tf);
-}
-
 /**
  * @brief Prints the solution of the trajectory optimization problem.
  *

@@ -6,7 +6,7 @@
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
-    high_level_stabilization: True  # init first trajectory point with with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    high_level_stabilization: False # init first trajectory point with with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     verbose: True                   # print debug infromation and solver statistics
 
     #### general parameters defining the ocp

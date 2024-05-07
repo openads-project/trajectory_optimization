@@ -351,6 +351,17 @@ void TrajectoryOptimizationNode::setupSolver() {
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_shots_];
 }
 
+/**
+ * @brief Calculates and returns the initial state vector for the ocp using bi-level stabilization.
+ *
+ * This function uses bi-level stabilization for initializing the optimization problem.
+ * In general the initial state is interpolated from the latest trajectory (-> low-level stabilization).
+ * But if the difference between the interpolated state and the ego state is too large, the ego state is used instead (-> high-level stabilization).
+ * This combination of low- and high-level stabilization is called bi-level stabilization.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
   // transform latest trajectory to current base_link frame
   geometry_msgs::msg::TransformStamped tf;
@@ -359,7 +370,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
                                       latest_valid_trajectory_.header.stamp, fixed_over_time_frame_id_,
                                       rclcpp::Duration::from_seconds(0.01));
   } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
+    RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
   }
   trajectory_planning_msgs::msg::Trajectory tf_trajectory;
   tf2::doTransform(latest_valid_trajectory_, tf_trajectory, tf);
@@ -422,6 +433,15 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   return x_init;
 }
 
+/**
+ * @brief Returns the initial state vector for the ocp using higl-level stabilization.
+ *
+ * This function uses high-level stabilization for initializing the optimization problem.
+ * -> initial state = current state of the ego vehicle.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
   std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
@@ -472,7 +492,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
   trajectory->header.frame_id = vehicle_frame_id_;
-  trajectory->header.stamp = ego_data_.header.stamp; // set to ego_data stamp
+  trajectory->header.stamp = ego_data_.header.stamp; // use latest ego_data stamp as trajectory stamp
 
   // init time-steps of trajectory to ensure increasing time-steps even for standstill trajectories
   double dt = optimization_horizon_ / n_shots_;
@@ -481,6 +501,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
+    trajectory->header.frame_id = trajectory_frame_id_; // remove?
+    trajectory->header.stamp = now();
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
     return;
@@ -499,8 +521,12 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 
-  // update inputs to the ocp
-  updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_);
+  // update inputs to the ocp; skip planning cycle if update fails
+  if (!updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_)) {
+    RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
+    freeSolver();
+    return;
+  }
 
   // solve the optimization problem
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
@@ -532,17 +558,18 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
-  latest_valid_trajectory_ = *trajectory;
-
   // transform trajectory to output frame
   geometry_msgs::msg::TransformStamped output_trajectory_transform;
   try {
     output_trajectory_transform = tf2_buffer_->lookupTransform(trajectory_frame_id_, trajectory->header.frame_id, trajectory->header.stamp);
+    tf2::doTransform(*trajectory, *trajectory, output_trajectory_transform);
   } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(), "Tranformation is not available. Ex: %s", ex.what());
+    RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Do not publish trajectory. Ex: %s", ex.what());
+    freeSolver();
+    return;
   }
-  tf2::doTransform(*trajectory, *trajectory, output_trajectory_transform);
 
+  latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 
@@ -550,19 +577,31 @@ void TrajectoryOptimizationNode::planningCycle() {
 }
 
 /**
- * @brief This function updates the inputs to the ocp
+ * @brief Updates the inputs for the ocp.
  *
+ * @param ego_data
+ * @param object_list
+ * @param driveable_space (currently unused)
+ * @param route (currently unused)
+ * @param reference_trajectory
+ * @return True if the inputs were successfully updated, false otherwise.
  */
-void TrajectoryOptimizationNode::updateOcpInputs(
+bool TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
-  transformToOcpTargetFrame(reference_trajectory, tf_reference_trajectory);
-
   perception_msgs::msg::ObjectList tf_object_list;
-  if (received_object_list_) transformToOcpTargetFrame(object_list, tf_object_list);
+  try {
+    tf_reference_trajectory = tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+    if (!object_list.objects.empty()) {
+      tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp), fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+    }
+  } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
+    return false;
+  }
   
   if (init_as_ref_) {
     // set initial guess
@@ -577,6 +616,8 @@ void TrajectoryOptimizationNode::updateOcpInputs(
 
   // update ocp parameters
   this->setOcpParameters(cost_weights_, tf_reference_trajectory);
+
+  return true;
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(
