@@ -1,11 +1,13 @@
 from acados_template import AcadosOcpConstraints, AcadosOcp
-from casadi import vertcat
+from casadi import vertcat, fmin, fmax, tan
 from constants import *
 import numpy as np
 
 def set_constraints(ocp : AcadosOcp, parameters):
     
     cons = AcadosOcpConstraints()
+    
+    l = parameters['wheelbase']
 
     # set constraints on state
     # set v_min < v < v_max [m/s]
@@ -24,8 +26,9 @@ def set_constraints(ocp : AcadosOcp, parameters):
 
     # define nonlinear constraint expression for acceleration
     # a <= sqrt(a_lon^2 + a_lat^2) i.e. a^2 <= a_lon^2 + a_lat^2
-    # a_lat = v * psi
-    a_lat = ocp.model.x[STATE_INDEX_V] * ocp.model.x[STATE_INDEX_PSI]
+    # a_lat = v * psiDot
+    psi_dot = ocp.model.x[STATE_INDEX_V] / l * fmax(-10, fmin(10, tan(ocp.model.x[STATE_INDEX_DELTA])))
+    a_lat = ocp.model.x[STATE_INDEX_V] * psi_dot
     a_squared = ocp.model.x[STATE_INDEX_A_LON]**2 + a_lat**2
     ocp.model.con_h_expr = vertcat(a_squared)
     ocp.model.con_h_expr_e = vertcat(a_squared)
