@@ -3,7 +3,7 @@ from casadi import vertcat, fmin, fmax, tan
 from constants import *
 import numpy as np
 
-def set_constraints(ocp : AcadosOcp, parameters):
+def set_constraints(ocp: AcadosOcp, parameters):
     
     cons = AcadosOcpConstraints()
     
