@@ -657,8 +657,11 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
     if (!object_list.objects.empty()) {
-      tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
-                                              fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+      // tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+      //                                         fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+      tf_object_list = object_list; // remove after fixing tf2 problems with object list (see hpp)
+    } else {
+      tf_object_list = object_list;
     }
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
@@ -716,7 +719,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
     // fill ref_path vector with values from reference_trajectory
     std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
-    if (reference_trajectory.states.size() >= n) {
+    if (reference_trajectory.states.size() >= (size_t) n) {
       std::copy(reference_trajectory.states.begin(), reference_trajectory.states.begin() + n, ref_path.begin());
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
