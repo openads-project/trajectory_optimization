@@ -1,5 +1,5 @@
 import numpy as np
-from acados_template import AcadosOcpCost
+from acados_template import AcadosOcpCost, AcadosOcp
 from constants import *
 import casadi as ca
 
@@ -9,7 +9,7 @@ P_REF_PATH_INDEX_Y = 2
 P_REF_PATH_INDEX_V = 3
 
 
-def set_costs(ocp, config):
+def set_costs(ocp: AcadosOcp, config):
 
     # set up as external cost function
     cost = AcadosOcpCost()
@@ -19,19 +19,23 @@ def set_costs(ocp, config):
 
     # initialize parameters
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
+    n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
     n_params_v_max = np.prod(config["p_v_max_shape"])
     n_params_s_ref = np.prod(config["p_s_ref_shape"])
     n_obstacles = np.prod(config["p_obstacles_shape"])
-    n_params = n_params_cost_weights + n_params_ref_path + n_params_v_max + n_params_s_ref + n_obstacles
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_v_max + n_params_s_ref + n_obstacles
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
-    p_cost_weights = ocp.model.p[0:n_params_cost_weights]
-    p_ref_path = ocp.model.p[n_params_cost_weights:n_params_cost_weights + n_params_ref_path]
-    p_v_max = ocp.model.p[n_params_cost_weights + n_params_ref_path:n_params_cost_weights + n_params_ref_path + n_params_v_max]
-    p_s_ref = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_v_max:n_params_cost_weights + n_params_ref_path + n_params_v_max + n_params_s_ref]
-    p_obstacles = ocp.model.p[n_params_cost_weights + n_params_ref_path + n_params_v_max + n_params_s_ref:n_params]
+    idx_params = 0
+    p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
+    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
+    p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
+    p_v_max = ocp.model.p[idx_params:(idx_params := idx_params + n_params_v_max)]
+    p_s_ref = ocp.model.p[idx_params:(idx_params := idx_params + n_params_s_ref)]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_obstacles)]
+    assert idx_params == n_params
 
     # consider only the actual reference path (could be smaller than the parameter space; identify by first infinite value)
     idx_inf = n_params_ref_path
@@ -117,6 +121,10 @@ def set_costs(ocp, config):
     obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin) 
     obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
+    # input costs
+    j_lon = ocp.model.u[CONTROL_INDEX_J_LON]
+    alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
+
     # cost term weights
     w_lon = p_cost_weights[0]
     w_lat = p_cost_weights[1]
@@ -126,6 +134,8 @@ def set_costs(ocp, config):
     w_v_max = p_cost_weights[5]
     w_s_ref = p_cost_weights[6]
     w_obstacles = p_cost_weights[7]
+    w_j_lon = p_cost_weights[8]
+    w_alpha = p_cost_weights[9]    
 
     # individual cost terms
     dlon_term = ca.power(dlon, 2)
@@ -135,8 +145,10 @@ def set_costs(ocp, config):
     v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_v_max, 2)
     s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
+    j_lon_term = ca.power(j_lon, 2)
+    alpha_term = ca.power(alpha, 2)
 
     # cost functions
-    ocp.model.cost_expr_ext_cost = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term
-    ocp.model.cost_expr_ext_cost_0 = w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term
-    ocp.model.cost_expr_ext_cost_e = w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_s_ref * s_ref_term + w_obstacles * obstacles_term
+    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term) + w_j_lon * j_lon_term + w_alpha * alpha_term
+    ocp.model.cost_expr_ext_cost_0 = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_obstacles * obstacles_term) + w_j_lon * j_lon_term + w_alpha * alpha_term
+    ocp.model.cost_expr_ext_cost_e = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_s_ref * s_ref_term + w_obstacles * obstacles_term)

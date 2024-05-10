@@ -1,7 +1,7 @@
 import numpy as np
 from acados_template import AcadosModel
 from constants import *
-from casadi import MX, vertcat, sin, cos, tan
+from casadi import MX, vertcat, sin, cos, tan, fmin, fmax
 
 def set_model(ocp, config):
 
@@ -44,7 +44,8 @@ def set_model(ocp, config):
     f_s_dot = state[STATE_INDEX_V]
     f_v_dot = state[STATE_INDEX_A_LON]
     f_a_lon_dot = u[CONTROL_INDEX_J_LON]
-    f_psi_dot = state[STATE_INDEX_V] / l * tan(state[STATE_INDEX_DELTA])
+    # For numeric stability, constraint the tan function
+    f_psi_dot = state[STATE_INDEX_V] / l * fmax(-10, fmin(10, tan(state[STATE_INDEX_DELTA])))
     f_delta_dot = u[CONTROL_INDEX_ALPHA]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_dot, f_a_lon_dot, f_psi_dot, f_delta_dot)
 
@@ -57,11 +58,12 @@ def set_model(ocp, config):
 
     # parameters
     p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts x 1)
+    p_dynamic_weight = MX.sym('dynamic_weight', 1) # (1 x 1)
     p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v))
     p_v_max = MX.sym('v_max', np.prod(config['p_v_max_shape'])) # (1 x 1)
     p_s_ref = MX.sym('s_ref', np.prod(config['p_s_ref_shape'])) # (1 x 1)
     p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacles_shape'])) # (nObstacles x (x, y, r))
-    params = vertcat(p_cost_weights, p_ref_path, p_v_max, p_s_ref, p_obstacles)
+    params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_v_max, p_s_ref, p_obstacles)
     model.p = params
 
     ocp.model = model

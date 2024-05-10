@@ -4,6 +4,7 @@ import os
 from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
+from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 def generate_launch_description():
@@ -19,15 +20,24 @@ def generate_launch_description():
         "launch",
         "demo_trajectory_pub_node.launch.py"
     )
+    
+    static_transform_publisher = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0", "0", "0", "0", "0", "0", "map", "base_link"],
+        output="screen"
+    )
 
     return LaunchDescription([
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(trajectory_optimization_launch_file),
             launch_arguments=[
                 ("reference_trajectory_topic", "/demo_trajectory_pub_node/demo_trajectory"),
+                ("ego_data_topic", "/demo_trajectory_pub_node/ego_data")
             ]
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(demo_pub_launch_file)
-        )
+        ),
+        static_transform_publisher
     ])

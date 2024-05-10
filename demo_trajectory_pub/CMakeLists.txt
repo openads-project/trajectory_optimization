@@ -8,6 +8,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(perception_msgs REQUIRED)
+find_package(perception_msgs_utils REQUIRED)
 find_package(trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs_utils REQUIRED)
 
@@ -29,6 +31,8 @@ target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 ament_target_dependencies(${TARGET_NAME}
   rclcpp
   rclcpp_components
+  perception_msgs
+  perception_msgs_utils
   trajectory_planning_msgs
   trajectory_planning_msgs_utils
 )

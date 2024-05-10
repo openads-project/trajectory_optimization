@@ -14,6 +14,8 @@
 
   <depend>rclcpp_components</depend>
   <depend>rclcpp</depend>
+  <depend>perception_msgs</depend>
+  <depend>perception_msgs_utils</depend>
   <depend>trajectory_planning_msgs</depend>
   <depend>trajectory_planning_msgs_utils</depend>
 

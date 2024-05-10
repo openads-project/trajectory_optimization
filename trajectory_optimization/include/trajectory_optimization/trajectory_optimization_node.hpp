@@ -59,6 +59,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kWheelBaseParam;
 
   static const std::string kCostWeightsParam;
+  static const std::string kDynamicWeightParam;
   static const std::string kInitAsRefParam;
   static const std::string kHighLevelStabilizationParam;
 
@@ -154,10 +155,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  double dynamic_weight_ = 1.1;
 
   // ocp parameter vector structure
-  std::vector<long int> p_cost_weights_shape_ = {8, 1};
+  std::vector<long int> p_cost_weights_shape_ = {10, 1};
   std::vector<long int> p_ref_path_shape_ = {100, 4};
   std::vector<long int> p_v_max_shape_ = {1, 1};
   std::vector<long int> p_s_ref_shape_ = {1, 1};
