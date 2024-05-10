@@ -18,17 +18,17 @@ def set_opts(ocp, config):
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP"
     opts.rti_log_residuals = 1
-    opts.nlp_solver_max_iter = 35   # default 100
-    opts.tol = 1e-4                 # default 1e-6
-    opts.qp_solver_iter_max = 50    # default 50
-    opts.qp_solver_warm_start = 2   # default. 1 faster, 2 even faster
-    opts.qp_tol = 1e-4
-    opts.sim_method_num_stages = 4  # default 4
-    opts.sim_method_num_steps = 2   # default 1. 2 seems to make it slightly faster
-    opts.globalization = 'FIXED_STEP' # String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
-    opts.globalization_use_SOC = 0 # default
-    opts.line_search_use_sufficient_descent = 0 # default
-    opts.levenberg_marquardt = 0.0
+    opts.nlp_solver_max_iter = 35               # default 100. Bound to ensure real-time capability
+    opts.tol = 1e-4                             # default 1e-6
+    opts.qp_solver_iter_max = 50                # default 50
+    opts.qp_solver_warm_start = 2               # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
+    opts.qp_tol = 1e-4                          # default None
+    opts.sim_method_num_stages = 4              # default 4 -> Use Runge Kutta 4
+    opts.sim_method_num_steps = 2               # default 1. Not sure what this does, but 2 seems to make it slightly faster
+    opts.globalization = 'FIXED_STEP'           # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
+    opts.globalization_use_SOC = 0              # default. 1 could help to solve the problem if 0 fails, but will be slower
+    opts.line_search_use_sufficient_descent = 0 # default. 1 could help to solve the problem if 0 fails, but will be slower
+    opts.levenberg_marquardt = 0.0              # default. Larger values could help to solve the problem if 0 fails, but will be slower
 
 
     # set prediction horizon in s
