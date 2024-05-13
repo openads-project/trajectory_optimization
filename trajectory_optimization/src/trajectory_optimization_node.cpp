@@ -42,8 +42,6 @@ const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "hi
 
 const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
 const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
-const std::string TrajectoryOptimizationNode::kPVMaxShapeParam = "p_v_max_shape";
-const std::string TrajectoryOptimizationNode::kPSRefShapeParam = "p_s_ref_shape";
 const std::string TrajectoryOptimizationNode::kPObstaclesShapeParam = "p_obstacles_shape";
 
 const std::string TrajectoryOptimizationNode::kBiLevelThresholdVParam = "bi_level_dV";
@@ -116,12 +114,6 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "OCP parameter vector shape for reference path";
   this->declare_parameter(kPRefPathShapeParam, p_ref_path_shape_, param_desc);
-
-  param_desc.description = "OCP parameter vector shape for maximum velocity";
-  this->declare_parameter(kPVMaxShapeParam, p_v_max_shape_, param_desc);
-
-  param_desc.description = "OCP parameter vector shape for reference path length";
-  this->declare_parameter(kPSRefShapeParam, p_s_ref_shape_, param_desc);
 
   param_desc.description = "OCP parameter vector shape for obstacles";
   this->declare_parameter(kPObstaclesShapeParam, p_obstacles_shape_, param_desc);
@@ -224,16 +216,6 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPRefPathShapeParam.c_str());
   }
   try {
-    p_v_max_shape_ = this->get_parameter(kPVMaxShapeParam).as_integer_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPVMaxShapeParam.c_str());
-  }
-  try {
-    p_s_ref_shape_ = this->get_parameter(kPSRefShapeParam).as_integer_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPSRefShapeParam.c_str());
-  }
-  try {
     p_obstacles_shape_ = this->get_parameter(kPObstaclesShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPObstaclesShapeParam.c_str());
@@ -296,10 +278,6 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       p_cost_weights_shape_ = param.as_integer_array();
     } else if (param.get_name() == kPRefPathShapeParam) {
       p_ref_path_shape_ = param.as_integer_array();
-    } else if (param.get_name() == kPVMaxShapeParam) {
-      p_v_max_shape_ = param.as_integer_array();
-    } else if (param.get_name() == kPSRefShapeParam) {
-      p_s_ref_shape_ = param.as_integer_array();
     } else if (param.get_name() == kPObstaclesShapeParam) {
       p_obstacles_shape_ = param.as_integer_array();
     }
@@ -730,7 +708,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
     // v_max
     double v_max = 5.0;  // TODO: get this from somewhere and rename to v_max
     idx += n;
-    n = p_v_max_shape_[0] * p_v_max_shape_[1];
+    n = 1;
     std::vector<int> idx_v_max(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_v_max.begin(), idx_v_max.end(), idx);
@@ -748,7 +726,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
       s_ref += sqrt(pow(x_1 - x_0, 2) + pow(y_1 - y_0, 2));
     }
     idx += n;
-    n = p_s_ref_shape_[0] * p_s_ref_shape_[1];
+    n = 1;
     std::vector<int> idx_s_ref(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_s_ref.begin(), idx_s_ref.end(), idx);

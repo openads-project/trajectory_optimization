@@ -3,15 +3,6 @@ from acados_template import AcadosOcpCost, AcadosOcp
 from constants import *
 import casadi as ca
 
-
-P_REF_PATH_INDEX_X = 1
-P_REF_PATH_INDEX_Y = 2
-P_REF_PATH_INDEX_V = 3
-
-P_OBSTACLES_INDEX_X = 0
-P_OBSTACLES_INDEX_Y = 1
-P_OBSTACLES_INDEX_R = 2
-
 def set_costs(ocp: AcadosOcp, config):
 
     # set up as external cost function
@@ -24,8 +15,8 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_params_v_max = np.prod(config["p_v_max_shape"])
-    n_params_s_ref = np.prod(config["p_s_ref_shape"])
+    n_params_v_max = 1
+    n_params_s_ref = 1
     n_params_obstacles = np.prod(config["p_obstacles_shape"])
     n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_v_max + n_params_s_ref + n_params_obstacles
     ocp.parameter_values = np.zeros(n_params)
@@ -39,6 +30,37 @@ def set_costs(ocp: AcadosOcp, config):
     p_s_ref = ocp.model.p[idx_params:(idx_params := idx_params + n_params_s_ref)]
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
     assert idx_params == n_params
+
+    # cost term weights
+    w_lon = p_cost_weights[0]
+    w_lat = p_cost_weights[1]
+    w_x = p_cost_weights[2]
+    w_y = p_cost_weights[3]
+    w_v = p_cost_weights[4]
+    w_v_max = p_cost_weights[5]
+    w_s_ref = p_cost_weights[6]
+    w_obstacles = p_cost_weights[7]
+    w_j_lon = p_cost_weights[8]
+    w_alpha = p_cost_weights[9]
+
+    # calculate cost terms
+    # ref_path
+    ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
+    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * ref_path_costs["dlon"] + w_lat * ref_path_costs["dlat"] + w_x * ref_path_costs["x"] + w_y * ref_path_costs["y"] + w_v * ref_path_costs["v"])
+    ocp.model.cost_expr_ext_cost += w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
+    ocp.model.cost_expr_ext_cost += w_v_max * calc_v_max_cost(ocp, config, p_v_max)
+
+    # cost_e
+    ocp.model.cost_expr_ext_cost_e = ocp.model.cost_expr_ext_cost + w_s_ref * calc_s_max_cost(ocp, config, p_s_ref)
+
+    input_costs = calc_input_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += w_j_lon * input_costs["j_lon"] + w_alpha * input_costs["alpha"]
+
+    # cost_0
+    ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
+
+def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
+    n_params_ref_path = np.prod(config["p_ref_path_shape"])
 
     # consider only the actual reference path (could be smaller than the parameter space; identify by first infinite value)
     idx_inf = n_params_ref_path
@@ -61,7 +83,6 @@ def set_costs(ocp: AcadosOcp, config):
     idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
     x_ref = x_ref_path[idx_min]
     y_ref = y_ref_path[idx_min]
-    v_ref = v_ref_path[idx_min]
 
     # Find nearest adjacent sample on reference path
     condition_begin = (idx_min == 0)
@@ -92,6 +113,16 @@ def set_costs(ocp: AcadosOcp, config):
     dlon = lmd * ca.sqrt(dxy_sq)
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter,2))
 
+    dlon_term = ca.power(dlon, 2)
+    dlat_term = ca.power(dlat, 2)
+    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
+    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
+    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
+
+    cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "x": x_term, "y": y_term, "v": v_term}
+    return cost_terms
+
+def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
     # obstacles: LRE implementation
     # r_ego = p_obstacles[2] # TODO: param for r_ego?
     # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
@@ -101,11 +132,10 @@ def set_costs(ocp: AcadosOcp, config):
     # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
     # obstacles_term = ca.power(conditional_obstacles_term, 2)
 
-
-
     # ===== NEW =====
 
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
+    n_params_obstacles = np.prod(config["p_obstacles_shape"])
     idx_inf = n_params_obstacles
     for i in range(n_params_obstacles):
         if p_obstacles[i] == ca.MX_inf:
@@ -128,10 +158,6 @@ def set_costs(ocp: AcadosOcp, config):
         obstacles_term += conditional_obstacle_term
 
     # =================
-
-
-
-
 
     # currently not working and overwriting with adp implementation
     # p_obstacles shuold be sortet like this: (x1, y1, r1, x2, y2, r2, ...)
@@ -170,34 +196,21 @@ def set_costs(ocp: AcadosOcp, config):
     # obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
     # obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
-    # input costs
-    j_lon = ocp.model.u[CONTROL_INDEX_J_LON]
-    alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
+    return obstacles_term
 
-    # cost term weights
-    w_lon = p_cost_weights[0]
-    w_lat = p_cost_weights[1]
-    w_x = p_cost_weights[2]
-    w_y = p_cost_weights[3]
-    w_v = p_cost_weights[4]
-    w_v_max = p_cost_weights[5]
-    w_s_ref = p_cost_weights[6]
-    w_obstacles = p_cost_weights[7]
-    w_j_lon = p_cost_weights[8]
-    w_alpha = p_cost_weights[9]    
+def calc_input_cost(ocp: AcadosOcp, config: dict) -> dict:
+    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2)
+    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2)
 
-    # individual cost terms
-    dlon_term = ca.power(dlon, 2)
-    dlat_term = ca.power(dlat, 2)
-    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
-    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
-    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
+    cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
+    return cost_terms
+
+def calc_v_max_cost(ocp: AcadosOcp, config: dict, p_v_max: ca.MX) -> ca.MX:
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_v_max, 2)
-    s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
-    j_lon_term = ca.power(j_lon, 2)
-    alpha_term = ca.power(alpha, 2)
 
-    # cost functions
-    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term) + w_obstacles * obstacles_term + w_j_lon * j_lon_term + w_alpha * alpha_term
-    ocp.model.cost_expr_ext_cost_0 = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term +  w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term) + w_obstacles * obstacles_term + w_j_lon * j_lon_term + w_alpha * alpha_term
-    ocp.model.cost_expr_ext_cost_e = p_dynamic_weight * (w_lon * dlon_term + w_lat * dlat_term + w_x * x_term + w_y * y_term + w_v * v_term + w_v_max * v_max_term + w_s_ref * s_ref_term) + w_obstacles * obstacles_term
+    return v_max_term
+
+def calc_s_max_cost(ocp: AcadosOcp, config: dict, p_s_ref: ca.MX) -> ca.MX:
+    s_ref_term = ca.power(ocp.model.x[STATE_INDEX_S] - p_s_ref, 2)
+
+    return s_ref_term
