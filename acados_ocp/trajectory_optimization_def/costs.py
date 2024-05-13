@@ -26,8 +26,8 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
     n_params_v_max = np.prod(config["p_v_max_shape"])
     n_params_s_ref = np.prod(config["p_s_ref_shape"])
-    n_obstacles = np.prod(config["p_obstacles_shape"])
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_v_max + n_params_s_ref + n_obstacles
+    n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_v_max + n_params_s_ref + n_params_obstacles
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
@@ -37,7 +37,7 @@ def set_costs(ocp: AcadosOcp, config):
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
     p_v_max = ocp.model.p[idx_params:(idx_params := idx_params + n_params_v_max)]
     p_s_ref = ocp.model.p[idx_params:(idx_params := idx_params + n_params_s_ref)]
-    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_obstacles)]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
     assert idx_params == n_params
 
     # consider only the actual reference path (could be smaller than the parameter space; identify by first infinite value)
@@ -105,17 +105,24 @@ def set_costs(ocp: AcadosOcp, config):
 
     # ===== NEW =====
 
+    # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
+    idx_inf = n_params_obstacles
+    for i in range(n_params_obstacles):
+        if p_obstacles[i] == ca.MX_inf:
+            idx_inf = i
+            break
+    p_obstacles = p_obstacles[:idx_inf]
+
     D_MIN_OBSTACLE = 1.0
     R_EGO = 2.0
     obstacles_term = 0.0
-    n_obstacles = config["p_obstacles_shape"][0]
     obstacle_state_dim = config["p_obstacles_shape"][1]
-    for i in range(1): # TODO: n_obstacles
+    n_obstacles = p_obstacles.rows() // obstacle_state_dim
+    for i in range(n_obstacles):
         x_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
         y_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
         r_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_R]
-        d_obstacle = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - x_obstacle, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - y_obstacle, 2)) - (R_EGO + r_obstacle) / 2
-        # obstacle_term = ca.tan(-ca.pi / (2 * D_MIN_OBSTACLE) * d_obstacle - ca.pi / 2) # 0 at d=D_MIN_OBSTACLE, inf at d=0
+        d_obstacle = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - x_obstacle, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - y_obstacle, 2)) - (R_EGO + r_obstacle)
         obstacle_term = ca.cos(ca.pi / D_MIN_OBSTACLE * d_obstacle) + 1 # 0 at d=D_MIN_OBSTACLE, 2 at d=0
         conditional_obstacle_term = ca.if_else(d_obstacle <= D_MIN_OBSTACLE, obstacle_term, 0)
         obstacles_term += conditional_obstacle_term
