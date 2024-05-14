@@ -625,9 +625,8 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
     if (!object_list.objects.empty()) {
-      // tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
-      //                                         fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-      tf_object_list = object_list; // remove after fixing tf2 problems with object list (see hpp)
+      tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+                                              fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
     } else {
       tf_object_list = object_list;
     }
@@ -648,15 +647,18 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   }
 
   // update ocp parameters
-  this->setOcpParameters(cost_weights_, tf_reference_trajectory);
+  this->setOcpParameters(cost_weights_, ego_data, tf_reference_trajectory, tf_object_list);
 
   return true;
 }
 
-void TrajectoryOptimizationNode::setOcpParameters(
-    std::vector<double>& cost_weights, const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weights,
+                                                  const perception_msgs::msg::EgoData& ego_data,
+                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                                                  const perception_msgs::msg::ObjectList& object_list) {
   // loop over shooting intervals
   double floating_dynamic_weight = 1.0;
+  double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
     int idx, n;
 
@@ -731,8 +733,20 @@ void TrajectoryOptimizationNode::setOcpParameters(
       double l = perception_msgs::object_access::getLength(object_list_.objects[i]);
       double w = perception_msgs::object_access::getWidth(object_list_.objects[i]);
       double circle_approximation_radius = std::sqrt(std::pow(l, 2) + std::pow(w, 2)) / 2;
-      obstacles[p_obstacles_shape_[1] * i + 0] = perception_msgs::object_access::getX(object_list_.objects[i]);
-      obstacles[p_obstacles_shape_[1] * i + 1] = perception_msgs::object_access::getY(object_list_.objects[i]);
+
+      std::vector<double> TIME, X, Y;
+      for (auto &predicted_state: object_list_.objects[i].state_predictions[0].states) {
+        TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
+        X.push_back(perception_msgs::object_access::getX(predicted_state));
+        Y.push_back(perception_msgs::object_access::getY(predicted_state));
+      }
+      double x_tgt, y_tgt;
+      double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
+      if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
+      if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
+
+      obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
+      obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;
       obstacles[p_obstacles_shape_[1] * i + 2] = circle_approximation_radius;
     }
     std::vector<int> idx_obstacles(n);

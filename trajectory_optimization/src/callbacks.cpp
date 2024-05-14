@@ -36,19 +36,17 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
 
   // transform to reference frame
   perception_msgs::msg::ObjectList tf_object_list;
-  // TEMPORARY DISABLED BECAUSE OF REINTITIALIZATION OF STAMP2TIME (SEE HPP)
-  // try {
-  //   if (msg->header.frame_id != vehicle_frame_id_) {
-  //     tf_object_list = tf2_buffer_->transform(*msg, vehicle_frame_id_, tf2::durationFromSec(0.01));
-  //   } else {
-  //     tf_object_list = *msg;
-  //   }
-  // } catch (tf2::TransformException &ex) {
-  //   RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s', skipping: %s",
-  //                msg->header.frame_id.c_str(), vehicle_frame_id_.c_str(), ex.what());
-  //   return;
-  // }
-  tf_object_list = *msg; // remove after fixing the above
+  try {
+    if (msg->header.frame_id != vehicle_frame_id_) {
+      tf_object_list = tf2_buffer_->transform(*msg, vehicle_frame_id_, tf2::durationFromSec(0.01));
+    } else {
+      tf_object_list = *msg;
+    }
+  } catch (tf2::TransformException &ex) {
+    RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s', skipping: %s",
+                 msg->header.frame_id.c_str(), vehicle_frame_id_.c_str(), ex.what());
+    return;
+  }
 
   // calculate distance to each object
   std::vector<double> distances;
