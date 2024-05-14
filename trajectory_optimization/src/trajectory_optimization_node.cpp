@@ -359,10 +359,12 @@ void TrajectoryOptimizationNode::setup() {
   // init reference trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       reference_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  reference_trajectory_.header.frame_id = vehicle_frame_id_;
 
   // init latest trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       latest_valid_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  latest_valid_trajectory_.header.frame_id = trajectory_frame_id_;
 
   setupSolver();
 }
@@ -555,7 +557,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   // check if the reference trajectory is standstill
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
-    // TODO: tf into trajectory_frame_id_? (discuss)
+    // transform trajectory to output frame
+    trajectory2outputFrame(*trajectory);
     trajectory->header.stamp = now();
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
@@ -614,20 +617,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
 
   // transform trajectory to output frame
-  try {
-    if (trajectory_frame_id_ != vehicle_frame_id_) {
-      trajectory_planning_msgs::msg::Trajectory::UniquePtr tf_trajectory;
-      tf_trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>(
-          tf2_buffer_->transform(*trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01)));
-      trajectory = std::move(tf_trajectory);
-    }
-  } catch (tf2::TransformException& ex) {
-    RCLCPP_WARN(this->get_logger(),
-                "Transformation into output frame is not available. Publishing latest valid trajectory. Ex: %s",
-                ex.what());
-    trajectory_pub_->publish(latest_valid_trajectory_);
-    return;
-  }
+  trajectory2outputFrame(*trajectory);
 
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
