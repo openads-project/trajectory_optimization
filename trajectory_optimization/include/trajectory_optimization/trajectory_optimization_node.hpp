@@ -83,6 +83,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
+  void trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
 
   std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
   std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);

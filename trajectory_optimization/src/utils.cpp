@@ -47,6 +47,27 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
 }
 
 /**
+ * @brief Converts a trajectory from the vehicle frame to the output frame.
+ *
+ * This function converts a trajectory from the vehicle frame to the output frame using the tf2 library.
+ *
+ * @param trajectory The trajectory to be converted.
+ */
+void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+  if (trajectory_frame_id_ != vehicle_frame_id_) {
+    trajectory_planning_msgs::msg::Trajectory tf_trajectory;
+    try {
+      tf_trajectory = tf2_buffer_->transform(trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01));
+    } catch (tf2::TransformException& ex) {
+      RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Publishing no trajectory. Ex: %s",
+                  ex.what());
+      return;
+    }
+    trajectory = tf_trajectory;
+  }
+}
+
+/**
  * @brief Prints the solution of the trajectory optimization problem.
  *
  * This function prints the solution of the trajectory optimization problem, including the resulting xtraj and utraj,
