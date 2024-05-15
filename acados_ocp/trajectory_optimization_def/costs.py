@@ -40,9 +40,11 @@ def set_costs(ocp: AcadosOcp, config):
     w_v_max = p_cost_weights[5]
     w_s_ref = p_cost_weights[6]
     w_obstacles = p_cost_weights[7]
-    w_j_lon = p_cost_weights[8]
-    w_alpha = p_cost_weights[9]
-    w_end_yaw = p_cost_weights[10]
+    w_a = p_cost_weights[8]
+    w_j_lat = p_cost_weights[9]
+    w_j_lon = p_cost_weights[10]
+    w_alpha = p_cost_weights[11]
+    w_end_yaw = p_cost_weights[12]
 
     # calculate cost terms
     # ref_path
