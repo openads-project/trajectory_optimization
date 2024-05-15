@@ -63,6 +63,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   static const std::string kDynamicWeightParam;
   static const std::string kInitAsRefParam;
   static const std::string kHighLevelStabilizationParam;
+  static const std::string kUsePredictionParam;
 
   static const std::string kPCostWeightsShapeParam;
   static const std::string kPRefPathShapeParam;
@@ -145,6 +146,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double wheelbase_ = 2.711;
   bool init_as_ref_ = false;
   bool high_level_stabilization_ = false;
+  bool use_prediction_ = false;
 
   // bi-level thresholds
   double bi_level_dV_ = 5.0;

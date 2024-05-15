@@ -39,6 +39,7 @@ const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights"
 const std::string TrajectoryOptimizationNode::kDynamicWeightParam = "dynamic_weight";
 const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
 const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
+const std::string TrajectoryOptimizationNode::kUsePredictionParam = "use_prediction";
 
 const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
 const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
@@ -108,6 +109,9 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "Use high-level stabilization strategy for init state (= init with current EgoData)";
   this->declare_parameter(kHighLevelStabilizationParam, high_level_stabilization_, param_desc);
+
+  param_desc.description = "use obstacle predictions for optimization (True) or only static obstacles (False)";
+  this->declare_parameter(kUsePredictionParam, use_prediction_, param_desc);
 
   param_desc.description = "OCP parameter vector shape for cost weights";
   this->declare_parameter(kPCostWeightsShapeParam, p_cost_weights_shape_, param_desc);
@@ -206,6 +210,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kHighLevelStabilizationParam.c_str());
   }
   try {
+    use_prediction_ = this->get_parameter(kUsePredictionParam).as_bool();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kUsePredictionParam.c_str());
+  }
+  try {
     p_cost_weights_shape_ = this->get_parameter(kPCostWeightsShapeParam).as_integer_array();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPCostWeightsShapeParam.c_str());
@@ -274,6 +283,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       init_as_ref_ = param.as_bool();
     } else if (param.get_name() == kHighLevelStabilizationParam) {
       high_level_stabilization_ = param.as_bool();
+    } else if (param.get_name() == kUsePredictionParam) {
+      use_prediction_ = param.as_bool();
     } else if (param.get_name() == kPCostWeightsShapeParam) {
       p_cost_weights_shape_ = param.as_integer_array();
     } else if (param.get_name() == kPRefPathShapeParam) {
@@ -729,21 +740,25 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
     std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
-    for (size_t i = 0; i < object_list_.objects.size(); ++i) {
-      double l = perception_msgs::object_access::getLength(object_list_.objects[i]);
-      double w = perception_msgs::object_access::getWidth(object_list_.objects[i]);
+    for (size_t i = 0; i < object_list.objects.size(); ++i) {
+      double l = perception_msgs::object_access::getLength(object_list.objects[i]);
+      double w = perception_msgs::object_access::getWidth(object_list.objects[i]);
       double circle_approximation_radius = std::sqrt(std::pow(l, 2) + std::pow(w, 2)) / 2;
 
-      std::vector<double> TIME, X, Y;
-      for (auto &predicted_state: object_list_.objects[i].state_predictions[0].states) {
-        TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
-        X.push_back(perception_msgs::object_access::getX(predicted_state));
-        Y.push_back(perception_msgs::object_access::getY(predicted_state));
-      }
       double x_tgt, y_tgt;
-      double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
-      if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
-      if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
+      x_tgt = perception_msgs::object_access::getX(object_list.objects[i]);
+      y_tgt = perception_msgs::object_access::getY(object_list.objects[i]);
+      if (i > 0 && use_prediction_) {
+        std::vector<double> TIME, X, Y;
+        for (auto &predicted_state: object_list.objects[i].state_predictions[0].states) {
+          TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
+          X.push_back(perception_msgs::object_access::getX(predicted_state));
+          Y.push_back(perception_msgs::object_access::getY(predicted_state));
+        }
+        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
+        if (!linearInterpolation(TIME, X, des_time, x_tgt)) return;
+        if (!linearInterpolation(TIME, Y, des_time, y_tgt)) return;
+      }
 
       obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
       obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;

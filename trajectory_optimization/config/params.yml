@@ -7,6 +7,7 @@
     optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
     high_level_stabilization: True  # init first trajectory point with with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    use_prediction: False           # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: True                   # print debug infromation and solver statistics
 
     #### thresholds for bi-level stabilization
