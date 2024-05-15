@@ -49,15 +49,10 @@ def set_costs(ocp: AcadosOcp, config):
     # calculate cost terms
     # ref_path
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
-    ocp.model.cost_expr_ext_cost = p_dynamic_weight * (w_lon * ref_path_costs["dlon"] + w_lat * ref_path_costs["dlat"] + w_x * ref_path_costs["x"] + w_y * ref_path_costs["y"] + w_v * ref_path_costs["v"])
-    ocp.model.cost_expr_ext_cost += w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
-    ocp.model.cost_expr_ext_cost += w_v_max * calc_v_max_cost(ocp, config, p_v_max)
-
-    # cost_e
-    ocp.model.cost_expr_ext_cost_e = w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) + w_end_yaw * ref_path_costs["dpsi"]
-
-    input_costs = calc_input_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += w_j_lon * input_costs["j_lon"] + w_alpha * input_costs["alpha"]
+    # Control Variable Costs
+    input_costs = calc_control_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lon * input_costs["j_lon"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_alpha * input_costs["alpha"]
 
     # cost_0
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
@@ -165,9 +160,9 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
 
     return obstacles_term
 
-def calc_input_cost(ocp: AcadosOcp, config: dict) -> dict:
-    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2)
-    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2)
+def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
+    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2) / ca.power(config["c_jlon"], 2)
+    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2) / ca.power(config["c_alpha"], 2)
 
     cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
     return cost_terms
