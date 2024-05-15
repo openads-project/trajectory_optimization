@@ -46,15 +46,34 @@ def set_costs(ocp: AcadosOcp, config):
     w_alpha = p_cost_weights[11]
     w_end_yaw = p_cost_weights[12]
 
-    # calculate cost terms
-    # ref_path
+    # Define Running-Costs
+    # Reference Path Costs
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
+    ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lon * ref_path_costs["dlon"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_lat * ref_path_costs["dlat"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     # Control Variable Costs
     input_costs = calc_control_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lon * input_costs["j_lon"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_alpha * input_costs["alpha"]
+    # Acceleration Magnitude Costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
+    # Lateral Jerk Costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
+    # Obstacle Costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
+    # V-Max Costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_max * calc_v_max_cost(ocp, config, p_v_max)
 
-    # cost_0
+    # Define Terminal-Costs
+    # End Yaw
+    ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["dpsi"]
+    # Final Distance
+    ocp.model.cost_expr_ext_cost_e += w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) 
+
+    # Define Inital-Costs
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
 
 def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
@@ -112,14 +131,17 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     x_ref_inter = x1 + lmd * (x2 - x1)
     y_ref_inter = y1 + lmd * (y2 - y1)
     v_ref_inter = v1 + lmd * (v2 - v1)
-    dlon = lmd * ca.sqrt(dxy_sq)
-    dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter,2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter,2))
+    dlon_sq = ca.power(lmd * ca.sqrt(dxy_sq), 2)
+    dlat_sq = ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2)
 
-    dlon_term = ca.power(dlon, 2)
-    dlat_term = ca.power(dlat, 2)
-    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
-    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
-    v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
+    dlon_term = dlon_sq / ca.power(config["c_lon"], 2)
+    dlat_term = dlat_sq / ca.power(config["c_lat"], 2)
+    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2) / ca.power(config["c_x"], 2)
+    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2) / ca.power(config["c_y"], 2)
+    v_ref = ca.fmax(v_ref_inter, 0.0)
+    v_scale = ca.fmax(v_ref, ca.MX(10.0 / 3.6))
+    v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]) / v_scale, 2)
+    #v_term = ca.power((v_ref_inter - ocp.model.x[STATE_INDEX_V]), 2)
     psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
 
     cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
@@ -166,6 +188,32 @@ def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
 
     cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
     return cost_terms
+
+def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
+    # Derive a_lat
+    l = config["wheelbase"]
+    v = ocp.model.x[STATE_INDEX_V]
+    tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
+    psi_dot = v / l * tan_delta
+    a_lat = v * psi_dot
+    a_lon = ocp.model.x[STATE_INDEX_A_LON]
+
+    a_term = ca.power(a_lon, 2) + ca.power(a_lat, 2)/ ca.power(config["c_a"], 2)
+
+    return a_term
+
+def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
+    l = config["wheelbase"]
+    v = ocp.model.x[STATE_INDEX_V]
+    v_sq = ca.power(v, 2)
+    tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
+    tan_delta_sq = ca.power(tan_delta, 2)
+    alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
+
+    j_lat = 2 * v / l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
+    j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
+
+    return j_lat_term
 
 def calc_v_max_cost(ocp: AcadosOcp, config: dict, p_v_max: ca.MX) -> ca.MX:
     v_max_term = ca.power(ocp.model.x[STATE_INDEX_V] - p_v_max, 2)
