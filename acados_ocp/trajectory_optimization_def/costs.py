@@ -42,6 +42,7 @@ def set_costs(ocp: AcadosOcp, config):
     w_obstacles = p_cost_weights[7]
     w_j_lon = p_cost_weights[8]
     w_alpha = p_cost_weights[9]
+    w_end_yaw = p_cost_weights[10]
 
     # calculate cost terms
     # ref_path
@@ -51,7 +52,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += w_v_max * calc_v_max_cost(ocp, config, p_v_max)
 
     # cost_e
-    ocp.model.cost_expr_ext_cost_e = ocp.model.cost_expr_ext_cost + w_s_ref * calc_s_max_cost(ocp, config, p_s_ref)
+    ocp.model.cost_expr_ext_cost_e = w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) + w_end_yaw * ref_path_costs["dpsi"]
 
     input_costs = calc_input_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += w_j_lon * input_costs["j_lon"] + w_alpha * input_costs["alpha"]
@@ -72,7 +73,8 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
 
     # ca.find reference point (min distance) on reference path
     ref_path_state_dim = config["p_ref_path_shape"][1]
-    # p_ref_path shuold be sortet like this: (t1, x1, y1, v1, t2, x2, y2, v2, ...)
+    # p_ref_path shuold be sortet like this: (psi1, x1, y1, v1, psi2, x2, y2, v2, ...)
+    psi_ref_path = p_ref_path[P_REF_PATH_INDEX_PSI::ref_path_state_dim] # every 4th element starting from index 0
     x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim] # every 4th element starting from index 1
     y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 4th element starting from index 2
     v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 4th element starting from index 3
@@ -97,9 +99,11 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     # Extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
     # Values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
     # Note that lambda must be >=0 due to the way we defined the line segment
+    psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]
     y1 = y_ref_path[idx_min]
     v1 = v_ref_path[idx_min]
+    psi2 = psi_ref_path[next_idx_min]
     x2 = x_ref_path[next_idx_min]
     y2 = y_ref_path[next_idx_min]
     v2 = v_ref_path[next_idx_min]
@@ -107,6 +111,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     dxy_sq = ca.power(x2 - x1, 2) + ca.power(y2 - y1, 2)
     lmd = ca.if_else((dxy_sq == 0), 0, ((ocp.model.x[STATE_INDEX_X] - x1) * (x2 - x1) + (ocp.model.x[STATE_INDEX_Y] - y1) * (y2 - y1)) / dxy_sq)
     lmd = ca.fmin(ca.fmax(lmd, 0), 1)
+    psi_ref_inter = psi1 + lmd * (psi2 - psi1)
     x_ref_inter = x1 + lmd * (x2 - x1)
     y_ref_inter = y1 + lmd * (y2 - y1)
     v_ref_inter = v1 + lmd * (v2 - v1)
@@ -118,8 +123,9 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2)
     y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2)
     v_term = ca.power(ocp.model.x[STATE_INDEX_V] - v_ref_inter, 2)
+    psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
 
-    cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "x": x_term, "y": y_term, "v": v_term}
+    cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
     return cost_terms
 
 def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
