@@ -206,11 +206,12 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     l = config["wheelbase"]
     v = ocp.model.x[STATE_INDEX_V]
     v_sq = ca.power(v, 2)
+    a_lon = ocp.model.x[STATE_INDEX_A_LON]
     tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
     tan_delta_sq = ca.power(tan_delta, 2)
     alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
 
-    j_lat = 2 * v / l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
+    j_lat = 2 * v * a_lon/ l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
     j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
 
     return j_lat_term
