@@ -693,16 +693,16 @@ void TrajectoryOptimizationNode::setOcpParameters(
     // fill vector with values from idx to idx + n
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
     
-    // copy ref reference_trajectory to local variable
+    // copy reference_trajectory to local variable
     trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
     // now replace all t values with theta since we don't need t in the ocp
     for (unsigned int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
       trajectory_planning_msgs::trajectory_access::setT(ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
     }
 
-    // fill ref_path vector with values from reference_trajectory
+    // fill ref_path vector with values from ref
     std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
-    if (reference_trajectory.states.size() >= n) {
+    if (ref.states.size() >= n) {
       std::copy(ref.states.begin(), ref.states.begin() + n, ref_path.begin());
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
