@@ -211,7 +211,7 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     tan_delta_sq = ca.power(tan_delta, 2)
     alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
 
-    j_lat = 2 * v * a_lon/ l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
+    j_lat = 2 * v * a_lon / l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
     j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
 
     return j_lat_term
