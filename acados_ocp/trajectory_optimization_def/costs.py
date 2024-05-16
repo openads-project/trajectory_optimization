@@ -70,6 +70,8 @@ def set_costs(ocp: AcadosOcp, config):
     # Define Terminal-Costs
     # End Yaw
     ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["dpsi"]
+    # end v
+    ocp.model.cost_expr_ext_cost_e += p_dynamic_weight * w_v * ref_path_costs["v"]
     # Final Distance
     ocp.model.cost_expr_ext_cost_e += w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) 
 
@@ -126,6 +128,8 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
 
     dxy_sq = ca.power(x2 - x1, 2) + ca.power(y2 - y1, 2)
     lmd = ca.if_else((dxy_sq == 0), 0, ((ocp.model.x[STATE_INDEX_X] - x1) * (x2 - x1) + (ocp.model.x[STATE_INDEX_Y] - y1) * (y2 - y1)) / dxy_sq)
+    # allow extrapolation for beginning of reference but not at the end (to penalize overshooting)
+    lmd = ca.if_else(condition_begin, lmd, ca.fmin(ca.fmax(lmd, 0), 1))
     x_ref_inter = x1 + lmd * (x2 - x1)
     y_ref_inter = y1 + lmd * (y2 - y1)
     lmd = ca.fmin(ca.fmax(lmd, 0), 1)
