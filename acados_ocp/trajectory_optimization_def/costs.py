@@ -143,8 +143,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             break
     p_obstacles = p_obstacles[:idx_inf]
 
-    D_MIN_OBSTACLE = 1.0
-    R_EGO = 2.0
+    D_MIN_OBSTACLE = 0.5
+    circle_approximation_radius_ego = ca.sqrt(ca.power(config["width"], 2) + ca.power(config["length"], 2)) / 2.0
     obstacles_term = 0.0
     obstacle_state_dim = config["p_obstacles_shape"][1]
     n_obstacles = p_obstacles.rows() // obstacle_state_dim
@@ -152,10 +152,15 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         x_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
         y_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
         r_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_R]
-        d_obstacle = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - x_obstacle, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - y_obstacle, 2)) - (R_EGO + r_obstacle)
-        obstacle_term = ca.cos(ca.pi / D_MIN_OBSTACLE * d_obstacle) + 1 # 0 at d=D_MIN_OBSTACLE, 2 at d=0
-        conditional_obstacle_term = ca.if_else(d_obstacle <= D_MIN_OBSTACLE, obstacle_term, 0)
-        obstacles_term += conditional_obstacle_term
+        dLatMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
+        dLongMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
+        dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - x_obstacle)
+        cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
+        dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - y_obstacle)
+        cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
+        cObst = cLat * cLong
+        obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
+        obstacles_term += ca.if_else(obst_condition, 0, cObst)
 
     # =================
 

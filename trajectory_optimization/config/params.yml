@@ -36,10 +36,10 @@
 
     #### cost weights
     # [dlon, dlat, x, y, v, v_max, s_ref, obstacles, j_lon, alpha]
-    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 5.0, 0.1, 0.1]
-    dynamic_weight: 1.1               # base for exponential weight (also used in ROS node)
+    cost_weights: [0.0, 0.1, 0.0, 0.0, 0.1, 0.0, 0.0, 1.0, 0.1, 0.1]
+    dynamic_weight: 1.0               # base for exponential weight (also used in ROS node)
     slack_weights:                    # [v, a_lon, a_squared], see constraints.py in acados_ocp
-      linear_lower: [0.1, 0.1, 0.1]   # Linear cost on lower bound slack variables 
+      linear_lower: [10.0, 0.1, 0.1]   # Linear cost on lower bound slack variables 
       linear_upper: [0.1, 0.1, 0.1]   # Linear cost on upper bound slack variables
       quadratic_lower: [10.0, 1000.0, 1000.0]   # Quadratic cost on lower bound slack variables
       quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables

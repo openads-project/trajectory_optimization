@@ -736,7 +736,6 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_s_ref.data(), &s_ref, n);
 
     // obstacles
-    // TODO: get obstacles from object list predictions
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
     std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
