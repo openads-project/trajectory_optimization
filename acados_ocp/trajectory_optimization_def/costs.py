@@ -104,7 +104,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     x_ref = x_ref_path[idx_min]
     y_ref = y_ref_path[idx_min]
 
-    # Find nearest adjacent sample on reference path
+    # find nearest adjacent sample on reference path
     condition_begin = (idx_min == 0)
     condition_end = (idx_min == x_ref_path.rows()-1)
     condition_intermediate = ca.logic_and(ca.logic_not(condition_begin), ca.logic_not(condition_end))
@@ -113,10 +113,10 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     condition_dist = (dist_1 < dist_2)
     next_idx_min = ca.if_else(condition_begin, idx_min+1, ca.if_else(condition_end, idx_min-1, ca.if_else(condition_dist, idx_min-1, idx_min+1, True), True), True)
 
-    # We now want to compute the shortest distance between the state-point and a line segment idx_min---next_idx_min
-    # Extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
-    # Values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
-    # Note that lambda must be >=0 due to the way we defined the line segment
+    # compute the shortest distance between the state-point and a line segment idx_min---next_idx_min
+    # extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
+    # values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
+    # note that lambda must be >=0 due to the way we defined the line segment
     psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]
     y1 = y_ref_path[idx_min]
@@ -139,20 +139,20 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2))
 
     # longitudinal deviation term
-    dlon_term = ca.power(dlon / config["c_lon"], 2)
+    dlon_term = ca.power(dlon, 2) / ca.power(config["c_lon"], 2)
     # lateral deviation term
-    dlat_term = ca.power(dlat / config["c_lat"], 2)
+    dlat_term = ca.power(dlat, 2) / ca.power(config["c_lat"], 2)
     # x deviation term
-    x_term = ca.power((ocp.model.x[STATE_INDEX_X] - x_ref) / config["c_x"], 2)
+    x_term = ca.power((ocp.model.x[STATE_INDEX_X] - x_ref), 2) / ca.power(config["c_x"], 2)
     # y deviation term
-    y_term = ca.power((ocp.model.x[STATE_INDEX_Y] - y_ref) / config["c_y"], 2)
+    y_term = ca.power((ocp.model.x[STATE_INDEX_Y] - y_ref), 2) / ca.power(config["c_y"], 2)
     # v deviation term
     # first ensure that the reference velocity is > 0
     v_ref = ca.fmax(v_ref_inter, 0.0)
     # we define the scaling value of v to v_ref: a velocity deviation of v_ref leads to a cost of 1
     # for numeric stability (low reference speeds) we ensure that v_scale > V_SCALE_MIN > 0
     v_scale = ca.fmax(v_ref, V_SCALE_MIN)
-    v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]) / v_scale, 2)
+    v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]), 2) / ca.power(v_scale, 2)
     # psi deviation term
     psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
 
@@ -195,8 +195,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     return obstacles_term
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
-    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON] / config["c_jlon"], 2)
-    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA] / config["c_alpha"], 2)
+    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2) / ca.power(config["c_jlon"], 2)
+    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA],2 ) / ca.power(config["c_alpha"], 2)
 
     cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
     return cost_terms
@@ -225,7 +225,7 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
 
     j_lat = 2 * v * a_lon / l * tan_delta + ca.power(v, 2) / l * alpha * (1.0 + ca.power(tan_delta, 2))
-    j_lat_term = ca.power(j_lat / config["c_jlat"], 2)
+    j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
 
     return j_lat_term
 
