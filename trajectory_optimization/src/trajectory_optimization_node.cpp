@@ -719,29 +719,42 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
     std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
-    for (size_t i = 0; i < object_list.objects.size(); ++i) {
+    unsigned int n_circle_objs = 0;
+    for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double l = perception_msgs::object_access::getLength(object_list.objects[i]);
       double w = perception_msgs::object_access::getWidth(object_list.objects[i]);
       double circle_approximation_radius = std::sqrt(std::pow(l, 2) + std::pow(w, 2)) / 2;
 
-      double x_tgt, y_tgt;
+      double x_tgt, y_tgt, yaw_tgt;
       x_tgt = perception_msgs::object_access::getX(object_list.objects[i]);
       y_tgt = perception_msgs::object_access::getY(object_list.objects[i]);
+      yaw_tgt = perception_msgs::object_access::getYaw(object_list.objects[i]);
       if (i > 0 && use_prediction_) {
-        std::vector<double> TIME, X, Y;
+        std::vector<double> TIME, X, Y, YAW;
         for (auto &predicted_state: object_list.objects[i].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
           Y.push_back(perception_msgs::object_access::getY(predicted_state));
+          YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
         if (!linearInterpolation(TIME, X, des_time, x_tgt)) break;
         if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break;
+        if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break;
       }
 
-      obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 2] = circle_approximation_radius;
+      unsigned int n_circles = 3; // TODO: set this dependant on Object Classification: vehicle 3, ped. 1, bus 5...
+      // TODO: ensure that x_tgt and y_tgt represent the geometric center of the object
+      double radius;
+      std::vector<std::pair<double,double>> circle_centers;
+      approximateObjectGeometry(n_circles, x_tgt, y_tgt, yaw_tgt, perception_msgs::object_access::getWidth(object_list.objects[i]), perception_msgs::object_access::getLength(object_list.objects[i]), radius, circle_centers);
+
+      for (size_t k = 0; k < circle_centers.size(); ++k) {
+        obstacles[p_obstacles_shape_[1] * n_circle_objs + 0] = circle_centers[k].first;
+        obstacles[p_obstacles_shape_[1] * n_circle_objs + 1] = circle_centers[k].second;
+        obstacles[p_obstacles_shape_[1] * n_circle_objs + 2] = radius;
+        ++n_circle_objs;
+      }
     }
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
