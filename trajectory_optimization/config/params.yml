@@ -35,7 +35,7 @@
 
     ### cost scaling factors
     c_lat: 0.5 # distance to scale the lateral deviation costs [m]
-    c_lon: 1.0 # distance to scale the lateral deviation costs [m]
+    c_lon: 1.0 # distance to scale the longitudinal deviation costs [m]
     c_x: 1.0 # distance to scale the x deviation costs [m]
     c_y: 1.0 # distance to scale the y deviation costs [m]
     c_jlon: 3.0 # jerk-value for scaling the longitudinal jerk costs [m/s³]
