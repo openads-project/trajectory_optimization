@@ -98,7 +98,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void approximateObjectGeometry(const unsigned int n_circles, const double x_center, const double y_center,
-                                  const double yaw, const double width, const double length, double& radius,
+                                  const double yaw, const double length, const double width, double& radius,
                                   std::vector<std::pair<double,double>>& circle_centers);
 
   void planningCycle();
@@ -169,7 +169,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // ocp parameter vector structure
   std::vector<long int> p_cost_weights_shape_ = {10, 1};
   std::vector<long int> p_ref_path_shape_ = {100, 4};
-  std::vector<long int> p_obstacles_shape_ = {10, 3};
+  std::vector<long int> p_obstacles_n1_shape_ = {10, 3};
+  std::vector<long int> p_obstacles_n3_shape_ = {10, 7};
+  std::vector<long int> p_obstacles_n5_shape_ = {10, 11};
+  std::vector<long int> p_obstacles_n7_shape_ = {10, 15};
+  std::vector<long int> p_obstacles_n9_shape_ = {10, 19};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

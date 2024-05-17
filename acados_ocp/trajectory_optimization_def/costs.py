@@ -15,8 +15,13 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_params_obstacles = np.prod(config["p_obstacles_shape"])
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles
+    n_params_obstacles_n1 = np.prod(config["p_obstacles_n1_shape"])
+    n_params_obstacles_n3 = np.prod(config["p_obstacles_n3_shape"])
+    n_params_obstacles_n5 = np.prod(config["p_obstacles_n5_shape"])
+    n_params_obstacles_n7 = np.prod(config["p_obstacles_n7_shape"])
+    n_params_obstacles_n9 = np.prod(config["p_obstacles_n9_shape"])
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path
+    n_params += n_params_obstacles_n1 + n_params_obstacles_n3 + n_params_obstacles_n5 + n_params_obstacles_n7 + n_params_obstacles_n9
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
@@ -24,7 +29,11 @@ def set_costs(ocp: AcadosOcp, config):
     p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
     p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
-    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
+    p_obstacles_n1 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n1)]
+    p_obstacles_n3 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n3)]
+    p_obstacles_n5 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n5)]
+    p_obstacles_n7 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n7)]
+    p_obstacles_n9 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n9)]
     assert idx_params == n_params
 
     # cost term weights
@@ -47,15 +56,17 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     # obstacle costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n1, 1)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n3, 3)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n5, 5)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n7, 7)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n9, 9)
     # acceleration magnitude costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
     # lateral jerk costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
     # control variable costs
     control_costs = calc_control_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += w_j_lon * control_costs["j_lon"]
-    ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha"]
 
     # define terminal-costs
     # end v
@@ -144,7 +155,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     cost_terms = {"dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
     return cost_terms
 
-def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
+def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, n_circles: ca.MX) -> ca.MX:
     # obstacles: LRE implementation
     # r_ego = p_obstacles[2] # TODO: param for r_ego?
     # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
@@ -157,7 +168,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     # ===== NEW =====
 
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
-    n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    n_params_obstacles = p_obstacles.rows()
     idx_inf = n_params_obstacles
     for i in range(n_params_obstacles):
         if p_obstacles[i] == ca.MX_inf:
@@ -168,17 +179,33 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     D_MIN_OBSTACLE = 0.5
     circle_approximation_radius_ego = ca.sqrt(ca.power(config["width"], 2) + ca.power(config["length"], 2)) / 2.0
     obstacles_term = 0.0
-    obstacle_state_dim = config["p_obstacles_shape"][1]
+    obstacle_state_dim = n_circles * 2 + 1
     n_obstacles = p_obstacles.rows() // obstacle_state_dim
     for i in range(n_obstacles):
-        x_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
-        y_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
-        r_obstacle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_R]
+        # find the object circle that is the nearest to the vehicle and store dLat and dLong
+        if n_circles > 1:
+            # start indices for x an y of object in p_obstacles
+            idx_x_start = i * obstacle_state_dim + P_OBSTACLES_INDEX_X
+            idx_y_start = i * obstacle_state_dim + P_OBSTACLES_INDEX_Y
+            x_circles = p_obstacles[idx_x_start:idx_x_start+n_circles*2:2] # get n_circle elements starting from index 0 but only every 2nd element
+            y_circles = p_obstacles[idx_y_start:idx_y_start+n_circles*2:2] # get n_circle elements starting from index 1 but only every 2nd element
+            dx = ca.power(x_circles[:] - ocp.model.x[STATE_INDEX_X], 2)
+            dy = ca.power(y_circles[:] - ocp.model.x[STATE_INDEX_Y], 2)
+            dd = ca.sqrt(dx + dy)
+            # index min gives us the index of the circle that is nearest to the ego-vehicle-circle
+            idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
+            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - x_circles[idx_min])
+            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - y_circles[idx_min])
+        else:
+            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X])
+            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y])
+        # get radius of obstacle circles which is the last element of the vector-slice
+        r_obstacle = p_obstacles[i * obstacle_state_dim + obstacle_state_dim - 1]
+        # define minimum lateral and longitudinal distance to object circles
         dLatMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
         dLongMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
-        dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - x_obstacle)
+        # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
         cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
-        dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - y_obstacle)
         cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
         cObst = cLat * cLong
         obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
