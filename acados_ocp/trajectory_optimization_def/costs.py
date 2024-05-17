@@ -56,8 +56,8 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     # control variable costs
     input_costs = calc_control_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lon * input_costs["j_lon"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_alpha * input_costs["alpha"]
+    ocp.model.cost_expr_ext_cost += w_j_lon * input_costs["j_lon"]
+    ocp.model.cost_expr_ext_cost += w_alpha * input_costs["alpha"]
     # acceleration magnitude costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
     # lateral jerk costs
