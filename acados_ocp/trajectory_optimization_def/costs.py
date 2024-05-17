@@ -135,7 +135,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     lmd = ca.fmin(ca.fmax(lmd, 0), 1)
     psi_ref_inter = psi1 + lmd * (psi2 - psi1)
     v_ref_inter = v1 + lmd * (v2 - v1)
-    dlon = lmd * (ca.sqrt(dxy_sq), 2)
+    dlon = lmd * ca.sqrt(dxy_sq)
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2))
 
     # longitudinal deviation term
