@@ -67,6 +67,8 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
     # control variable costs
     control_costs = calc_control_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += w_j_lon * control_costs["j_lon"]
+    ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha"]
 
     # define terminal-costs
     # end v
