@@ -135,16 +135,25 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     lmd = ca.fmin(ca.fmax(lmd, 0), 1)
     psi_ref_inter = psi1 + lmd * (psi2 - psi1)
     v_ref_inter = v1 + lmd * (v2 - v1)
-    dlon_sq = ca.power(lmd * ca.sqrt(dxy_sq), 2)
-    dlat_sq = ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2)
+    dlon = lmd * ca.sqrt(ca.power(ca.sqrt(dxy_sq), 2))
+    dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2))
 
-    dlon_term = dlon_sq / ca.power(config["c_lon"], 2)
-    dlat_term = dlat_sq / ca.power(config["c_lat"], 2)
-    x_term = ca.power(ocp.model.x[STATE_INDEX_X] - x_ref, 2) / ca.power(config["c_x"], 2)
-    y_term = ca.power(ocp.model.x[STATE_INDEX_Y] - y_ref, 2) / ca.power(config["c_y"], 2)
+    # longitudinal deviation term
+    dlon_term = ca.power(dlon / config["c_lon"], 2)
+    # lateral deviation term
+    dlat_term = ca.power(dlat / config["c_lat"], 2)
+    # x deviation term
+    x_term = ca.power((ocp.model.x[STATE_INDEX_X] - x_ref) / config["c_x"], 2)
+    # y deviation term
+    y_term = ca.power((ocp.model.x[STATE_INDEX_Y] - y_ref) / config["c_y"], 2)
+    # v deviation term
+    # first ensure that the reference velocity is > 0
     v_ref = ca.fmax(v_ref_inter, 0.0)
-    v_scale = ca.fmax(v_ref, ca.MX(10.0 / 3.6))
+    # we define the scaling value of v to v_ref: a velocity deviation of v_ref leads to a cost of 1
+    # for numeric stability (low reference speeds) we ensure that v_scale > V_SCALE_MIN > 0
+    v_scale = ca.fmax(v_ref, V_SCALE_MIN)
     v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]) / v_scale, 2)
+    # psi deviation term
     psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
 
     cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
@@ -186,19 +195,22 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     return obstacles_term
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
-    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2) / ca.power(config["c_jlon"], 2)
-    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2) / ca.power(config["c_alpha"], 2)
+    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON] / config["c_jlon"], 2)
+    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA] / config["c_alpha"], 2)
 
     cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
     return cost_terms
 
 def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
-    # derive a_lat
+    # single track model parameters
     l = config["wheelbase"]
     v = ocp.model.x[STATE_INDEX_V]
     tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
+    # derive psi_dot
     psi_dot = v / l * tan_delta
+    # derive a_lat
     a_lat = v * psi_dot
+    # a_lon is given as state vaiable
     a_lon = ocp.model.x[STATE_INDEX_A_LON]
 
     a_term = ca.power(a_lon, 2) + ca.power(a_lat, 2)/ ca.power(config["c_a"], 2)
@@ -208,14 +220,12 @@ def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
 def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     l = config["wheelbase"]
     v = ocp.model.x[STATE_INDEX_V]
-    v_sq = ca.power(v, 2)
     a_lon = ocp.model.x[STATE_INDEX_A_LON]
     tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
-    tan_delta_sq = ca.power(tan_delta, 2)
     alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
 
-    j_lat = 2 * v * a_lon / l * tan_delta + v_sq / l * alpha * (1.0 + tan_delta_sq)
-    j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
+    j_lat = 2 * v * a_lon / l * tan_delta + ca.power(v, 2) / l * alpha * (1.0 + ca.power(tan_delta, 2))
+    j_lat_term = ca.power(j_lat / config["c_jlat"], 2)
 
     return j_lat_term
 
