@@ -107,11 +107,11 @@ void TrajectoryOptimizationNode::approximateObjectGeometry(const unsigned int n_
                                 const double yaw, const double width, const double length, double& radius,
                                 std::vector<std::pair<double,double>>& circle_centers) {
   circle_centers.clear();
-  radius = std::sqrt(std::pow(length/(n_circles+1), 2.0) + std::pow(width/2.0, 2.0));
+  radius = std::sqrt(std::pow(length/(2*n_circles), 2.0) + std::pow(width/2.0, 2.0));
   std::pair<double,double> circle_center;
   for(unsigned int i=0; i < n_circles; ++i) {
-    double x = x_center - (length/2.0 + i*length/(n_circles+1)) * std::cos(yaw);
-    double y = y_center - (length/2.0 + i*length/(n_circles+1)) * std::sin(yaw);
+    double x = x_center - (length/2.0 + (2*i+1)*length/(2*n_circles)) * std::cos(yaw);
+    double y = y_center - (length/2.0 + (2*i+1)*length/(2*n_circles)) * std::sin(yaw);
     circle_center.first = x;
     circle_center.second = y;
     circle_centers.push_back(circle_center); 
