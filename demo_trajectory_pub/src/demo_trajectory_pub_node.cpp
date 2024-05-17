@@ -25,6 +25,7 @@ const std::string DemoTrajectoryPubNode::kTrajectoryHorizonParam = "trajectory_h
 const std::string DemoTrajectoryPubNode::kX0Param = "x0";
 const std::string DemoTrajectoryPubNode::kY0Param = "y0";
 const std::string DemoTrajectoryPubNode::kV0Param = "v0";
+const std::string DemoTrajectoryPubNode::kVEgoParam = "v_ego";
 const std::string DemoTrajectoryPubNode::kAParam = "a";
 const std::string DemoTrajectoryPubNode::kTheta0Param = "theta0";
 const std::string DemoTrajectoryPubNode::kOmegaParam = "omega";
@@ -71,6 +72,11 @@ void DemoTrajectoryPubNode::declareParameters() {
   param_range.set__from_value(-10.0).set__to_value(10.0).set__step(0.5);
   param_desc.floating_point_range = {param_range};
   this->declare_parameter(kV0Param, v0_, param_desc);
+
+  param_desc.description = "Ego velocity";
+  param_range.set__from_value(-10.0).set__to_value(10.0).set__step(0.5);
+  param_desc.floating_point_range = {param_range};
+  this->declare_parameter(kVEgoParam, v_ego_, param_desc);
 
   param_desc.description = "Acceleration";
   param_range.set__from_value(-5.0).set__to_value(5.0).set__step(0.5);
@@ -127,6 +133,11 @@ void DemoTrajectoryPubNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kV0Param.c_str());
   }
   try {
+    v_ego_ = this->get_parameter(kVEgoParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kVEgoParam.c_str());
+  }
+  try {
     a_ = this->get_parameter(kAParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kAParam.c_str());
@@ -159,6 +170,8 @@ rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallba
       y0_ = param.as_double();
     } else if (param.get_name() == kV0Param) {
       v0_ = param.as_double();
+    } else if (param.get_name() == kVEgoParam) {
+      v_ego_ = param.as_double();
     } else if (param.get_name() == kAParam) {
       a_ = param.as_double();
     } else if (param.get_name() == kTheta0Param) {
@@ -208,6 +221,7 @@ void DemoTrajectoryPubNode::pubTrajectory() {
   perception_msgs::object_access::initializeState(*egodata, perception_msgs::msg::EGO::MODEL_ID);
   egodata->header.stamp = this->now();
   egodata->header.frame_id = "map";
+  perception_msgs::object_access::setVelLon(*egodata, v_ego_);
   egodata_pub_->publish(std::move(egodata));
 
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =

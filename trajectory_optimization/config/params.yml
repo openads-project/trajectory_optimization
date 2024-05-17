@@ -6,7 +6,7 @@
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
-    high_level_stabilization: False # init first trajectory point with with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    high_level_stabilization: True # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     verbose: True                   # print debug infromation and solver statistics
 
     #### thresholds for bi-level stabilization
@@ -33,10 +33,20 @@
     alpha_max: 0.5                    # max. absolute steering rate [rad/s]
     jerk_max: 4.0                     # max. absolute longitudinal jerk [m/s²]
 
+    ### cost scaling factors
+    c_lon: 1.0 # distance to scale the longitudinal deviation costs [m]
+    c_lat: 0.5 # distance to scale the lateral deviation costs [m]
+    c_x: 1.0 # distance to scale the x deviation costs [m]
+    c_y: 1.0 # distance to scale the y deviation costs [m]
+    c_a: 3.0 # acceleration magnitude-value for scaling acceleration costs [m/s²]
+    c_jlat: 3.0 # jerk-value for scaling the lateral jerk costs [m/s³]
+    c_jlon: 3.0 # jerk-value for scaling the longitudinal jerk costs [m/s³]
+    c_alpha: 0.35 # steering-rate-value for scaling the steering-rate costs [rad/s]
+    
     #### cost weights
-    # [dlon, dlat, x, y, v, v_max, s_ref, obstacles, j_lon, alpha]
-    cost_weights: [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.1, 0.1]
-    dynamic_weight: 1.1               # base for exponential weight (also used in ROS node)
+    # [dlon, dlat, x, y, v, v_max, s_ref, obstacles, a, j_lat, j_lon, alpha, endYaw]
+    cost_weights: [0.0, 0.5, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 0.1, 0.5, 0.1, 0.1, 1.0]
+    dynamic_weight: 1.0               # base for exponential weight (also used in ROS node)
     slack_weights:                    # [v, a_lon, a_squared], see constraints.py in acados_ocp
       linear_lower: [0.1, 0.1, 0.1]   # Linear cost on lower bound slack variables 
       linear_upper: [0.1, 0.1, 0.1]   # Linear cost on upper bound slack variables
@@ -45,6 +55,6 @@
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]
-    p_cost_weights_shape: [10, 1] # nWeights x weightDim
+    p_cost_weights_shape: [13, 1] # nWeights x weightDim
     p_ref_path_shape: [51, 4] # nStates x stateDim
     p_obstacles_shape: [1, 3] # nObstacles x [x, y, radius]
