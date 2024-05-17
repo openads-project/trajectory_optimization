@@ -51,29 +51,29 @@ def set_costs(ocp: AcadosOcp, config):
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lon * ref_path_costs["dlon"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_lat * ref_path_costs["dlat"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
-    # control variable costs
-    input_costs = calc_control_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += w_j_lon * input_costs["j_lon"]
-    ocp.model.cost_expr_ext_cost += w_alpha * input_costs["alpha"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
+    # v-max costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_max * calc_v_max_cost(ocp, config, p_v_max)
+    # obstacle costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
     # acceleration magnitude costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
     # lateral jerk costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
-    # obstacle costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
-    # v-max costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_max * calc_v_max_cost(ocp, config, p_v_max)
+    # control variable costs
+    control_costs = calc_control_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += w_j_lon * control_costs["j_lon"]
+    ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha"]
 
     # define terminal-costs
-    # end yaw
-    ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["dpsi"]
     # end v
-    ocp.model.cost_expr_ext_cost_e += p_dynamic_weight * w_v * ref_path_costs["v"]
+    ocp.model.cost_expr_ext_cost_e = p_dynamic_weight * w_v * ref_path_costs["v"]
     # final distance
     ocp.model.cost_expr_ext_cost_e += w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) 
+    # end yaw
+    ocp.model.cost_expr_ext_cost_e += w_end_yaw * ref_path_costs["dpsi"]
 
     # define inital-costs
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
