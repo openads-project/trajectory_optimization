@@ -19,10 +19,10 @@ def set_opts(ocp, config):
     opts.nlp_solver_type = "SQP"
     opts.rti_log_residuals = 1
     opts.nlp_solver_max_iter = 35               # default 100. Bound to ensure real-time capability
-    opts.tol = 1e-4                             # default 1e-6
+    opts.tol = 1e-2                             # default 1e-6
     opts.qp_solver_iter_max = 50                # default 50
     opts.qp_solver_warm_start = 2               # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
-    opts.qp_tol = 1e-4                          # default None
+    opts.qp_tol = 1e-2                          # default None
     opts.sim_method_num_stages = 4              # default 4 -> Use Runge Kutta 4
     opts.sim_method_num_steps = 2               # default 1. Not sure what this does, but 2 seems to make it slightly faster
     opts.globalization = 'FIXED_STEP'           # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').

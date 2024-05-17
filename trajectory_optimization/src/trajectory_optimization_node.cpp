@@ -698,42 +698,22 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_ref_path(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
-    // fill ref_path vector with values from reference_trajectory
+    
+    // replace all t values with theta since we don't need t in the ocp
+    trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
+    for (unsigned int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
+      trajectory_planning_msgs::trajectory_access::setT(ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
+    }
+
+    // fill ref_path vector with values from ref
     std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
-    if (reference_trajectory.states.size() >= (size_t) n) {
-      std::copy(reference_trajectory.states.begin(), reference_trajectory.states.begin() + n, ref_path.begin());
+    if (ref.states.size() >= (size_t) n) {
+      std::copy(ref.states.begin(), ref.states.begin() + n, ref_path.begin());
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
-      std::copy(reference_trajectory.states.begin(), reference_trajectory.states.end(), ref_path.begin());
+      std::copy(ref.states.begin(), ref.states.end(), ref_path.begin());
     }
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
-
-    // v_max
-    double v_max = 5.0;  // TODO: get this from somewhere and rename to v_max
-    idx += n;
-    n = 1;
-    std::vector<int> idx_v_max(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_v_max.begin(), idx_v_max.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_v_max.data(), &v_max, n);
-
-    // s_ref
-    // TODO: move to access functions
-    double s_ref = 0.0;
-    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory) - 1;
-         ++i) {
-      double x_0 = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i);
-      double y_0 = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i);
-      double x_1 = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i + 1);
-      double y_1 = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i + 1);
-      s_ref += sqrt(pow(x_1 - x_0, 2) + pow(y_1 - y_0, 2));
-    }
-    idx += n;
-    n = 1;
-    std::vector<int> idx_s_ref(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_s_ref.begin(), idx_s_ref.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_s_ref.data(), &s_ref, n);
 
     // obstacles
     idx += n;

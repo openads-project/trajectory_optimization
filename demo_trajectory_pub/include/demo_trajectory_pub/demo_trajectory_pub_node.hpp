@@ -28,6 +28,7 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   static const std::string kX0Param;
   static const std::string kY0Param;
   static const std::string kV0Param;
+  static const std::string kVEgoParam;
   static const std::string kAParam;
   static const std::string kTheta0Param;
   static const std::string kOmegaParam;
@@ -54,6 +55,7 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   double x0_ = 0.0;
   double y0_ = 0.0;
   double v0_ = 0.0;
+  double v_ego_ = 0.0;
   double a_ = 1.0;
   double theta0_ = 0.0;
   double omega_ = 0.0;
