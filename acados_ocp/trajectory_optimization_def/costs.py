@@ -46,36 +46,36 @@ def set_costs(ocp: AcadosOcp, config):
     w_alpha = p_cost_weights[11]
     w_end_yaw = p_cost_weights[12]
 
-    # Define Running-Costs
-    # Reference Path Costs
+    # define running-costs
+    # reference path costs
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lon * ref_path_costs["dlon"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
-    # Control Variable Costs
+    # control variable costs
     input_costs = calc_control_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lon * input_costs["j_lon"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_alpha * input_costs["alpha"]
-    # Acceleration Magnitude Costs
+    # acceleration magnitude costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
-    # Lateral Jerk Costs
+    # lateral jerk costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
-    # Obstacle Costs
+    # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
-    # V-Max Costs
+    # v-max costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_max * calc_v_max_cost(ocp, config, p_v_max)
 
-    # Define Terminal-Costs
-    # End Yaw
+    # define terminal-costs
+    # end yaw
     ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["dpsi"]
     # end v
     ocp.model.cost_expr_ext_cost_e += p_dynamic_weight * w_v * ref_path_costs["v"]
-    # Final Distance
+    # final distance
     ocp.model.cost_expr_ext_cost_e += w_s_ref * calc_s_max_cost(ocp, config, p_s_ref) 
 
-    # Define Inital-Costs
+    # define inital-costs
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
 
 def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
@@ -145,7 +145,6 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     v_ref = ca.fmax(v_ref_inter, 0.0)
     v_scale = ca.fmax(v_ref, ca.MX(10.0 / 3.6))
     v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]) / v_scale, 2)
-    #v_term = ca.power((v_ref_inter - ocp.model.x[STATE_INDEX_V]), 2)
     psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
 
     cost_terms = {"dlon": dlon_term, "dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
@@ -194,7 +193,7 @@ def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
     return cost_terms
 
 def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
-    # Derive a_lat
+    # derive a_lat
     l = config["wheelbase"]
     v = ocp.model.x[STATE_INDEX_V]
     tan_delta = ca.fmax(-10, ca.fmin(10, ca.tan(ocp.model.x[STATE_INDEX_DELTA])))
