@@ -721,28 +721,28 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
-      x_tgt = perception_msgs::object_access::getX(object_list.objects[i]);
-      y_tgt = perception_msgs::object_access::getY(object_list.objects[i]);
-      yaw_tgt = perception_msgs::object_access::getYaw(object_list.objects[i]);
-      if (i > 0 && use_prediction_) {
+      x_tgt = perception_msgs::object_access::getX(object_list.objects[j]);
+      y_tgt = perception_msgs::object_access::getY(object_list.objects[j]);
+      yaw_tgt = perception_msgs::object_access::getYaw(object_list.objects[j]);
+      if (j > 0 && use_prediction_) {
         std::vector<double> TIME, X, Y, YAW;
-        for (auto &predicted_state: object_list.objects[i].state_predictions[0].states) {
+        for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
           Y.push_back(perception_msgs::object_access::getY(predicted_state));
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
-        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
+        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * j;
         if (!linearInterpolation(TIME, X, des_time, x_tgt)) break; //TODO: we should continue here since we have different parameter vectors for objects
         if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break; //TODO: we should continue here since we have different parameter vectors for objects
         if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break; //TODO: we should continue here since we have different parameter vectors for objects
       }
       
-      obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 2] = yaw_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 3] = perception_msgs::object_access::getLength(object_list.objects[i]);
-      obstacles[p_obstacles_shape_[1] * i + 4] = perception_msgs::object_access::getWidth(object_list.objects[i]);
+      obstacles[p_obstacles_shape_[1] * j + 0] = x_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 1] = y_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 2] = yaw_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 3] = perception_msgs::object_access::getLength(object_list.objects[j]);
+      obstacles[p_obstacles_shape_[1] * j + 4] = perception_msgs::object_access::getWidth(object_list.objects[j]);
 
       // if(length <= 0.0 || width <= 0.0) break; //TODO: we should continue here since we have different parameter vectors for objects
       // double aspect_ratio = length/width;
