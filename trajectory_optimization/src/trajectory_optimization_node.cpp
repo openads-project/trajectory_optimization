@@ -717,21 +717,8 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // obstacles
     idx += n;
-    int n1 = p_obstacles_n1_shape_[0] * p_obstacles_n1_shape_[1];
-    unsigned int n1_objs = 0;
-    int n3 = p_obstacles_n3_shape_[0] * p_obstacles_n3_shape_[1];
-    unsigned int n3_objs = 0;
-    int n5 = p_obstacles_n5_shape_[0] * p_obstacles_n5_shape_[1];
-    unsigned int n5_objs = 0;
-    int n7 = p_obstacles_n7_shape_[0] * p_obstacles_n7_shape_[1];
-    unsigned int n7_objs = 0;
-    int n9 = p_obstacles_n9_shape_[0] * p_obstacles_n9_shape_[1];
-    unsigned int n9_objs = 0;
-    std::vector<double> obstacles_n1(n1, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
-    std::vector<double> obstacles_n3(n3, std::numeric_limits<double>::infinity()); // [x1_1, y1_1, x1_2, y1_2, x1_3, y1_3, r1, x2_1, ...]
-    std::vector<double> obstacles_n5(n5, std::numeric_limits<double>::infinity()); // [x1_1, y1_1, ..., x1_5, y1_5, r1, x2_1, ...]
-    std::vector<double> obstacles_n7(n7, std::numeric_limits<double>::infinity()); // [x1_1, y1_1, ..., x1_7, y1_7, r1, x2_1, ...]
-    std::vector<double> obstacles_n9(n3, std::numeric_limits<double>::infinity()); // [x1_1, y1_1, ..., x1_9, y1_9, r1, x2_1, ...]
+    n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
+    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
       x_tgt = perception_msgs::object_access::getX(object_list.objects[i]);
@@ -750,89 +737,73 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
         if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break; //TODO: we should continue here since we have different parameter vectors for objects
         if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break; //TODO: we should continue here since we have different parameter vectors for objects
       }
-      double length = perception_msgs::object_access::getLength(object_list.objects[i]);
-      double width = perception_msgs::object_access::getWidth(object_list.objects[i]);
-      if(length <= 0.0 || width <= 0.0) break; //TODO: we should continue here since we have different parameter vectors for objects
-      double aspect_ratio = length/width;
+      
+      obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
+      obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;
+      obstacles[p_obstacles_shape_[1] * i + 2] = yaw_tgt;
+      obstacles[p_obstacles_shape_[1] * i + 3] = perception_msgs::object_access::getLength(object_list.objects[i]);
+      obstacles[p_obstacles_shape_[1] * i + 4] = perception_msgs::object_access::getWidth(object_list.objects[i]);
 
-      // define number of circles depending on aspect ratio of object
-      unsigned int n_circles;
-      if(aspect_ratio > 0.0 && aspect_ratio <= 2.0 && n1 > 0) n_circles = 1;
-      else if(aspect_ratio > 2.0 && aspect_ratio <= 4.0 && n3 > 0) n_circles = 3;
-      else if(aspect_ratio > 4.0 && aspect_ratio <= 8.0 && n5 > 0) n_circles = 5;
-      else if(aspect_ratio > 6.0 && aspect_ratio <= 8.0 && n7 > 0) n_circles = 7;
-      else if(aspect_ratio > 8.0 && n9 > 0) n_circles = 9;
-      else break; //TODO: we should continue here since we have different parameter vectors for objects
+      // if(length <= 0.0 || width <= 0.0) break; //TODO: we should continue here since we have different parameter vectors for objects
+      // double aspect_ratio = length/width;
 
-      // ensure that x_tgt and y_tgt represent the geometric center of the object
-      x_tgt += object_list.objects[i].state.reference_point.translation_to_geometric_center.x;
-      y_tgt += object_list.objects[i].state.reference_point.translation_to_geometric_center.y;
-      // approximate object with n_circle circles a circle is defined by its center position and a radius
-      double radius;
-      std::vector<std::pair<double,double>> circle_centers;
-      approximateObjectGeometry(n_circles, x_tgt, y_tgt, yaw_tgt, length, width, radius, circle_centers);
-      // add circle center points to obstacles based on its number of circles
-      for(size_t k = 0; k < circle_centers.size(); k++) {
-        if(circle_centers.size() == 1) {
-          obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + 0 + k * 2] = circle_centers[k].first;
-          obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + 1 + k * 2] = circle_centers[k].second;
-        } else if(circle_centers.size() == 3) {
-          obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + 0 + k * 2] = circle_centers[k].first;
-          obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + 1 + k * 2] = circle_centers[k].second;
-        } else if(circle_centers.size() == 5) {        
-          obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + 0 + k * 2] = circle_centers[k].first;
-          obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + 1 + k * 2] = circle_centers[k].second;
-        } else if(circle_centers.size() == 7) {        
-          obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + 0 + k * 2] = circle_centers[k].first;
-          obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + 1 + k * 2] = circle_centers[k].second;
-        } else if(circle_centers.size() == 9) {        
-          obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + 0 + k * 2] = circle_centers[k].first;
-          obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + 1 + k * 2] = circle_centers[k].second;
-        }
-      }
-      // add radius
-      if(circle_centers.size() == 1) {
-        obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + circle_centers.size() * 2] = radius;
-        ++n1_objs;
-      } else if(circle_centers.size() == 3) {
-        obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + circle_centers.size() * 2] = radius;
-        ++n3_objs;
-      } else if(circle_centers.size() == 5) {
-        obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + circle_centers.size() * 2] = radius;
-        ++n5_objs;
-      } else if(circle_centers.size() == 7) {
-        obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + circle_centers.size() * 2] = radius;
-        ++n7_objs;
-      } else if(circle_centers.size() == 9) {
-        obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + circle_centers.size() * 2] = radius;
-        ++n9_objs;
-      }
+      // // define number of circles depending on aspect ratio of object
+      // unsigned int n_circles;
+      // if(aspect_ratio > 0.0 && aspect_ratio <= 2.0 && n1 > 0) n_circles = 1;
+      // else if(aspect_ratio > 2.0 && aspect_ratio <= 4.0 && n3 > 0) n_circles = 3;
+      // else if(aspect_ratio > 4.0 && aspect_ratio <= 8.0 && n5 > 0) n_circles = 5;
+      // else if(aspect_ratio > 6.0 && aspect_ratio <= 8.0 && n7 > 0) n_circles = 7;
+      // else if(aspect_ratio > 8.0 && n9 > 0) n_circles = 9;
+      // else break; //TODO: we should continue here since we have different parameter vectors for objects
+
+      // // ensure that x_tgt and y_tgt represent the geometric center of the object
+      // x_tgt += object_list.objects[i].state.reference_point.translation_to_geometric_center.x;
+      // y_tgt += object_list.objects[i].state.reference_point.translation_to_geometric_center.y;
+      // // approximate object with n_circle circles a circle is defined by its center position and a radius
+      // double radius;
+      // std::vector<std::pair<double,double>> circle_centers;
+      // approximateObjectGeometry(n_circles, x_tgt, y_tgt, yaw_tgt, length, width, radius, circle_centers);
+      // // add circle center points to obstacles based on its number of circles
+      // for(size_t k = 0; k < circle_centers.size(); k++) {
+      //   if(circle_centers.size() == 1) {
+      //     obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + 0 + k * 2] = circle_centers[k].first;
+      //     obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + 1 + k * 2] = circle_centers[k].second;
+      //   } else if(circle_centers.size() == 3) {
+      //     obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + 0 + k * 2] = circle_centers[k].first;
+      //     obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + 1 + k * 2] = circle_centers[k].second;
+      //   } else if(circle_centers.size() == 5) {        
+      //     obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + 0 + k * 2] = circle_centers[k].first;
+      //     obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + 1 + k * 2] = circle_centers[k].second;
+      //   } else if(circle_centers.size() == 7) {        
+      //     obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + 0 + k * 2] = circle_centers[k].first;
+      //     obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + 1 + k * 2] = circle_centers[k].second;
+      //   } else if(circle_centers.size() == 9) {        
+      //     obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + 0 + k * 2] = circle_centers[k].first;
+      //     obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + 1 + k * 2] = circle_centers[k].second;
+      //   }
+      // }
+      // // add radius
+      // if(circle_centers.size() == 1) {
+      //   obstacles_n1[p_obstacles_n1_shape_[1] * n1_objs + circle_centers.size() * 2] = radius;
+      //   ++n1_objs;
+      // } else if(circle_centers.size() == 3) {
+      //   obstacles_n3[p_obstacles_n3_shape_[1] * n3_objs + circle_centers.size() * 2] = radius;
+      //   ++n3_objs;
+      // } else if(circle_centers.size() == 5) {
+      //   obstacles_n5[p_obstacles_n5_shape_[1] * n5_objs + circle_centers.size() * 2] = radius;
+      //   ++n5_objs;
+      // } else if(circle_centers.size() == 7) {
+      //   obstacles_n7[p_obstacles_n7_shape_[1] * n7_objs + circle_centers.size() * 2] = radius;
+      //   ++n7_objs;
+      // } else if(circle_centers.size() == 9) {
+      //   obstacles_n9[p_obstacles_n9_shape_[1] * n9_objs + circle_centers.size() * 2] = radius;
+      //   ++n9_objs;
+      // }
     }
-    // fill vector with values from idx to idx + n1
-    std::vector<int> idx_n1_objs(n1);
-    std::iota(idx_n1_objs.begin(), idx_n1_objs.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_n1_objs.data(), obstacles_n1.data(), n1);
-    idx += n1;
-    // fill vector with values from idx to idx + n3
-    std::vector<int> idx_n3_objs(n3);
-    std::iota(idx_n3_objs.begin(), idx_n3_objs.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_n3_objs.data(), obstacles_n3.data(), n3);
-    idx += n3;
-    // fill vector with values from idx to idx + n5
-    std::vector<int> idx_n5_objs(n5);
-    std::iota(idx_n5_objs.begin(), idx_n5_objs.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_n5_objs.data(), obstacles_n5.data(), n5);
-    idx += n5;
-    // fill vector with values from idx to idx + n7
-    std::vector<int> idx_n7_objs(n7);
-    std::iota(idx_n7_objs.begin(), idx_n7_objs.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_n7_objs.data(), obstacles_n7.data(), n7);
-    idx += n7;
-    // fill vector with values from idx to idx + n9
-    std::vector<int> idx_n9_objs(n9);
-    std::iota(idx_n9_objs.begin(), idx_n9_objs.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_n9_objs.data(), obstacles_n9.data(), n9);
-    idx += n9;
+    std::vector<int> idx_obstacles(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
   }
 }
 

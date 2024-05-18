@@ -65,7 +65,6 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
 
   // keep only the closest objects
   std::vector<perception_msgs::msg::Object> closest_objects;
-  // TODO: we don't know the number of objects since we have different "classes" depending on their aspect ratio
   const int n_objects = std::min<size_t>(p_obstacles_shape_[0], indices_sorted_by_distance.size());
   for (int i = 0; i < n_objects; ++i) {
     closest_objects.push_back(tf_object_list.objects[indices_sorted_by_distance[i]]);
