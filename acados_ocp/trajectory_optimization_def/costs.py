@@ -198,8 +198,13 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             else:
                 idx_min = 0
             # determine dLong and dLat wrt. idx_min
-            dLong = ca.fabs(circle_centers_x[idx_min] - ego_circles_x[j])
-            dLat = ca.fabs(circle_centers_y[idx_min] - ego_circles_y[j])
+            dx_circles = circle_centers_x[idx_min] - ego_circles_x[j]
+            dy_circles = circle_centers_y[idx_min] - ego_circles_y[j]
+            beta = ca.atan2(dy_circles, dx_circles)
+            alpha = ocp.model.x[STATE_INDEX_PSI] - beta
+            c = ca.sqrt(ca.power(dx_circles, 2)+ca.power(dy_circles, 2))
+            dLong = ca.fabs(c * ca.cos(alpha))
+            dLat = ca.fabs(c * ca.sin(alpha))
             # update the minimum dLong and dLat value if both values are smaller then the stored values in min_dLong and min_dLat
             min_dLong = ca.if_else(ca.logic_and(dLong < min_dLong, dLat < min_dLat), dLong, min_dLong)
             min_dLat = ca.if_else(ca.logic_and(dLong < min_dLong, dLat < min_dLat), dLat, min_dLat)
