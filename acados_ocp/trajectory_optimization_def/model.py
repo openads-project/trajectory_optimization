@@ -60,12 +60,8 @@ def set_model(ocp, config):
     p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts x 1)
     p_dynamic_weight = MX.sym('dynamic_weight', 1) # (1 x 1)
     p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v))
-    p_obstacles_n1 = MX.sym('obstacles_n1', np.prod(config['p_obstacles_n1_shape'])) # (nObstacles x (x, y, r))
-    p_obstacles_n3 = MX.sym('obstacles_n3', np.prod(config['p_obstacles_n3_shape'])) # (nObstacles x (x1, y1, x2, y2, x3, y3, r))
-    p_obstacles_n5 = MX.sym('obstacles_n5', np.prod(config['p_obstacles_n5_shape'])) # (nObstacles x (x1, y1, ..., x5, y5, r))
-    p_obstacles_n7 = MX.sym('obstacles_n7', np.prod(config['p_obstacles_n7_shape'])) # (nObstacles x (x1, y1, ..., x7, y7, r))
-    p_obstacles_n9 = MX.sym('obstacles_n9', np.prod(config['p_obstacles_n9_shape'])) # (nObstacles x (x1, y1, ..., x9, y9, r))
-    params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_obstacles_n1, p_obstacles_n3, p_obstacles_n5, p_obstacles_n7, p_obstacles_n9)
+    p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacles_shape'])) # (nObstacles x (x, y, yaw, length, width))
+    params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_obstacles)
     model.p = params
 
     ocp.model = model
