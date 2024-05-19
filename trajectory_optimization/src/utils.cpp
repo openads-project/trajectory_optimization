@@ -102,4 +102,5 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   printf("SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
          kkt_norm_inf);
 }
+
 }  // namespace trajectory_optimization
