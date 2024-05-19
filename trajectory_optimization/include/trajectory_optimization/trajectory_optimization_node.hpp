@@ -97,10 +97,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
-  void approximateObjectGeometry(const unsigned int n_circles, const double x_center, const double y_center,
-                                  const double yaw, const double length, const double width, double& radius,
-                                  std::vector<std::pair<double,double>>& circle_centers);
-
   void planningCycle();
   bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,

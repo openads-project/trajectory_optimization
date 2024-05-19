@@ -102,18 +102,4 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   printf("SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
          kkt_norm_inf);
 }
-
-void TrajectoryOptimizationNode::approximateObjectGeometry(const unsigned int n_circles, const double x_center, const double y_center,
-                                const double yaw, const double length, const double width, double& radius,
-                                std::vector<std::pair<double,double>>& circle_centers) {
-  circle_centers.clear();
-  radius = std::sqrt(std::pow(length/(2*n_circles), 2.0) + std::pow(width/2.0, 2.0));
-  std::pair<double,double> circle_center;
-  for(unsigned int i=0; i < n_circles; ++i) {
-    circle_center.first = x_center - (length/2.0 + (2*i+1)*length/(2*n_circles)) * std::cos(yaw);
-    circle_center.second = y_center - (length/2.0 + (2*i+1)*length/(2*n_circles)) * std::sin(yaw);
-    circle_centers.push_back(circle_center); 
-  }
-}
-
 }  // namespace trajectory_optimization
