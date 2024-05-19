@@ -15,13 +15,8 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_params_obstacles_n1 = np.prod(config["p_obstacles_n1_shape"])
-    n_params_obstacles_n3 = np.prod(config["p_obstacles_n3_shape"])
-    n_params_obstacles_n5 = np.prod(config["p_obstacles_n5_shape"])
-    n_params_obstacles_n7 = np.prod(config["p_obstacles_n7_shape"])
-    n_params_obstacles_n9 = np.prod(config["p_obstacles_n9_shape"])
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path
-    n_params += n_params_obstacles_n1 + n_params_obstacles_n3 + n_params_obstacles_n5 + n_params_obstacles_n7 + n_params_obstacles_n9
+    n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
@@ -29,11 +24,7 @@ def set_costs(ocp: AcadosOcp, config):
     p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
     p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
-    p_obstacles_n1 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n1)]
-    p_obstacles_n3 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n3)]
-    p_obstacles_n5 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n5)]
-    p_obstacles_n7 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n7)]
-    p_obstacles_n9 = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles_n9)]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
     assert idx_params == n_params
 
     # cost term weights
@@ -56,11 +47,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     # obstacle costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n1, 1)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n3, 3)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n5, 5)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n7, 7)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles_n9, 9)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
     # acceleration magnitude costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
     # lateral jerk costs
@@ -157,7 +144,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     cost_terms = {"dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
     return cost_terms
 
-def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, n_circles: ca.MX) -> ca.MX:
+def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
     # obstacles: LRE implementation
     # r_ego = p_obstacles[2] # TODO: param for r_ego?
     # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
