@@ -178,6 +178,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
         # geometry approximation of object
         n_circles = determine_n_discretization_circles(length, width)
+        n_circles = 3
         circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
         # find the object circle that is the nearest to the vehicle and store dLat and dLong
         if n_circles > 1:
@@ -257,20 +258,13 @@ def determine_n_discretization_circles(length: ca.MX, width: ca.MX) -> ca.MX:
     
     return n_circles
 
-def approximate_object_geometry(n_circles: ca.MX, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
+def approximate_object_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
-    
-    # Initialize an empty list for circle centers coordinates
-    circle_centers_x = []
-    circle_centers_y = []
-    
-    # Loop to compute the centers of each circle
-    for i in range(n_circles):
-        x_offset = (length / 2.0 + (2 * i + 1) * length / (2 * n_circles)) * ca.cos(yaw)
-        y_offset = (length / 2.0 + (2 * i + 1) * length / (2 * n_circles)) * ca.sin(yaw)
-        circle_centers_x.append(x_center - x_offset)
-        circle_centers_y.append(y_center - y_offset)
+
+    n_circle_vec = ca.linspace(ca.MX(0), ca.MX(n_circles-1), n_circles)
+    circle_centers_x = x_center - (length / 2.0 + (2*n_circle_vec + 1) * length / (2 * n_circles)) * ca.cos(yaw)
+    circle_centers_y = y_center - (length / 2.0 + (2*n_circle_vec + 1) * length / (2 * n_circles)) * ca.sin(yaw)
     
     return circle_centers_x, circle_centers_y, radius
 
