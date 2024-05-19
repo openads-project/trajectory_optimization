@@ -26,6 +26,8 @@
     wheelbase: 2.711                  # wheelbase [m] (also used in ROS node)
     length: 4.799                     # length [m]
     width: 1.855                      # width [m]
+    baselink2geocenter: 1.281         # longitudinal distance from rear-axis to geometric center [m]
+    n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
     delta_max: 0.4956735              # max. absolute steering angle [rad]
     v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
     v_max: 30.0                       # upper boundary constraint for longitudinal velocity [m/s]
