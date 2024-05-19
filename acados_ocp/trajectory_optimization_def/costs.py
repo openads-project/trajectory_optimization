@@ -157,7 +157,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     # ===== NEW =====
 
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
-    n_params_obstacles = p_obstacles.rows()
+    n_params_obstacles = np.prod(config["p_obstacles_shape"])
     idx_inf = n_params_obstacles
     for i in range(n_params_obstacles):
         if p_obstacles[i] == ca.MX_inf:
@@ -168,28 +168,30 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     D_MIN_OBSTACLE = 0.5
     circle_approximation_radius_ego = ca.sqrt(ca.power(config["width"], 2) + ca.power(config["length"], 2)) / 2.0
     obstacles_term = 0.0
-    obstacle_state_dim = n_circles * 2 + 1
+    obstacle_state_dim = config["p_obstacles_shape"][1]
     n_obstacles = p_obstacles.rows() // obstacle_state_dim
     for i in range(n_obstacles):
+        x_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
+        y_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
+        yaw = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_YAW]
+        length = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_LENGTH]
+        width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
+        # geometry approximation of object
+        n_circles = determine_n_discretization_circles(length, width)
+        circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
         # find the object circle that is the nearest to the vehicle and store dLat and dLong
         if n_circles > 1:
-            # start indices for x an y of object in p_obstacles
-            idx_x_start = i * obstacle_state_dim + P_OBSTACLES_INDEX_X
-            idx_y_start = i * obstacle_state_dim + P_OBSTACLES_INDEX_Y
-            x_circles = p_obstacles[idx_x_start:idx_x_start+n_circles*2:2] # get n_circle elements starting from index 0 but only every 2nd element
-            y_circles = p_obstacles[idx_y_start:idx_y_start+n_circles*2:2] # get n_circle elements starting from index 1 but only every 2nd element
-            dx = ca.power(x_circles[:] - ocp.model.x[STATE_INDEX_X], 2)
-            dy = ca.power(y_circles[:] - ocp.model.x[STATE_INDEX_Y], 2)
+            dx = ca.power(circle_centers_x[:] - ocp.model.x[STATE_INDEX_X], 2)
+            dy = ca.power(circle_centers_y[:] - ocp.model.x[STATE_INDEX_Y], 2)
             dd = ca.sqrt(dx + dy)
             # index min gives us the index of the circle that is nearest to the ego-vehicle-circle
             idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
-            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - x_circles[idx_min])
-            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - y_circles[idx_min])
+            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - circle_centers_x[idx_min])
+            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - circle_centers_y[idx_min])
         else:
-            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X])
-            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y])
-        # get radius of obstacle circles which is the last element of the vector-slice
-        r_obstacle = p_obstacles[i * obstacle_state_dim + obstacle_state_dim - 1]
+            dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - circle_centers_x[0])
+            dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - circle_centers_x[0])
+
         # define minimum lateral and longitudinal distance to object circles
         dLatMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
         dLongMin = D_MIN_OBSTACLE  + circle_approximation_radius_ego + r_obstacle
@@ -240,6 +242,37 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     # obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
     return obstacles_term
+
+def determine_n_discretization_circles(length: ca.MX, width: ca.MX) -> ca.MX:
+    # ensure that width > 0.0 for numeric stability
+    width = ca.fmax(0.5, width)
+    # define aspect_ratio of object
+    aspect_ratio = length / width
+    # define n_circles based on aspect_ratio
+    n_circles = ca.if_else(ca.logic_and(aspect_ratio > 0.0, aspect_ratio <= 2.0), 1,
+                 ca.if_else(ca.logic_and(aspect_ratio > 2.0, aspect_ratio <= 4.0), 3,
+                 ca.if_else(ca.logic_and(aspect_ratio > 4.0, aspect_ratio <= 6.0), 5,
+                 ca.if_else(ca.logic_and(aspect_ratio > 6.0, aspect_ratio <= 8.0), 7,
+                 ca.if_else(aspect_ratio > 8.0, 9, 1)))))
+    
+    return n_circles
+
+def approximate_object_geometry(n_circles: ca.MX, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
+    # Calculate the radius using symbolic operations
+    radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
+    
+    # Initialize an empty list for circle centers coordinates
+    circle_centers_x = []
+    circle_centers_y = []
+    
+    # Loop to compute the centers of each circle
+    for i in range(n_circles):
+        x_offset = (length / 2.0 + (2 * i + 1) * length / (2 * n_circles)) * ca.cos(yaw)
+        y_offset = (length / 2.0 + (2 * i + 1) * length / (2 * n_circles)) * ca.sin(yaw)
+        circle_centers_x.append(x_center - x_offset)
+        circle_centers_y.append(y_center - y_offset)
+    
+    return circle_centers_x, circle_centers_y, radius
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
     j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2) / ca.power(config["c_jlon"], 2)
