@@ -37,41 +37,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
  private:
   // input topics
-  static const std::string kEgoDataTopic;
-  static const std::string kObjectListTopic;
-  static const std::string kReferenceTrajectoryTopic;
-  static const std::string kRouteTopic;
+  const std::string kEgoDataTopic = "~/ego_data";
+  const std::string kObjectListTopic = "~/object_list";
+  const std::string kReferenceTrajectoryTopic = "~/reference_trajectory";
+  const std::string kRouteTopic = "~/route";
 
   // output topics
-  static const std::string kTrajectoryTopic;
+  const std::string kTrajectoryTopic = "~/trajectory";
 
-  // parameter names
-  static const std::string kVehicleFrameIdParam;
-  static const std::string kTrajectoryFrameIdParam;
-  static const std::string kFixedOverTimeFrameIdParam;
-
-  static const std::string kOptimizationFreqParam;
-  static const std::string kNShotsParam;
-  static const std::string kOptimizationHoizonParam;
-  static const std::string kVerboseParam;
-  static const std::string kWheelBaseParam;
-
-  static const std::string kCostWeightsParam;
-  static const std::string kDynamicWeightParam;
-  static const std::string kStandstillTresholdParam;
-  static const std::string kHighLevelStabilizationParam;
-
-  static const std::string kPCostWeightsShapeParam;
-  static const std::string kPRefPathShapeParam;
-  static const std::string kPObstaclesShapeParam;
-
-  static const std::string kBiLevelThresholdVParam;
-  static const std::string kBiLevelThresholdAParam;
-  static const std::string kBiLevelThresholdYParam;
-  static const std::string kBiLevelThresholdYawParam;
-  static const std::string kBiLevelThresholdDeltaParam;
-
-  void declareParameters();
   void loadParameters();
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
@@ -126,6 +99,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_object_list_ = false;
 
   // parameters
+  std::vector<std::tuple<std::string, void*, rclcpp::ParameterType, std::string>> nodeParams_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";

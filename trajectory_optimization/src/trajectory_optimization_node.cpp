@@ -16,46 +16,37 @@ RCLCPP_COMPONENTS_REGISTER_NODE(trajectory_optimization::TrajectoryOptimizationN
  */
 namespace trajectory_optimization {
 
-// parameter names
-
-// constants
-const std::string TrajectoryOptimizationNode::kEgoDataTopic = "~/ego_data";
-const std::string TrajectoryOptimizationNode::kObjectListTopic = "~/object_list";
-const std::string TrajectoryOptimizationNode::kReferenceTrajectoryTopic = "~/reference_trajectory";
-const std::string TrajectoryOptimizationNode::kRouteTopic = "~/route";
-
-const std::string TrajectoryOptimizationNode::kTrajectoryTopic = "~/trajectory";
-
-const std::string TrajectoryOptimizationNode::kVehicleFrameIdParam = "vehicle_frame_id";
-const std::string TrajectoryOptimizationNode::kTrajectoryFrameIdParam = "trajectory_frame_id";
-const std::string TrajectoryOptimizationNode::kFixedOverTimeFrameIdParam = "fixed_over_time_frame_id";
-const std::string TrajectoryOptimizationNode::kOptimizationFreqParam = "optimization_frequency";
-const std::string TrajectoryOptimizationNode::kNShotsParam = "n_shots";
-const std::string TrajectoryOptimizationNode::kOptimizationHoizonParam = "optimization_horizon";
-const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
-const std::string TrajectoryOptimizationNode::kWheelBaseParam = "wheelbase";
-const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
-const std::string TrajectoryOptimizationNode::kDynamicWeightParam = "dynamic_weight";
-const std::string TrajectoryOptimizationNode::kStandstillTresholdParam = "standstill_threshold";
-const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
-
-const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
-const std::string TrajectoryOptimizationNode::kPRefPathShapeParam = "p_ref_path_shape";
-const std::string TrajectoryOptimizationNode::kPObstaclesShapeParam = "p_obstacles_shape";
-
-const std::string TrajectoryOptimizationNode::kBiLevelThresholdVParam = "bi_level_dV";
-const std::string TrajectoryOptimizationNode::kBiLevelThresholdAParam = "bi_level_dA";
-const std::string TrajectoryOptimizationNode::kBiLevelThresholdYParam = "bi_level_dY";
-const std::string TrajectoryOptimizationNode::kBiLevelThresholdYawParam = "bi_level_dYaw";
-const std::string TrajectoryOptimizationNode::kBiLevelThresholdDeltaParam = "bi_level_dDelta";
-
 /**
  * @brief Creates a TrajectoryOptimizationNode node
  *
  */
 TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions& options)
     : Node("trajectory_optimization_node", options) {
-  this->declareParameters();
+
+  // define node parameters - name, member variable, type, description
+  nodeParams_ = {
+    {"vehicle_frame_id", &vehicle_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of local vehicle frame (the ocp is defined in this frame)"},
+    {"trajectory_frame_id", &trajectory_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of output trajectory"},
+    {"fixed_over_time_frame_id", &fixed_over_time_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of frame that is fixed over time for finding temporal transforms"},
+    {"optimization_frequency", &optimization_freq_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Optimization Frequency in Hz"},
+    {"n_shots", &n_shots_, rclcpp::ParameterType::PARAMETER_INTEGER, "Number of shooting intervals in optimization horizon"},
+    {"optimization_horizon", &optimization_horizon_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Optimization Horizon in seconds"},
+    {"verbose", &verbose_, rclcpp::ParameterType::PARAMETER_BOOL, "Print solver statistics"},
+    {"wheelbase", &wheelbase_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Wheelbase of the vehicle [m]"},
+    {"cost_weights", &cost_weights_, rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY, "Cost function weights"},
+    {"dynamic_weight", &dynamic_weight_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Dynamic weight alpha"},
+    {"standstill_threshold", &standstill_threshold_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory"},
+    {"high_level_stabilization", &high_level_stabilization_, rclcpp::ParameterType::PARAMETER_BOOL, "Use high-level stabilization strategy for init state (= init with current EgoData)"},
+    {"p_cost_weights_shape", &p_cost_weights_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for cost weights"},
+    {"p_ref_path_shape", &p_ref_path_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for reference path"},
+    {"p_obstacles_shape", &p_obstacles_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for obstacles"},
+    {"bi_level_dV", &bi_level_dV_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum velocity difference [m/s]"},
+    {"bi_level_dA", &bi_level_dA_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]"},
+    {"bi_level_dY", &bi_level_dY_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum y-offset [m]"},
+    {"bi_level_dYaw", &bi_level_dYaw_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum yaw difference [degree]"},
+    {"bi_level_dDelta", &bi_level_dDelta_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum steering angle difference [degree]"}
+  };    
+  
   this->loadParameters();
   this->setup();
 }
@@ -67,184 +58,53 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
 TrajectoryOptimizationNode::~TrajectoryOptimizationNode() { freeSolver(); }
 
 /**
- * @brief Declares all parameters that this node uses
- */
-void TrajectoryOptimizationNode::declareParameters() {
-  rcl_interfaces::msg::ParameterDescriptor param_desc;
-
-  param_desc.description = "Frame ID of local vehicle frame (the ocp is defined in this frame)";
-  this->declare_parameter(kVehicleFrameIdParam, vehicle_frame_id_, param_desc);
-
-  param_desc.description = "Frame ID of output trajectory";
-  this->declare_parameter(kTrajectoryFrameIdParam, trajectory_frame_id_, param_desc);
-
-  param_desc.description = "Frame ID of frame that is fixed over time for finding temporal transforms";
-  this->declare_parameter(kFixedOverTimeFrameIdParam, fixed_over_time_frame_id_, param_desc);
-
-  param_desc.description = "Optimization Frequency in Hz";
-  this->declare_parameter(kOptimizationFreqParam, optimization_freq_, param_desc);
-
-  param_desc.description = "Number of shooting intervals in optimization horizon";
-  this->declare_parameter(kNShotsParam, n_shots_, param_desc);
-
-  param_desc.description = "Optimization Horizon in seconds";
-  this->declare_parameter(kOptimizationHoizonParam, optimization_horizon_, param_desc);
-
-  param_desc.description = "Print solver statistics";
-  this->declare_parameter(kVerboseParam, verbose_, param_desc);
-
-  param_desc.description = "Wheelbase of the vehicle [m]";
-  this->declare_parameter(kWheelBaseParam, wheelbase_, param_desc);
-
-  param_desc.description = "Cost function weights";
-  this->declare_parameter(kCostWeightsParam, cost_weights_, param_desc);
-
-  param_desc.description = "Dynamic weight alpha";
-  this->declare_parameter(kDynamicWeightParam, dynamic_weight_, param_desc);
-
-  param_desc.description =
-      "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill "
-      "trajectory";
-  this->declare_parameter(kStandstillTresholdParam, standstill_threshold_, param_desc);
-
-  param_desc.description = "Use high-level stabilization strategy for init state (= init with current EgoData)";
-  this->declare_parameter(kHighLevelStabilizationParam, high_level_stabilization_, param_desc);
-
-  param_desc.description = "OCP parameter vector shape for cost weights";
-  this->declare_parameter(kPCostWeightsShapeParam, p_cost_weights_shape_, param_desc);
-
-  param_desc.description = "OCP parameter vector shape for reference path";
-  this->declare_parameter(kPRefPathShapeParam, p_ref_path_shape_, param_desc);
-
-  param_desc.description = "OCP parameter vector shape for obstacles";
-  this->declare_parameter(kPObstaclesShapeParam, p_obstacles_shape_, param_desc);
-
-  param_desc.description = "Threshold for bi-level stabilization: maximum velocity difference [m/s]";
-  this->declare_parameter(kBiLevelThresholdVParam, bi_level_dV_, param_desc);
-
-  param_desc.description = "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]";
-  this->declare_parameter(kBiLevelThresholdAParam, bi_level_dA_, param_desc);
-
-  param_desc.description = "Threshold for bi-level stabilization: maximum y-offset [m]";
-  this->declare_parameter(kBiLevelThresholdYParam, bi_level_dY_, param_desc);
-
-  param_desc.description = "Threshold for bi-level stabilization: maximum yaw difference [degree]";
-  this->declare_parameter(kBiLevelThresholdYawParam, bi_level_dYaw_, param_desc);
-
-  param_desc.description = "Threshold for bi-level stabilization: maximum steering angle difference [degree]";
-  this->declare_parameter(kBiLevelThresholdDeltaParam, bi_level_dDelta_, param_desc);
-}
-
-/**
  * @brief Loads ROS parameters used in the node.
  *
  */
 void TrajectoryOptimizationNode::loadParameters() {
-  try {
-    vehicle_frame_id_ = this->get_parameter(kVehicleFrameIdParam).as_string();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kVerboseParam.c_str(),
-                vehicle_frame_id_.c_str());
-  }
-  try {
-    trajectory_frame_id_ = this->get_parameter(kTrajectoryFrameIdParam).as_string();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kTrajectoryFrameIdParam.c_str(),
-                trajectory_frame_id_.c_str());
-  }
-  try {
-    fixed_over_time_frame_id_ = this->get_parameter(kFixedOverTimeFrameIdParam).as_string();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%s'", kFixedOverTimeFrameIdParam.c_str(),
-                fixed_over_time_frame_id_.c_str());
-  }
-  try {
-    optimization_freq_ = this->get_parameter(kOptimizationFreqParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kOptimizationFreqParam.c_str());
-    exit(EXIT_FAILURE);
-  }
-  try {
-    n_shots_ = this->get_parameter(kNShotsParam).as_int();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kNShotsParam.c_str());
-    exit(EXIT_FAILURE);
-  }
-  try {
-    optimization_horizon_ = this->get_parameter(kOptimizationHoizonParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_FATAL(this->get_logger(), "Parameter '%s' is required", kOptimizationHoizonParam.c_str());
-    exit(EXIT_FAILURE);
-  }
-  try {
-    verbose_ = this->get_parameter(kVerboseParam).as_bool();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting to '%i'", kVerboseParam.c_str(), verbose_);
-  }
-  try {
-    wheelbase_ = this->get_parameter(kWheelBaseParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kWheelBaseParam.c_str());
-  }
-  try {
-    cost_weights_ = this->get_parameter(kCostWeightsParam).as_double_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kCostWeightsParam.c_str());
-  }
-  try {
-    dynamic_weight_ = this->get_parameter(kDynamicWeightParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kDynamicWeightParam.c_str());
-  }
-  try {
-    standstill_threshold_ = this->get_parameter(kStandstillTresholdParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kStandstillTresholdParam.c_str());
-  }
-  try {
-    high_level_stabilization_ = this->get_parameter(kHighLevelStabilizationParam).as_bool();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kHighLevelStabilizationParam.c_str());
-  }
-  try {
-    p_cost_weights_shape_ = this->get_parameter(kPCostWeightsShapeParam).as_integer_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPCostWeightsShapeParam.c_str());
-  }
-  try {
-    p_ref_path_shape_ = this->get_parameter(kPRefPathShapeParam).as_integer_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPRefPathShapeParam.c_str());
-  }
-  try {
-    p_obstacles_shape_ = this->get_parameter(kPObstaclesShapeParam).as_integer_array();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kPObstaclesShapeParam.c_str());
-  }
-  try {
-    bi_level_dV_ = this->get_parameter(kBiLevelThresholdVParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdVParam.c_str());
-  }
-  try {
-    bi_level_dA_ = this->get_parameter(kBiLevelThresholdAParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdAParam.c_str());
-  }
-  try {
-    bi_level_dY_ = this->get_parameter(kBiLevelThresholdYParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYParam.c_str());
-  }
-  try {
-    bi_level_dYaw_ = this->get_parameter(kBiLevelThresholdYawParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdYawParam.c_str());
-  }
-  try {
-    bi_level_dDelta_ = this->get_parameter(kBiLevelThresholdDeltaParam).as_double();
-  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kBiLevelThresholdDeltaParam.c_str());
+  for (auto& param : nodeParams_) {
+    std::string paramName = std::get<0>(param);
+    void* memberParamPtr = std::get<1>(param);
+    rclcpp::ParameterType paramType = std::get<2>(param);
+    
+    rcl_interfaces::msg::ParameterDescriptor param_desc;
+    param_desc.description = std::get<3>(param);
+
+    this->declare_parameter(paramName, paramType, param_desc);
+
+    try {
+      if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
+        *static_cast<std::string*>(memberParamPtr) = this->get_parameter(paramName).as_string();
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+        *static_cast<double*>(memberParamPtr) = this->get_parameter(paramName).as_double();
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
+        *static_cast<bool*>(memberParamPtr) = this->get_parameter(paramName).as_bool();
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
+        *static_cast<int*>(memberParamPtr) = this->get_parameter(paramName).as_int();
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
+        *static_cast<std::vector<double>*>(memberParamPtr) = this->get_parameter(paramName).as_double_array();
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
+        *static_cast<std::vector<long int>*>(memberParamPtr) = this->get_parameter(paramName).as_integer_array();
+      } else {
+        RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
+      }
+    } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+      if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %s", paramName.c_str(), *static_cast<std::string*>(memberParamPtr));
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %f", paramName.c_str(), *static_cast<double*>(memberParamPtr));
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %d", paramName.c_str(), *static_cast<bool*>(memberParamPtr));
+      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %d", paramName.c_str(), *static_cast<int*>(memberParamPtr));
+      } else if(paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default array, starting with: %f", paramName.c_str(), *static_cast<std::vector<double>*>(memberParamPtr)[0]);
+      } else if(paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
+        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default array, starting with: %ld", paramName.c_str(), *static_cast<std::vector<long int>*>(memberParamPtr)[0]);
+      } else {
+        RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
+      }
+    }
   }
 }
 
@@ -257,30 +117,27 @@ void TrajectoryOptimizationNode::loadParameters() {
 rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
-    if (param.get_name() == kOptimizationFreqParam) {
-      optimization_freq_ = param.as_double();
-    } else if (param.get_name() == kNShotsParam) {
-      n_shots_ = param.as_int();
-    } else if (param.get_name() == kOptimizationHoizonParam) {
-      optimization_horizon_ = param.as_double();
-    } else if (param.get_name() == kVerboseParam) {
-      verbose_ = param.as_bool();
-    } else if (param.get_name() == kWheelBaseParam) {
-      wheelbase_ = param.as_double();
-    } else if (param.get_name() == kCostWeightsParam) {
-      cost_weights_ = param.as_double_array();
-    } else if (param.get_name() == kDynamicWeightParam) {
-      dynamic_weight_ = param.as_double();
-    } else if (param.get_name() == kStandstillTresholdParam) {
-      standstill_threshold_ = param.as_double();
-    } else if (param.get_name() == kHighLevelStabilizationParam) {
-      high_level_stabilization_ = param.as_bool();
-    } else if (param.get_name() == kPCostWeightsShapeParam) {
-      p_cost_weights_shape_ = param.as_integer_array();
-    } else if (param.get_name() == kPRefPathShapeParam) {
-      p_ref_path_shape_ = param.as_integer_array();
-    } else if (param.get_name() == kPObstaclesShapeParam) {
-      p_obstacles_shape_ = param.as_integer_array();
+    for (auto& nodeParam : nodeParams_) {
+      if (param.get_name() == std::get<0>(nodeParam)) {
+        void* memberParamPtr = std::get<1>(nodeParam);
+        rclcpp::ParameterType paramType = std::get<2>(nodeParam);
+
+        if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
+          *static_cast<std::string*>(memberParamPtr) = param.as_string();
+        } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+          *static_cast<double*>(memberParamPtr) = param.as_double();
+        } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
+          *static_cast<bool*>(memberParamPtr) = param.as_bool();
+        } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
+          *static_cast<int*>(memberParamPtr) = param.as_int();
+        } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
+          *static_cast<std::vector<double>*>(memberParamPtr) = param.as_double_array();
+        } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
+          *static_cast<std::vector<long int>*>(memberParamPtr) = param.as_integer_array();
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
+        }
+      }
     }
   }
 
