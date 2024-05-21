@@ -165,12 +165,13 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             break
     p_obstacles = p_obstacles[:idx_inf]
     # derive geo-center position of ego-vehicle
-    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["baselink2geocenter"] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
-    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["baselink2geocenter"] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+    # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
+    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
+    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
     # approximate ego-vehicle geometry with circles
     ego_circles_x, ego_circles_y, r_ego = approximate_object_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
     D_MIN_OBSTACLE = 0.5
-    obstacles_term = 0.0
+    obstacles_term = ca.MX(0.0)
     obstacle_state_dim = config["p_obstacles_shape"][1]
     n_obstacles = p_obstacles.rows() // obstacle_state_dim
     for i in range(n_obstacles):
@@ -180,12 +181,13 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         length = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_LENGTH]
         width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
         # approximate object geometry with circles
-        #n_circles = determine_n_discretization_circles(length, width)
+        # n_circles = determine_n_discretization_circles(length, width)
         n_circles = 3 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
         circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
-        # Initialize minimum distances with a large value
-        min_dLong = ca.inf
-        min_dLat = ca.inf
+        # initialize closest distances to object with a large value
+        closest_distance = ca.inf
+        dLong = ca.inf
+        dLat = ca.inf
 
         for j in range(config["n_ego_circles"]):
             # find the object circle that is the nearest to the given ego-vehicle-circle and store dLat and dLong
@@ -201,22 +203,21 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             dx_circles = circle_centers_x[idx_min] - ego_circles_x[j]
             dy_circles = circle_centers_y[idx_min] - ego_circles_y[j]
             beta = ca.atan2(dy_circles, dx_circles)
-            alpha = ocp.model.x[STATE_INDEX_PSI] - beta
-            c = ca.sqrt(ca.power(dx_circles, 2)+ca.power(dy_circles, 2))
-            dLong = ca.fabs(c * ca.cos(alpha))
-            dLat = ca.fabs(c * ca.sin(alpha))
-            # update the minimum dLong and dLat value if both values are smaller then the stored values in min_dLong and min_dLat
-            min_dLong = ca.if_else(ca.logic_and(dLong < min_dLong, dLat < min_dLat), dLong, min_dLong)
-            min_dLat = ca.if_else(ca.logic_and(dLong < min_dLong, dLat < min_dLat), dLat, min_dLat)
+            alpha = beta - ocp.model.x[STATE_INDEX_PSI]
+            c = ca.sqrt(ca.power(dx_circles, 2) + ca.power(dy_circles, 2))
+            # update the minimum dLong and dLat value if c < closest_distance
+            dLong = ca.if_else(c < closest_distance, ca.fabs(c * ca.cos(alpha)), dLong)
+            dLat = ca.if_else(c < closest_distance, ca.fabs(c * ca.sin(alpha)), dLat)
+            closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
         dLatMin = D_MIN_OBSTACLE  + r_ego + r_obstacle
         dLongMin = D_MIN_OBSTACLE  + r_ego + r_obstacle
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
-        cLong = ca.cos(ca.pi / dLongMin * min_dLong) + 1
-        cLat = ca.cos(ca.pi / dLatMin * min_dLat) + 1
+        cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
+        cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
         cObst = cLat * cLong
-        obst_condition = ca.logic_or(min_dLat > dLatMin, min_dLong > dLongMin)
+        obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
         obstacles_term += ca.if_else(obst_condition, 0, cObst)
 
     # =================

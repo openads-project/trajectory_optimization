@@ -732,7 +732,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
           Y.push_back(perception_msgs::object_access::getY(predicted_state));
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
-        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * j;
+        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
         if (!linearInterpolation(TIME, X, des_time, x_tgt)) break;
         if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break;
         if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break;
