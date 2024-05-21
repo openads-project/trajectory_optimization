@@ -163,7 +163,10 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         if p_obstacles[i] == ca.MX_inf:
             idx_inf = i
             break
+    if idx_inf == 0:
+        return ca.MX(0.0) # return 0 if no obstacles are present
     p_obstacles = p_obstacles[:idx_inf]
+
     # derive geo-center position of ego-vehicle
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
