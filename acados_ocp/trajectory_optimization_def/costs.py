@@ -159,8 +159,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
 
     # TODO: slicing doesnt work
-    # n_params_obstacles = np.prod(config["p_obstacles_shape"])
-    # idx_inf = n_params_obstacles
+    n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    idx_inf = n_params_obstacles
     # print(type(p_obstacles[0]))
     # for i in range(n_params_obstacles):
     #     if p_obstacles[i] == ca.MX_inf:
@@ -168,7 +168,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     #         break
     # if idx_inf == 0:
     #     return ca.MX(0.0) # return 0 if no obstacles are present
-    # p_obstacles = p_obstacles[:idx_inf]
+    p_obstacles = p_obstacles[:idx_inf]
 
     # derive geo-center position of ego-vehicle
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
