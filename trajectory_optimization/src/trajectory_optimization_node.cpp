@@ -603,7 +603,11 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
     // TODO: dKappa
   }
-  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
+  bool standstill = true;
+  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(*trajectory); ++i) {
+    if (trajectory_planning_msgs::trajectory_access::getV(*trajectory, i) > 0.45) standstill = false; // TODO magic number
+  }
+  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, standstill);
 
   // transform trajectory to output frame
   trajectory2outputFrame(*trajectory);
