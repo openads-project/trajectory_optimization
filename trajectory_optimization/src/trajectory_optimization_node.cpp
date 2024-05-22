@@ -719,13 +719,16 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
     std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
-    for (int k = 0; k < p_obstacles_shape_[0]; ++k) {
-      obstacles[p_obstacles_shape_[1] * k + 0] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * k + 1] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * k + 2] = 0.0;
-      obstacles[p_obstacles_shape_[1] * k + 3] = 0.0;
-      obstacles[p_obstacles_shape_[1] * k + 4] = 0.0;
+    // init with dummy "ghost" obstacles at (10000, 10000) to avoid NaNs in the optimization problem
+    // TODO: improve this
+    for (int j = 0; j < p_obstacles_shape_[0]; ++j) {
+      obstacles[p_obstacles_shape_[1] * j + 0] = 10000.0;
+      obstacles[p_obstacles_shape_[1] * j + 1] = 10000.0;
+      obstacles[p_obstacles_shape_[1] * j + 2] = 0.0;
+      obstacles[p_obstacles_shape_[1] * j + 3] = 0.0;
+      obstacles[p_obstacles_shape_[1] * j + 4] = 0.0;
     }
+
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
       x_tgt = perception_msgs::object_access::getX(object_list.objects[j]);

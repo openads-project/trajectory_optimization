@@ -145,30 +145,16 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     return cost_terms
 
 def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
-    # obstacles: LRE implementation
-    # r_ego = p_obstacles[2] # TODO: param for r_ego?
-    # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
-    # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - p_obstacles[0], 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1], 2))
-    # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - 5, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - 0, 2))
-    # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + p_obstacles[2] + d_obstacles_min, dist_obstacles - (r_ego + p_obstacles[2] + d_obstacles_min), 0)
-    # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
-    # obstacles_term = ca.power(conditional_obstacles_term, 2)
-
-    # ===== NEW =====
-
-    # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
 
     # TODO: slicing doesnt work
-    n_params_obstacles = np.prod(config["p_obstacles_shape"])
-    idx_inf = n_params_obstacles
-    # print(type(p_obstacles[0]))
+    # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
+    # n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    # idx_inf = n_params_obstacles
     # for i in range(n_params_obstacles):
     #     if p_obstacles[i] == ca.MX_inf:
     #         idx_inf = i
     #         break
-    # if idx_inf == 0:
-    #     return ca.MX(0.0) # return 0 if no obstacles are present
-    p_obstacles = p_obstacles[:idx_inf]
+    # p_obstacles = p_obstacles[:idx_inf]
 
     # derive geo-center position of ego-vehicle
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
@@ -176,7 +162,6 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
     # approximate ego-vehicle geometry with circles
     ego_circles_x, ego_circles_y, r_ego = approximate_object_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
-    D_MIN_OBSTACLE = 0.5
     obstacles_term = ca.MX(0.0)
     obstacle_state_dim = config["p_obstacles_shape"][1]
     n_obstacles = p_obstacles.rows() // obstacle_state_dim
@@ -217,8 +202,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
-        dLatMin = D_MIN_OBSTACLE  + r_ego + r_obstacle
-        dLongMin = D_MIN_OBSTACLE  + r_ego + r_obstacle
+        dLatMin = D_MIN_OBSTACLE_LAT  + r_ego + r_obstacle
+        dLongMin = D_MIN_OBSTACLE_LONG  + r_ego + r_obstacle
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
         cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
         cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
@@ -227,45 +212,6 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         # temporary check if x_center is infinite; if yes -> discard costs (TODO: slicing doesnt work)
         obst_condition = ca.logic_or(obst_condition, x_center == ca.inf)
         obstacles_term += ca.if_else(obst_condition, 0, cObst)
-
-    # =================
-
-    # currently not working and overwriting with adp implementation
-    # p_obstacles shuold be sortet like this: (x1, y1, r1, x2, y2, r2, ...)
-    # for i in range(n_obstacles):
-    #     x_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_X]
-    #     y_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_Y]
-    #     r_obstacle = p_obstacles[i*obstacle_state_dim + P_OBSTACLES_INDEX_R]
-    #     dist_obstacle = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - x_obstacle, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - y_obstacle, 2))
-    #     conditional_obstacle_term = ca.if_else(dist_obstacle <= r_obstacle, r_obstacle - dist_obstacle, 0)
-    #     if i == 0:
-    #         obstacles_term = ca.power(conditional_obstacle_term, 2)
-    #     else:
-    #         obstacles_term += ca.power(conditional_obstacle_term, 2)
-
-    ## adp implementation
-    # MIN_D_LONG = 1.0
-    # MIN_D_LAT = 1.0
-    # obj_length = 1.0
-    # obj_width = 1.0
-    # ego_length = 1.0
-    # ego_width = 1.0
-    # # dT = v_ego * tau
-    # dLongMin = MIN_D_LONG + 0.5 * obj_length + 0.5 * ego_length # + dT ; positions in geometric center
-    # dLatMin = MIN_D_LAT + 0.5 * obj_width + 0.5 * ego_width
-
-    # # TODO: handle more objects
-    # dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - p_obstacles[0])
-    # dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1])
-
-    # aLat = ca.pi / dLatMin # TODO: get dLatMin from param
-    # cLat = ca.cos(aLat * dLat) + 1
-    # aLong = ca.pi / dLongMin # TODO: get dLongMin from param
-    # cLong = ca.cos(aLong * dLong) + 1
-    # cObst = cLat * cLong
-
-    # obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
-    # obstacles_term = ca.if_else(obst_condition, 0, cObst)
 
     return obstacles_term
 
