@@ -718,30 +718,34 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // obstacles
     idx += n;
     n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
-    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, r1, x2, ...]
-    for (size_t i = 0; i < object_list.objects.size(); ++i) {
-      double l = perception_msgs::object_access::getLength(object_list.objects[i]);
-      double w = perception_msgs::object_access::getWidth(object_list.objects[i]);
-      double circle_approximation_radius = std::sqrt(std::pow(l, 2) + std::pow(w, 2)) / 2;
-
-      double x_tgt, y_tgt;
-      x_tgt = perception_msgs::object_access::getX(object_list.objects[i]);
-      y_tgt = perception_msgs::object_access::getY(object_list.objects[i]);
-      if (i > 0 && use_prediction_) {
-        std::vector<double> TIME, X, Y;
-        for (auto &predicted_state: object_list.objects[i].state_predictions[0].states) {
+    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
+    for (size_t j = 0; j < object_list.objects.size(); ++j) {
+      double x_tgt, y_tgt, yaw_tgt;
+      x_tgt = perception_msgs::object_access::getX(object_list.objects[j]);
+      y_tgt = perception_msgs::object_access::getY(object_list.objects[j]);
+      yaw_tgt = perception_msgs::object_access::getYaw(object_list.objects[j]);
+      if (i > 0 && use_prediction_) { // i > 0 indicates we're not on the first shooting interval --> may use prediction
+        std::vector<double> TIME, X, Y, YAW;
+        for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
           Y.push_back(perception_msgs::object_access::getY(predicted_state));
+          YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
         if (!linearInterpolation(TIME, X, des_time, x_tgt)) break;
         if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break;
-      }
-
-      obstacles[p_obstacles_shape_[1] * i + 0] = x_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 1] = y_tgt;
-      obstacles[p_obstacles_shape_[1] * i + 2] = circle_approximation_radius;
+        if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break;
+      } 
+      // ensure that x_tgt and y_tgt represent the geometric center of the object
+      x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
+      y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
+      
+      obstacles[p_obstacles_shape_[1] * j + 0] = x_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 1] = y_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 2] = yaw_tgt;
+      obstacles[p_obstacles_shape_[1] * j + 3] = perception_msgs::object_access::getLength(object_list.objects[j]);
+      obstacles[p_obstacles_shape_[1] * j + 4] = perception_msgs::object_access::getWidth(object_list.objects[j]);
     }
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n

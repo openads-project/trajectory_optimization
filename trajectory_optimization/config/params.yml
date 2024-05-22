@@ -26,6 +26,8 @@
     wheelbase: 2.711                  # wheelbase [m] (also used in ROS node)
     length: 4.799                     # length [m]
     width: 1.855                      # width [m]
+    offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
+    n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
     delta_max: 0.4956735              # max. absolute steering angle [rad]
     v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
     v_max: 30.0                       # upper boundary constraint for longitudinal velocity [m/s]
@@ -57,4 +59,4 @@
     # [cost_weights, ref_path, objects]
     p_cost_weights_shape: [10, 1] # nWeights x weightDim
     p_ref_path_shape: [51, 4] # nStates x stateDim
-    p_obstacles_shape: [10, 3] # nObstacles x [x, y, radius]
+    p_obstacles_shape: [10, 5] # nObstacles x [x, y, yaw, length, width]
