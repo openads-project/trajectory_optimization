@@ -157,15 +157,18 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     # ===== NEW =====
 
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
-    n_params_obstacles = np.prod(config["p_obstacles_shape"])
-    idx_inf = n_params_obstacles
-    for i in range(n_params_obstacles):
-        if p_obstacles[i] == ca.MX_inf:
-            idx_inf = i
-            break
-    if idx_inf == 0:
-        return ca.MX(0.0) # return 0 if no obstacles are present
-    p_obstacles = p_obstacles[:idx_inf]
+
+    # TODO: slicing doesnt work
+    # n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    # idx_inf = n_params_obstacles
+    # print(type(p_obstacles[0]))
+    # for i in range(n_params_obstacles):
+    #     if p_obstacles[i] == ca.MX_inf:
+    #         idx_inf = i
+    #         break
+    # if idx_inf == 0:
+    #     return ca.MX(0.0) # return 0 if no obstacles are present
+    # p_obstacles = p_obstacles[:idx_inf]
 
     # derive geo-center position of ego-vehicle
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
@@ -221,6 +224,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
         cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
         cObst = cLat * cLong
         obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
+        # temporary check if x_center is infinite; if yes -> discard costs (TODO: slicing doesnt work)
+        obst_condition = ca.logic_or(obst_condition, x_center == ca.inf)
         obstacles_term += ca.if_else(obst_condition, 0, cObst)
 
     # =================
