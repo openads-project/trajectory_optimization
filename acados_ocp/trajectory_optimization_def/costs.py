@@ -197,7 +197,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
 
         for j in range(config["n_ego_circles"]):
             # find the object circle that is the nearest to the given ego-vehicle-circle and store dLat and dLong
-            if n_circles > 1:
+            if circle_centers_x.rows() > 1:
                 dx = ca.power(circle_centers_x[:] - ego_circles_x[j], 2)
                 dy = ca.power(circle_centers_y[:] - ego_circles_y[j], 2)
                 dd = ca.sqrt(dx + dy)
