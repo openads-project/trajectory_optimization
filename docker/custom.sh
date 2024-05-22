@@ -1,7 +1,5 @@
 # clone acados repo and build it
 git clone --recurse-submodules https://github.com/acados/acados.git /opt/acados
-cd /opt/acados
-git checkout 39f64a0b81012da4cbab41ae3f0ea5ec94072dcf # temporary fix for https://gitlab.ika.rwth-aachen.de/fb-fi/its-modules/planning/trajectory_optimization/-/jobs/345190
 mkdir -p /opt/acados/build
 cd /opt/acados/build
 cmake -DCMAKE_BUILD_TYPE=Release .. # -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_QORE=ON -DACADOS_WITH_OOQP=ON -DACADOS_WITH_QPDUNES=ON -DACADOS_WITH_OSQP=ON -DACADOS_WITH_OPENMP=ON
