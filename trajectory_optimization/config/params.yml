@@ -4,18 +4,18 @@
     vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame)
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
-    optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
+    optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
     init_as_ref: False              # init solution of optimization problem as reference trajectory
-    high_level_stabilization: True  # init first trajectory point with with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
-    use_prediction: False           # use obstacle predictions for optimization (True) or only static obstacles (False)
+    high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: True                   # print debug infromation and solver statistics
 
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
-    bi_level_dY: 0.1                # maximum y-offset before bi-level stabilization hits [m]
-    bi_level_dYaw: 5.0              # maximum yaw difference before bi-level stabilization hits [degree]
-    bi_level_dDelta: 90.0           # maximum ackermann delta difference before bi-level stabilization hits [degree]
+    bi_level_dY: 0.2                # maximum y-offset before bi-level stabilization hits [m]
+    bi_level_dYaw: 3.0              # maximum yaw difference before bi-level stabilization hits [degree]
+    bi_level_dDelta: 5.0           # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
     model_name: 'trajectory_planning' # name of the acados model
@@ -47,13 +47,16 @@
     
     #### cost weights
     # [dlat, x, y, v, obstacles, a, j_lat, j_lon, alpha, endYaw]
-    cost_weights: [0.5, 0.0, 0.0, 0.1, 1.0, 0.1, 0.5, 0.1, 0.1, 1.0]
+    cost_weights: [0.5, 0.0, 0.0, 0.1, 1.0, 0.1, 0.4, 0.1, 0.1, 1.0]
     dynamic_weight: 1.0                         # base for exponential weight (also used in ROS node)
     slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
       linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables 
       linear_upper: [0.1, 0.1, 0.1]             # Linear cost on upper bound slack variables
       quadratic_lower: [1000.0, 1000.0, 1000.0] # Quadratic cost on lower bound slack variables
       quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables
+
+    # other cost params
+    thw: 2.0
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]
