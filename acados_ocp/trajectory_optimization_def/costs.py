@@ -200,8 +200,9 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
             closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
-        dLatMin = D_MIN_OBSTACLE_LAT  + r_ego + r_obstacle
-        dLongMin = D_MIN_OBSTACLE_LONG  + r_ego + r_obstacle
+        d_min_obstacle_long = ca.fmax(D_MIN_OBSTACLE_LONG, T_ZL_OBSTACLE_LONG * ocp.model.x[STATE_INDEX_V])
+        dLatMin = D_MIN_OBSTACLE_LAT   + r_ego + r_obstacle
+        dLongMin = d_min_obstacle_long + r_ego + r_obstacle
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
         cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
         cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
