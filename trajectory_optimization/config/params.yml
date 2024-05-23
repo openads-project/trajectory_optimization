@@ -54,6 +54,7 @@
       linear_upper: [0.1, 0.1, 0.1]             # Linear cost on upper bound slack variables
       quadratic_lower: [1000.0, 1000.0, 1000.0] # Quadratic cost on lower bound slack variables
       quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables
+    t_zl_obstacle_long: 2.0
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]

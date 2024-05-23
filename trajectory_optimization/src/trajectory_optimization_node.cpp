@@ -37,6 +37,7 @@ const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kWheelBaseParam = "wheelbase";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
 const std::string TrajectoryOptimizationNode::kDynamicWeightParam = "dynamic_weight";
+const std::string TrajectoryOptimizationNode::kTZlParam = "t_zl_obstacle_long";
 const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
 const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
 const std::string TrajectoryOptimizationNode::kUsePredictionParam = "use_prediction";
@@ -103,6 +104,9 @@ void TrajectoryOptimizationNode::declareParameters() {
 
   param_desc.description = "Dynamic weight alpha";
   this->declare_parameter(kDynamicWeightParam, dynamic_weight_, param_desc);
+
+  param_desc.description = "Time gap to front vehicle";
+  this->declare_parameter(kTZlParam, t_zl_, param_desc);
 
   param_desc.description = "Init solution of optimization problem as reference trajectory";
   this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
@@ -200,6 +204,11 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kDynamicWeightParam.c_str());
   }
   try {
+    t_zl_ = this->get_parameter(kTZlParam).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kTZlParam.c_str());
+  }
+  try {
     init_as_ref_ = this->get_parameter(kInitAsRefParam).as_bool();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kInitAsRefParam.c_str());
@@ -279,6 +288,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       cost_weights_ = param.as_double_array();
     } else if (param.get_name() == kDynamicWeightParam) {
       dynamic_weight_ = param.as_double();
+    } else if (param.get_name() == kTZlParam) {
+      t_zl_ = param.as_double();
     } else if (param.get_name() == kInitAsRefParam) {
       init_as_ref_ = param.as_bool();
     } else if (param.get_name() == kHighLevelStabilizationParam) {
@@ -764,6 +775,15 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
+
+    // ACC
+    idx += n;
+    n = 1;
+    std::vector<int> idx_acc(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_acc.begin(), idx_acc.end(), idx);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_acc.data(), &t_zl_, n);
+
   }
 }
 

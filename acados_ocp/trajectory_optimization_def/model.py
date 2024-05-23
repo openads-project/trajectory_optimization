@@ -61,7 +61,8 @@ def set_model(ocp, config):
     p_dynamic_weight = MX.sym('dynamic_weight', 1) # (1 x 1)
     p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v))
     p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacles_shape'])) # (nObstacles x (x, y, yaw, length, width))
-    params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_obstacles)
+    p_acc = MX.sym('acc', 1) # (1 x 1)
+    params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_obstacles, p_acc)
     model.p = params
 
     ocp.model = model
