@@ -6,7 +6,6 @@
 // definitions
 #include <perception_msgs/msg/ego_data.hpp>
 #include <perception_msgs/msg/object_list.hpp>
-#include <route_planning_msgs/msg/driveable_space.hpp>
 #include <route_planning_msgs/msg/route.hpp>
 #include <trajectory_planning_msgs/msg/trajectory.hpp>
 
@@ -38,7 +37,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
  private:
   // input topics
-  static const std::string kDriveableSpaceTopic;
   static const std::string kEgoDataTopic;
   static const std::string kObjectListTopic;
   static const std::string kReferenceTrajectoryTopic;
@@ -60,7 +58,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   static const std::string kCostWeightsParam;
   static const std::string kDynamicWeightParam;
-  static const std::string kInitAsRefParam;
+  static const std::string kStandstillTresholdParam;
   static const std::string kHighLevelStabilizationParam;
 
   static const std::string kPCostWeightsShapeParam;
@@ -90,7 +88,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                            double &output_y);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
-  void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
   void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
@@ -98,7 +95,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void planningCycle();
   bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
-                       const route_planning_msgs::msg::DriveableSpace &driveable_space,
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
@@ -109,7 +105,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
-  rclcpp::Subscription<route_planning_msgs::msg::DriveableSpace>::SharedPtr driveable_space_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
@@ -123,7 +118,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // input data
   perception_msgs::msg::EgoData ego_data_;
   perception_msgs::msg::ObjectList object_list_;
-  route_planning_msgs::msg::DriveableSpace driveable_space_;
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
@@ -140,7 +134,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   double wheelbase_ = 2.711;
-  bool init_as_ref_ = false;
+  double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
 
   // bi-level thresholds

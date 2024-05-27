@@ -4,8 +4,8 @@
     vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame)
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
-    optimization_frequency: 4.0     # frequency of the optimization loop [Hz]
-    init_as_ref: False              # init solution of optimization problem as reference trajectory
+    optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
+    standstill_threshold: 0.45      # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     verbose: True                   # print debug infromation and solver statistics
 

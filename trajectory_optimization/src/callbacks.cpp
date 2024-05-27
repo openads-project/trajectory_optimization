@@ -15,17 +15,6 @@ void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::Ego
 /**
  * @brief This callback is invoked when the subscriber receives a message
  *
- * @param[in] msg   input drivable space
- */
-void TrajectoryOptimizationNode::driveableSpaceCallback(
-    const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received driveable space");
-  driveable_space_ = *msg;
-}
-
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
  * @param[in] msg   input object list
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
