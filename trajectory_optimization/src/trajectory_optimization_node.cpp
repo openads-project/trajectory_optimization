@@ -196,7 +196,7 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kDynamicWeightParam.c_str());
   }
   try {
-    standstill_threshold_ = this->get_parameter(kStandstillTresholdParam).as_bool();
+    standstill_threshold_ = this->get_parameter(kStandstillTresholdParam).as_double();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kStandstillTresholdParam.c_str());
   }
