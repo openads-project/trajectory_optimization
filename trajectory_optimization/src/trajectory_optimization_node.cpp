@@ -37,7 +37,7 @@ const std::string TrajectoryOptimizationNode::kVerboseParam = "verbose";
 const std::string TrajectoryOptimizationNode::kWheelBaseParam = "wheelbase";
 const std::string TrajectoryOptimizationNode::kCostWeightsParam = "cost_weights";
 const std::string TrajectoryOptimizationNode::kDynamicWeightParam = "dynamic_weight";
-const std::string TrajectoryOptimizationNode::kInitAsRefParam = "init_as_ref";
+const std::string TrajectoryOptimizationNode::kStandstillTresholdParam = "standstill_threshold";
 const std::string TrajectoryOptimizationNode::kHighLevelStabilizationParam = "high_level_stabilization";
 
 const std::string TrajectoryOptimizationNode::kPCostWeightsShapeParam = "p_cost_weights_shape";
@@ -103,8 +103,8 @@ void TrajectoryOptimizationNode::declareParameters() {
   param_desc.description = "Dynamic weight alpha";
   this->declare_parameter(kDynamicWeightParam, dynamic_weight_, param_desc);
 
-  param_desc.description = "Init solution of optimization problem as reference trajectory";
-  this->declare_parameter(kInitAsRefParam, init_as_ref_, param_desc);
+  param_desc.description = "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory";
+  this->declare_parameter(kStandstillTresholdParam, standstill_threshold_, param_desc);
 
   param_desc.description = "Use high-level stabilization strategy for init state (= init with current EgoData)";
   this->declare_parameter(kHighLevelStabilizationParam, high_level_stabilization_, param_desc);
@@ -196,9 +196,9 @@ void TrajectoryOptimizationNode::loadParameters() {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kDynamicWeightParam.c_str());
   }
   try {
-    init_as_ref_ = this->get_parameter(kInitAsRefParam).as_bool();
+    standstill_threshold_ = this->get_parameter(kStandstillTresholdParam).as_bool();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kInitAsRefParam.c_str());
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not set, defaulting", kStandstillTresholdParam.c_str());
   }
   try {
     high_level_stabilization_ = this->get_parameter(kHighLevelStabilizationParam).as_bool();
@@ -270,8 +270,8 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       cost_weights_ = param.as_double_array();
     } else if (param.get_name() == kDynamicWeightParam) {
       dynamic_weight_ = param.as_double();
-    } else if (param.get_name() == kInitAsRefParam) {
-      init_as_ref_ = param.as_bool();
+    } else if (param.get_name() == kStandstillTresholdParam) {
+      standstill_threshold_ = param.as_double();
     } else if (param.get_name() == kHighLevelStabilizationParam) {
       high_level_stabilization_ = param.as_bool();
     } else if (param.get_name() == kPCostWeightsShapeParam) {
@@ -592,7 +592,12 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
     // TODO: dKappa
   }
-  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, false);  // TODO: check if standstill
+
+  bool standstill = true;
+  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(*trajectory); ++i) {
+    if (trajectory_planning_msgs::trajectory_access::getV(*trajectory, i) > standstill_threshold_) standstill = false;
+  }
+  trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, standstill);
 
   // transform trajectory to output frame
   trajectory2outputFrame(*trajectory);
@@ -631,17 +636,6 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
-  }
-
-  if (init_as_ref_) {
-    // set initial guess
-    double initial_guess[TRAJECTORY_PLANNING_NX] = {0.0};
-    for (int i = 0; i <= n_shots_; ++i) {
-      initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
-      initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
-      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
-      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess);
-    }
   }
 
   // update ocp parameters
