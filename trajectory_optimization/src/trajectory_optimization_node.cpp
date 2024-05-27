@@ -539,6 +539,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory2outputFrame(*trajectory);
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
+    freeSolver();
+    setupSolver();
     return;
   }
 
@@ -597,6 +599,10 @@ void TrajectoryOptimizationNode::planningCycle() {
     if (trajectory_planning_msgs::trajectory_access::getV(*trajectory, i) > standstill_threshold_) standstill = false;
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, standstill);
+  if (standstill) {
+    freeSolver();
+    setupSolver();
+  }
 
   // transform trajectory to output frame
   trajectory2outputFrame(*trajectory);
