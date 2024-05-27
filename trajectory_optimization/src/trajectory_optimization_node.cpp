@@ -19,7 +19,6 @@ namespace trajectory_optimization {
 // parameter names
 
 // constants
-const std::string TrajectoryOptimizationNode::kDriveableSpaceTopic = "~/driveable_space";
 const std::string TrajectoryOptimizationNode::kEgoDataTopic = "~/ego_data";
 const std::string TrajectoryOptimizationNode::kObjectListTopic = "~/object_list";
 const std::string TrajectoryOptimizationNode::kReferenceTrajectoryTopic = "~/reference_trajectory";
@@ -103,7 +102,9 @@ void TrajectoryOptimizationNode::declareParameters() {
   param_desc.description = "Dynamic weight alpha";
   this->declare_parameter(kDynamicWeightParam, dynamic_weight_, param_desc);
 
-  param_desc.description = "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory";
+  param_desc.description =
+      "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill "
+      "trajectory";
   this->declare_parameter(kStandstillTresholdParam, standstill_threshold_, param_desc);
 
   param_desc.description = "Use high-level stabilization strategy for init state (= init with current EgoData)";
@@ -307,11 +308,6 @@ void TrajectoryOptimizationNode::setup() {
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
       kEgoDataTopic, 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
-
-  driveable_space_sub_ = this->create_subscription<route_planning_msgs::msg::DriveableSpace>(
-      kDriveableSpaceTopic, 1,
-      std::bind(&TrajectoryOptimizationNode::driveableSpaceCallback, this, std::placeholders::_1));
-  RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", driveable_space_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
       kObjectListTopic, 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
@@ -557,7 +553,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
-  if (!updateOcpInputs(ego_data_, object_list_, driveable_space_, route_, reference_trajectory_)) {
+  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
@@ -610,7 +606,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
-
 }
 
 /**
@@ -618,14 +613,13 @@ void TrajectoryOptimizationNode::planningCycle() {
  *
  * @param ego_data
  * @param object_list
- * @param driveable_space (currently unused)
  * @param route (currently unused)
  * @param reference_trajectory
  * @return True if the inputs were successfully updated, false otherwise.
  */
 bool TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
-    const route_planning_msgs::msg::DriveableSpace& driveable_space, const route_planning_msgs::msg::Route& route,
+    const route_planning_msgs::msg::Route& route,
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
@@ -681,16 +675,17 @@ void TrajectoryOptimizationNode::setOcpParameters(
     std::vector<int> idx_ref_path(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
-    
+
     // replace all t values with theta since we don't need t in the ocp
     trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
     for (unsigned int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
-      trajectory_planning_msgs::trajectory_access::setT(ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
+      trajectory_planning_msgs::trajectory_access::setT(
+          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
     }
 
     // fill ref_path vector with values from ref
     std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
-    if (ref.states.size() >= n) {
+    if (ref.states.size() >= (size_t)n) {
       std::copy(ref.states.begin(), ref.states.begin() + n, ref_path.begin());
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
