@@ -22,32 +22,51 @@ namespace trajectory_optimization {
  */
 TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions& options)
     : Node("trajectory_optimization_node", options) {
+  // declare and load node parameters
+  this->declareAndLoadParameter("vehicle_frame_id", vehicle_frame_id_, rclcpp::ParameterType::PARAMETER_STRING,
+                                "Frame ID of local vehicle frame (the ocp is defined in this frame)");
+  this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, rclcpp::ParameterType::PARAMETER_STRING,
+                                "Frame ID of output trajectory");
+  this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
+                                rclcpp::ParameterType::PARAMETER_STRING,
+                                "Frame ID of frame that is fixed over time for finding temporal transforms");
+  this->declareAndLoadParameter("optimization_frequency", optimization_freq_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Optimization Frequency in Hz");
+  this->declareAndLoadParameter("n_shots", n_shots_, rclcpp::ParameterType::PARAMETER_INTEGER,
+                                "Number of shooting intervals in optimization horizon");
+  this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Optimization Horizon in seconds");
+  this->declareAndLoadParameter("verbose", verbose_, rclcpp::ParameterType::PARAMETER_BOOL, "Print solver statistics");
+  this->declareAndLoadParameter("wheelbase", wheelbase_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Wheelbase of the vehicle [m]");
+  this->declareAndLoadParameter("cost_weights", cost_weights_, rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY,
+                                "Cost function weights");
+  this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Dynamic weight alpha");
+  this->declareAndLoadParameter("standstill_threshold", standstill_threshold_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for standstill detection [m/s]. If all state velocities are below this "
+                                "threshold, publish standstill trajectory");
+  this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
+                                rclcpp::ParameterType::PARAMETER_BOOL,
+                                "Use high-level stabilization strategy for init state (= init with current EgoData)");
+  this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
+                                rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
+                                "OCP parameter vector shape for cost weights");
+  this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
+                                "OCP parameter vector shape for reference path");
+  this->declareAndLoadParameter("p_obstacles_shape", p_obstacles_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
+                                "OCP parameter vector shape for obstacles");
+  this->declareAndLoadParameter("bi_level_dV", bi_level_dV_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
+  this->declareAndLoadParameter("bi_level_dA", bi_level_dA_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]");
+  this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for bi-level stabilization: maximum y-offset [m]");
+  this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for bi-level stabilization: maximum yaw difference [degree]");
+  this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+                                "Threshold for bi-level stabilization: maximum steering angle difference [degree]");
 
-  // define node parameters - name, member variable, type, description
-  nodeParams_ = {
-    {"vehicle_frame_id", &vehicle_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of local vehicle frame (the ocp is defined in this frame)"},
-    {"trajectory_frame_id", &trajectory_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of output trajectory"},
-    {"fixed_over_time_frame_id", &fixed_over_time_frame_id_, rclcpp::ParameterType::PARAMETER_STRING, "Frame ID of frame that is fixed over time for finding temporal transforms"},
-    {"optimization_frequency", &optimization_freq_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Optimization Frequency in Hz"},
-    {"n_shots", &n_shots_, rclcpp::ParameterType::PARAMETER_INTEGER, "Number of shooting intervals in optimization horizon"},
-    {"optimization_horizon", &optimization_horizon_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Optimization Horizon in seconds"},
-    {"verbose", &verbose_, rclcpp::ParameterType::PARAMETER_BOOL, "Print solver statistics"},
-    {"wheelbase", &wheelbase_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Wheelbase of the vehicle [m]"},
-    {"cost_weights", &cost_weights_, rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY, "Cost function weights"},
-    {"dynamic_weight", &dynamic_weight_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Dynamic weight alpha"},
-    {"standstill_threshold", &standstill_threshold_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory"},
-    {"high_level_stabilization", &high_level_stabilization_, rclcpp::ParameterType::PARAMETER_BOOL, "Use high-level stabilization strategy for init state (= init with current EgoData)"},
-    {"p_cost_weights_shape", &p_cost_weights_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for cost weights"},
-    {"p_ref_path_shape", &p_ref_path_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for reference path"},
-    {"p_obstacles_shape", &p_obstacles_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY, "OCP parameter vector shape for obstacles"},
-    {"bi_level_dV", &bi_level_dV_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum velocity difference [m/s]"},
-    {"bi_level_dA", &bi_level_dA_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]"},
-    {"bi_level_dY", &bi_level_dY_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum y-offset [m]"},
-    {"bi_level_dYaw", &bi_level_dYaw_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum yaw difference [degree]"},
-    {"bi_level_dDelta", &bi_level_dDelta_, rclcpp::ParameterType::PARAMETER_DOUBLE, "Threshold for bi-level stabilization: maximum steering angle difference [degree]"}
-  };    
-  
-  this->loadParameters();
   this->setup();
 }
 
@@ -57,54 +76,75 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
  */
 TrajectoryOptimizationNode::~TrajectoryOptimizationNode() { freeSolver(); }
 
-/**
- * @brief Loads ROS parameters used in the node.
- *
- */
-void TrajectoryOptimizationNode::loadParameters() {
-  for (auto& param : nodeParams_) {
-    std::string paramName = std::get<0>(param);
-    void* memberParamPtr = std::get<1>(param);
-    rclcpp::ParameterType paramType = std::get<2>(param);
-    
-    rcl_interfaces::msg::ParameterDescriptor param_desc;
-    param_desc.description = std::get<3>(param);
+template <typename T>
+void TrajectoryOptimizationNode::declareAndLoadParameter(
+    const std::string& name, T& member_param, const rclcpp::ParameterType& type, const std::string& description,
+    const bool add_to_auto_reconfigurable_params, const bool is_required, const bool read_only,
+    const std::optional<double>& from_value, const std::optional<double>& to_value,
+    const std::optional<double>& step_value, const std::string& additional_constraints) {
+  rcl_interfaces::msg::ParameterDescriptor param_desc;
+  param_desc.description = description;
+  param_desc.additional_constraints = additional_constraints;
+  param_desc.read_only = read_only;
 
-    this->declare_parameter(paramName, paramType, param_desc);
-
-    try {
-      if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
-        *static_cast<std::string*>(memberParamPtr) = this->get_parameter(paramName).as_string();
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-        *static_cast<double*>(memberParamPtr) = this->get_parameter(paramName).as_double();
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
-        *static_cast<bool*>(memberParamPtr) = this->get_parameter(paramName).as_bool();
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        *static_cast<int*>(memberParamPtr) = this->get_parameter(paramName).as_int();
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-        *static_cast<std::vector<double>*>(memberParamPtr) = this->get_parameter(paramName).as_double_array();
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
-        *static_cast<std::vector<long int>*>(memberParamPtr) = this->get_parameter(paramName).as_integer_array();
-      } else {
-        RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
-      }
-    } catch (rclcpp::exceptions::ParameterUninitializedException&) {
-      if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %s", paramName.c_str(), *static_cast<std::string*>(memberParamPtr));
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %f", paramName.c_str(), *static_cast<double*>(memberParamPtr));
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %d", paramName.c_str(), *static_cast<bool*>(memberParamPtr));
-      } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default value: %d", paramName.c_str(), *static_cast<int*>(memberParamPtr));
-      } else if(paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default array, starting with: %f", paramName.c_str(), *static_cast<std::vector<double>*>(memberParamPtr)[0]);
-      } else if(paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
-        RCLCPP_WARN(this->get_logger(), "Parameter '%s' not set. Using default array, starting with: %ld", paramName.c_str(), *static_cast<std::vector<long int>*>(memberParamPtr)[0]);
-      } else {
-        RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
-      }
+  if (from_value.has_value() && to_value.has_value()) {
+    double step = step_value.has_value() ? step_value.value() : 0.0;
+    if constexpr (std::is_same_v<T, int>) {
+      rcl_interfaces::msg::IntegerRange range;
+      range.set__from_value(static_cast<int>(from_value.value()))
+          .set__to_value(static_cast<int>(to_value.value()))
+          .set__step(static_cast<int>(step));
+      param_desc.integer_range = {range};
+    } else if constexpr (std::is_same_v<T, double>) {
+      rcl_interfaces::msg::FloatingPointRange range;
+      range.set__from_value(from_value.value()).set__to_value(to_value.value()).set__step(step);
+      param_desc.floating_point_range = {range};
+    } else {
+      RCLCPP_WARN(this->get_logger(), "Parameter type does not support range.");
     }
+  }
+
+  this->declare_parameter(name, type, param_desc);
+
+  try {
+    if constexpr (std::is_same_v<T, std::string>) {
+      member_param = this->get_parameter(name).as_string();
+    } else if constexpr (std::is_same_v<T, double>) {
+      member_param = this->get_parameter(name).as_double();
+    } else if constexpr (std::is_same_v<T, bool>) {
+      member_param = this->get_parameter(name).as_bool();
+    } else if constexpr (std::is_same_v<T, int>) {
+      member_param = this->get_parameter(name).as_int();
+    } else if constexpr (std::is_same_v<T, std::vector<double>>) {
+      member_param = this->get_parameter(name).as_double_array();
+    } else if constexpr (std::is_same_v<T, std::vector<long int>>) {
+      member_param = this->get_parameter(name).as_integer_array();
+    } else {
+      RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
+    }
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    if (is_required) {
+      RCLCPP_FATAL_STREAM(this->get_logger(), "Parameter '" << name << "' not set but required. Exiting.");
+      exit(EXIT_FAILURE);
+    } else {
+      std::stringstream ss;
+      ss << "Parameter '" << name << "' not set. Using default value: ";
+      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<long int>>) {
+        ss << "[";
+        for (const auto& element : member_param) {
+          ss << element;
+          if (&element != &member_param.back()) ss << ", ";
+        }
+        ss << "]";
+      } else {
+        ss << member_param;
+      }
+      RCLCPP_WARN_STREAM(this->get_logger(), ss.str());
+    }
+  }
+
+  if (add_to_auto_reconfigurable_params) {
+    auto_reconfigurable_params_.push_back(std::make_tuple(name, &member_param, type, description));
   }
 }
 
@@ -117,23 +157,23 @@ void TrajectoryOptimizationNode::loadParameters() {
 rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
-    for (auto& nodeParam : nodeParams_) {
-      if (param.get_name() == std::get<0>(nodeParam)) {
-        void* memberParamPtr = std::get<1>(nodeParam);
-        rclcpp::ParameterType paramType = std::get<2>(nodeParam);
+    for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
+      if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
+        void* member_param_ptr = std::get<1>(auto_reconfigurable_param);
+        rclcpp::ParameterType paramType = std::get<2>(auto_reconfigurable_param);
 
         if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
-          *static_cast<std::string*>(memberParamPtr) = param.as_string();
+          *static_cast<std::string*>(member_param_ptr) = param.as_string();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-          *static_cast<double*>(memberParamPtr) = param.as_double();
+          *static_cast<double*>(member_param_ptr) = param.as_double();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
-          *static_cast<bool*>(memberParamPtr) = param.as_bool();
+          *static_cast<bool*>(member_param_ptr) = param.as_bool();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
-          *static_cast<int*>(memberParamPtr) = param.as_int();
+          *static_cast<int*>(member_param_ptr) = param.as_int();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-          *static_cast<std::vector<double>*>(memberParamPtr) = param.as_double_array();
+          *static_cast<std::vector<double>*>(member_param_ptr) = param.as_double_array();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
-          *static_cast<std::vector<long int>*>(memberParamPtr) = param.as_integer_array();
+          *static_cast<std::vector<long int>*>(member_param_ptr) = param.as_integer_array();
         } else {
           RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
         }
@@ -144,7 +184,6 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
-  result.reason = "success";
 
   return result;
 }
@@ -535,7 +574,7 @@ void TrajectoryOptimizationNode::setOcpParameters(
 
     // replace all t values with theta since we don't need t in the ocp
     trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
-    for (unsigned int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
+    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
       trajectory_planning_msgs::trajectory_access::setT(
           ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
     }

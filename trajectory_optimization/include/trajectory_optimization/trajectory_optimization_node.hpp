@@ -45,7 +45,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
 
-  void loadParameters();
+  template <typename T>
+  void declareAndLoadParameter(const std::string &name, T &member_param, const rclcpp::ParameterType &type,
+                               const std::string &description, const bool add_to_auto_reconfigurable_params = true,
+                               const bool is_required = false, const bool read_only = false,
+                               const std::optional<double> &from_value = std::nullopt,
+                               const std::optional<double> &to_value = std::nullopt,
+                               const std::optional<double> &step_value = std::nullopt,
+                               const std::string &additional_constraints = "");
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
@@ -99,7 +106,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_object_list_ = false;
 
   // parameters
-  std::vector<std::tuple<std::string, void*, rclcpp::ParameterType, std::string>> nodeParams_;
+  std::vector<std::tuple<std::string, void *, rclcpp::ParameterType, std::string>> auto_reconfigurable_params_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
