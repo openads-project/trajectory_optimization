@@ -29,6 +29,10 @@
 
 namespace trajectory_optimization {
 
+template <typename C> struct is_vector : std::false_type {};    
+template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};    
+template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
+
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
   explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions &options);
@@ -46,12 +50,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   const std::string kTrajectoryTopic = "~/trajectory";
 
   template <typename T>
-  void declareAndLoadParameter(const std::string &name, T &member_param, const rclcpp::ParameterType &type,
-                               const std::string &description, const bool add_to_auto_reconfigurable_params = true,
-                               const bool is_required = false, const bool read_only = false,
-                               const std::optional<double> &from_value = std::nullopt,
-                               const std::optional<double> &to_value = std::nullopt,
-                               const std::optional<double> &step_value = std::nullopt,
+  void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
+                               const bool add_to_auto_reconfigurable_params = true, const bool is_required = false,
+                               const bool read_only = false, const std::optional<T> &from_value = std::nullopt,
+                               const std::optional<T> &to_value = std::nullopt,
+                               const std::optional<T> &step_value = std::nullopt,
                                const std::string &additional_constraints = "");
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
@@ -106,7 +109,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_object_list_ = false;
 
   // parameters
-  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>, std::string>> auto_reconfigurable_params_;
+  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
+      auto_reconfigurable_params_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";

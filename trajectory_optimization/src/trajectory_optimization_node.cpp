@@ -23,48 +23,36 @@ namespace trajectory_optimization {
 TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions& options)
     : Node("trajectory_optimization_node", options) {
   // declare and load node parameters
-  this->declareAndLoadParameter("vehicle_frame_id", vehicle_frame_id_, rclcpp::ParameterType::PARAMETER_STRING,
+  this->declareAndLoadParameter("vehicle_frame_id", vehicle_frame_id_,
                                 "Frame ID of local vehicle frame (the ocp is defined in this frame)");
-  this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, rclcpp::ParameterType::PARAMETER_STRING,
-                                "Frame ID of output trajectory");
+  this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, "Frame ID of output trajectory");
   this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
-                                rclcpp::ParameterType::PARAMETER_STRING,
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
-  this->declareAndLoadParameter("optimization_frequency", optimization_freq_, rclcpp::ParameterType::PARAMETER_DOUBLE,
-                                "Optimization Frequency in Hz");
-  this->declareAndLoadParameter("n_shots", n_shots_, rclcpp::ParameterType::PARAMETER_INTEGER,
-                                "Number of shooting intervals in optimization horizon");
-  this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, rclcpp::ParameterType::PARAMETER_DOUBLE,
-                                "Optimization Horizon in seconds");
-  this->declareAndLoadParameter("verbose", verbose_, rclcpp::ParameterType::PARAMETER_BOOL, "Print solver statistics");
-  this->declareAndLoadParameter("wheelbase", wheelbase_, rclcpp::ParameterType::PARAMETER_DOUBLE,
-                                "Wheelbase of the vehicle [m]");
-  this->declareAndLoadParameter("cost_weights", cost_weights_, rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY,
-                                "Cost function weights");
-  this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, rclcpp::ParameterType::PARAMETER_DOUBLE,
-                                "Dynamic weight alpha");
-  this->declareAndLoadParameter("standstill_threshold", standstill_threshold_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
+  this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
+  this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
+  this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
+  this->declareAndLoadParameter("wheelbase", wheelbase_, "Wheelbase of the vehicle [m]");
+  this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
+  this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
+  this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
                                 "Threshold for standstill detection [m/s]. If all state velocities are below this "
                                 "threshold, publish standstill trajectory");
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
-                                rclcpp::ParameterType::PARAMETER_BOOL,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
-                                rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
                                 "OCP parameter vector shape for cost weights");
-  this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
-                                "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacles_shape", p_obstacles_shape_, rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY,
-                                "OCP parameter vector shape for obstacles");
-  this->declareAndLoadParameter("bi_level_dV", bi_level_dV_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
+  this->declareAndLoadParameter("p_obstacles_shape", p_obstacles_shape_, "OCP parameter vector shape for obstacles");
+  this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
-  this->declareAndLoadParameter("bi_level_dA", bi_level_dA_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
                                 "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]");
-  this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("bi_level_dY", bi_level_dY_,
                                 "Threshold for bi-level stabilization: maximum y-offset [m]");
-  this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_, rclcpp::ParameterType::PARAMETER_DOUBLE,
+  this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_,
                                 "Threshold for bi-level stabilization: maximum steering angle difference [degree]");
 
   this->setup();
@@ -78,25 +66,26 @@ TrajectoryOptimizationNode::~TrajectoryOptimizationNode() { freeSolver(); }
 
 template <typename T>
 void TrajectoryOptimizationNode::declareAndLoadParameter(
-    const std::string& name, T& member_param, const rclcpp::ParameterType& type, const std::string& description,
+    const std::string& name, T& member_param, const std::string& description,
     const bool add_to_auto_reconfigurable_params, const bool is_required, const bool read_only,
-    const std::optional<double>& from_value, const std::optional<double>& to_value,
-    const std::optional<double>& step_value, const std::string& additional_constraints) {
+    const std::optional<T>& from_value, const std::optional<T>& to_value, const std::optional<T>& step_value,
+    const std::string& additional_constraints) {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
   param_desc.description = description;
   param_desc.additional_constraints = additional_constraints;
   param_desc.read_only = read_only;
 
+  auto param_type = rclcpp::ParameterValue(member_param).get_type();
+
   if (from_value.has_value() && to_value.has_value()) {
-    double step = step_value.has_value() ? step_value.value() : 0.0;
-    if constexpr (std::is_same_v<T, int>) {
+    if constexpr (std::is_integral_v<T>) {
       rcl_interfaces::msg::IntegerRange range;
-      range.set__from_value(static_cast<int>(from_value.value()))
-          .set__to_value(static_cast<int>(to_value.value()))
-          .set__step(static_cast<int>(step));
+      T step = step_value.has_value() ? step_value.value() : 0;
+      range.set__from_value(from_value.value()).set__to_value(to_value.value()).set__step(step);
       param_desc.integer_range = {range};
-    } else if constexpr (std::is_same_v<T, double>) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       rcl_interfaces::msg::FloatingPointRange range;
+      T step = step_value.has_value() ? step_value.value() : 0.0;
       range.set__from_value(from_value.value()).set__to_value(to_value.value()).set__step(step);
       param_desc.floating_point_range = {range};
     } else {
@@ -104,7 +93,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
     }
   }
 
-  this->declare_parameter(name, type, param_desc);
+  this->declare_parameter(name, param_type, param_desc);
 
   try {
     member_param = this->get_parameter(name).get_value<T>();
@@ -115,7 +104,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
     } else {
       std::stringstream ss;
       ss << "Parameter '" << name << "' not set. Using default value: ";
-      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<int64_t>>) {
+      if constexpr (is_vector_v<T>) {
         ss << "[";
         for (const auto& element : member_param) ss << element << (&element != &member_param.back() ? ", " : "]");
       } else {
@@ -126,10 +115,10 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
   }
 
   if (add_to_auto_reconfigurable_params) {
-    std::function<void(const rclcpp::Parameter&)> setter = [name, &member_param](const rclcpp::Parameter& param) {
+    std::function<void(const rclcpp::Parameter&)> setter = [&member_param](const rclcpp::Parameter& param) {
       member_param = param.get_value<T>();
     };
-    auto_reconfigurable_params_.push_back(std::make_tuple(name, setter, description));
+    auto_reconfigurable_params_.push_back(std::make_tuple(name, setter));
   }
 }
 
