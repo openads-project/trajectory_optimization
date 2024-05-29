@@ -115,13 +115,9 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
     } else {
       std::stringstream ss;
       ss << "Parameter '" << name << "' not set. Using default value: ";
-      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<long int>>) {
+      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<int64_t>>) {
         ss << "[";
-        for (const auto& element : member_param) {
-          ss << element;
-          if (&element != &member_param.back()) ss << ", ";
-        }
-        ss << "]";
+        for (const auto& element : member_param) ss << element << (&element != &member_param.back() ? ", " : "]");
       } else {
         ss << member_param;
       }

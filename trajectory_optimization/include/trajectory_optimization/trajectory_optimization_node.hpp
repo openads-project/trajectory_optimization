@@ -133,9 +133,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double dynamic_weight_ = 1.0;
 
   // ocp parameter vector structure
-  std::vector<long int> p_cost_weights_shape_ = {10, 1};
-  std::vector<long int> p_ref_path_shape_ = {100, 4};
-  std::vector<long int> p_obstacles_shape_ = {10, 3};
+  std::vector<int64_t> p_cost_weights_shape_ = {10, 1};
+  std::vector<int64_t> p_ref_path_shape_ = {100, 4};
+  std::vector<int64_t> p_obstacles_shape_ = {10, 3};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
