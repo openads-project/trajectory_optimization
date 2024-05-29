@@ -107,21 +107,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
   this->declare_parameter(name, type, param_desc);
 
   try {
-    if constexpr (std::is_same_v<T, std::string>) {
-      member_param = this->get_parameter(name).as_string();
-    } else if constexpr (std::is_same_v<T, double>) {
-      member_param = this->get_parameter(name).as_double();
-    } else if constexpr (std::is_same_v<T, bool>) {
-      member_param = this->get_parameter(name).as_bool();
-    } else if constexpr (std::is_same_v<T, int>) {
-      member_param = this->get_parameter(name).as_int();
-    } else if constexpr (std::is_same_v<T, std::vector<double>>) {
-      member_param = this->get_parameter(name).as_double_array();
-    } else if constexpr (std::is_same_v<T, std::vector<long int>>) {
-      member_param = this->get_parameter(name).as_integer_array();
-    } else {
-      RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
-    }
+    member_param = this->get_parameter(name).get_value<T>();
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     if (is_required) {
       RCLCPP_FATAL_STREAM(this->get_logger(), "Parameter '" << name << "' not set but required. Exiting.");
@@ -144,7 +130,10 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
   }
 
   if (add_to_auto_reconfigurable_params) {
-    auto_reconfigurable_params_.push_back(std::make_tuple(name, &member_param, type, description));
+    std::function<void(const rclcpp::Parameter&)> setter = [name, &member_param](const rclcpp::Parameter& param) {
+      member_param = param.get_value<T>();
+    };
+    auto_reconfigurable_params_.push_back(std::make_tuple(name, setter, description));
   }
 }
 
@@ -159,24 +148,7 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
-        void* member_param_ptr = std::get<1>(auto_reconfigurable_param);
-        rclcpp::ParameterType paramType = std::get<2>(auto_reconfigurable_param);
-
-        if (paramType == rclcpp::ParameterType::PARAMETER_STRING) {
-          *static_cast<std::string*>(member_param_ptr) = param.as_string();
-        } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-          *static_cast<double*>(member_param_ptr) = param.as_double();
-        } else if (paramType == rclcpp::ParameterType::PARAMETER_BOOL) {
-          *static_cast<bool*>(member_param_ptr) = param.as_bool();
-        } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER) {
-          *static_cast<int*>(member_param_ptr) = param.as_int();
-        } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
-          *static_cast<std::vector<double>*>(member_param_ptr) = param.as_double_array();
-        } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
-          *static_cast<std::vector<long int>*>(member_param_ptr) = param.as_integer_array();
-        } else {
-          RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
-        }
+        std::get<1>(auto_reconfigurable_param)(param);
       }
     }
   }

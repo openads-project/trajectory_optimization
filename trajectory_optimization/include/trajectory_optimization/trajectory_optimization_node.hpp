@@ -106,7 +106,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_object_list_ = false;
 
   // parameters
-  std::vector<std::tuple<std::string, void *, rclcpp::ParameterType, std::string>> auto_reconfigurable_params_;
+  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>, std::string>> auto_reconfigurable_params_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
