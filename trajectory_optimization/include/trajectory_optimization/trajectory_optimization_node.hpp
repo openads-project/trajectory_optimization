@@ -6,7 +6,6 @@
 // definitions
 #include <perception_msgs/msg/ego_data.hpp>
 #include <perception_msgs/msg/object_list.hpp>
-#include <route_planning_msgs/msg/driveable_space.hpp>
 #include <route_planning_msgs/msg/route.hpp>
 #include <trajectory_planning_msgs/msg/trajectory.hpp>
 
@@ -31,6 +30,10 @@
 
 namespace trajectory_optimization {
 
+template <typename C> struct is_vector : std::false_type {};    
+template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};    
+template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
+
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
   explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions &options);
@@ -39,45 +42,21 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
  private:
   // input topics
-  static const std::string kDriveableSpaceTopic;
-  static const std::string kEgoDataTopic;
-  static const std::string kObjectListTopic;
-  static const std::string kReferenceTrajectoryTopic;
-  static const std::string kRouteTopic;
+  const std::string kEgoDataTopic = "~/ego_data";
+  const std::string kObjectListTopic = "~/object_list";
+  const std::string kReferenceTrajectoryTopic = "~/reference_trajectory";
+  const std::string kRouteTopic = "~/route";
 
   // output topics
-  static const std::string kTrajectoryTopic;
+  const std::string kTrajectoryTopic = "~/trajectory";
 
-  // parameter names
-  static const std::string kVehicleFrameIdParam;
-  static const std::string kTrajectoryFrameIdParam;
-  static const std::string kFixedOverTimeFrameIdParam;
-
-  static const std::string kOptimizationFreqParam;
-  static const std::string kNShotsParam;
-  static const std::string kOptimizationHoizonParam;
-  static const std::string kVerboseParam;
-  static const std::string kWheelBaseParam;
-
-  static const std::string kCostWeightsParam;
-  static const std::string kDynamicWeightParam;
-  static const std::string kTHWParam;
-  static const std::string kInitAsRefParam;
-  static const std::string kHighLevelStabilizationParam;
-  static const std::string kUsePredictionParam;
-
-  static const std::string kPCostWeightsShapeParam;
-  static const std::string kPRefPathShapeParam;
-  static const std::string kPObstaclesShapeParam;
-
-  static const std::string kBiLevelThresholdVParam;
-  static const std::string kBiLevelThresholdAParam;
-  static const std::string kBiLevelThresholdYParam;
-  static const std::string kBiLevelThresholdYawParam;
-  static const std::string kBiLevelThresholdDeltaParam;
-
-  void declareParameters();
-  void loadParameters();
+  template <typename T>
+  void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
+                               const bool add_to_auto_reconfigurable_params = true, const bool is_required = false,
+                               const bool read_only = false, const std::optional<T> &from_value = std::nullopt,
+                               const std::optional<T> &to_value = std::nullopt,
+                               const std::optional<T> &step_value = std::nullopt,
+                               const std::string &additional_constraints = "");
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
@@ -93,7 +72,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                            double &output_y);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
-  void driveableSpaceCallback(const route_planning_msgs::msg::DriveableSpace::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
   void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
@@ -101,7 +79,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void planningCycle();
   bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
-                       const route_planning_msgs::msg::DriveableSpace &driveable_space,
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
@@ -114,7 +91,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
-  rclcpp::Subscription<route_planning_msgs::msg::DriveableSpace>::SharedPtr driveable_space_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
@@ -128,7 +104,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // input data
   perception_msgs::msg::EgoData ego_data_;
   perception_msgs::msg::ObjectList object_list_;
-  route_planning_msgs::msg::DriveableSpace driveable_space_;
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
@@ -137,6 +112,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool received_object_list_ = false;
 
   // parameters
+  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
+      auto_reconfigurable_params_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
@@ -145,7 +122,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   double wheelbase_ = 2.711;
-  bool init_as_ref_ = false;
+  double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
 
@@ -165,9 +142,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double thw_ = 2.0;
 
   // ocp parameter vector structure
-  std::vector<long int> p_cost_weights_shape_ = {10, 1};
-  std::vector<long int> p_ref_path_shape_ = {100, 4};
-  std::vector<long int> p_obstacles_shape_ = {10, 5};
+  std::vector<int64_t> p_cost_weights_shape_ = {10, 1};
+  std::vector<int64_t> p_ref_path_shape_ = {100, 4};
+  std::vector<int64_t> p_obstacles_shape_ = {10, 5};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;
