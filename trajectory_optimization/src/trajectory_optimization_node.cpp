@@ -117,7 +117,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
       member_param = this->get_parameter(name).as_int();
     } else if constexpr (std::is_same_v<T, std::vector<double>>) {
       member_param = this->get_parameter(name).as_double_array();
-    } else if constexpr (std::is_same_v<T, std::vector<long int>>) {
+    } else if constexpr (std::is_same_v<T, std::vector<int64_t>>) {
       member_param = this->get_parameter(name).as_integer_array();
     } else {
       RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
@@ -129,7 +129,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
     } else {
       std::stringstream ss;
       ss << "Parameter '" << name << "' not set. Using default value: ";
-      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<long int>>) {
+      if constexpr (std::is_same_v<T, std::vector<double>> || std::is_same_v<T, std::vector<int64_t>>) {
         ss << "[";
         for (const auto& element : member_param) {
           ss << element;
@@ -173,7 +173,7 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         } else if (paramType == rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY) {
           *static_cast<std::vector<double>*>(member_param_ptr) = param.as_double_array();
         } else if (paramType == rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
-          *static_cast<std::vector<long int>*>(member_param_ptr) = param.as_integer_array();
+          *static_cast<std::vector<int64_t>*>(member_param_ptr) = param.as_integer_array();
         } else {
           RCLCPP_ERROR(this->get_logger(), "Parameter type not supported.");
         }
