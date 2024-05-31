@@ -482,9 +482,10 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
     tf_reference_trajectory =
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-    if (!object_list.objects.empty()) {
+    if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+      keepNClosestObjects(tf_object_list, p_obstacles_shape_[0]);
     } else {
       tf_object_list = object_list;
     }

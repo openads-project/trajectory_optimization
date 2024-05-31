@@ -87,6 +87,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                         const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
                         const perception_msgs::msg::ObjectList &object_list);
 
+  void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list,
+                                                       const int n_objects);
+
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;

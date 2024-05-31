@@ -59,12 +59,45 @@ void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
     try {
       tf_trajectory = tf2_buffer_->transform(trajectory, trajectory_frame_id_, tf2::durationFromSec(0.01));
     } catch (tf2::TransformException& ex) {
-      RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Publishing no trajectory. Ex: %s",
-                  ex.what());
+      RCLCPP_WARN(this->get_logger(),
+                  "Transformation into output frame is not available. Publishing no trajectory. Ex: %s", ex.what());
       return;
     }
     trajectory = tf_trajectory;
   }
+}
+
+/**
+ * @brief Keeps the N closest objects from the given object list.
+ * 
+ * This function calculates the distance to each object in the object list and keeps the N closest objects.
+ *
+ * @param object_list The object list to filter.
+ * @param n_objects The number of closest objects to keep.
+ */
+void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::ObjectList& object_list,
+                                                     const int n_objects) {
+  // calculate distance to each object
+  std::vector<double> distances;
+  for (size_t i = 0; i < object_list.objects.size(); ++i) {
+    double distance = std::sqrt(std::pow(perception_msgs::object_access::getX(object_list.objects[i]), 2) +
+                                std::pow(perception_msgs::object_access::getY(object_list.objects[i]), 2));
+    distances.push_back(distance);
+  }
+
+  // sort objects by distance
+  std::vector<size_t> indices_sorted_by_distance(distances.size());
+  std::iota(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), 0);
+  std::sort(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(),
+            [&distances](size_t i1, size_t i2) { return distances[i1] < distances[i2]; });
+
+  // keep only the closest objects
+  std::vector<perception_msgs::msg::Object> closest_objects;
+  const int n_objects_to_keep = std::min<size_t>(n_objects, indices_sorted_by_distance.size());
+  for (int i = 0; i < n_objects_to_keep; ++i) {
+    closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
+  }
+  object_list.objects = closest_objects;
 }
 
 /**
