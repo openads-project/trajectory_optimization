@@ -214,7 +214,6 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         cObst = cLat * cLong
         obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
         # temporary check if x_center is infinite; if yes -> discard costs (TODO: slicing doesnt work)
-        obst_condition = ca.logic_or(obst_condition, x_center == ca.inf)
         obstacles_term += ca.if_else(obst_condition, 0, cObst)
 
     return obstacles_term
