@@ -200,8 +200,8 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
             alpha = beta - ocp.model.x[STATE_INDEX_PSI]
             c = ca.sqrt(ca.power(dx_circles, 2) + ca.power(dy_circles, 2))
             # update the minimum dLong and dLat value if c < closest_distance
-            dLong = ca.if_else(c < closest_distance, ca.fabs(c * ca.cos(alpha)), dLong)
-            dLat = ca.if_else(c < closest_distance, ca.fabs(c * ca.sin(alpha)), dLat)
+            dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
+            dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
             closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
@@ -209,12 +209,13 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         dLatMin = D_MIN_OBSTACLE_LAT   + r_ego + r_obstacle
         dLongMin = d_min_obstacle_long + r_ego + r_obstacle
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
-        cLong = ca.cos(ca.pi / dLongMin * dLong) + 1
-        cLat = ca.cos(ca.pi / dLatMin * dLat) + 1
+        cLong = ca.cos(ca.pi / dLongMin * ca.fabs(dLong)) + 1
+        cLat = ca.cos(ca.pi / dLatMin * ca.fabs(dLat)) + 1
         cObst = cLat * cLong
-        obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin)
+        no_obst_condition = ca.logic_or(ca.fabs(dLat) > dLatMin, ca.fabs(dLong) > dLongMin)
+        is_behind_condition = ca.logic_and(dLong < 0.0, ca.fabs(dLat) < config["width"]/2.0)
         # temporary check if x_center is infinite; if yes -> discard costs (TODO: slicing doesnt work)
-        obstacles_term += ca.if_else(obst_condition, 0, cObst)
+        obstacles_term += ca.if_else(ca.logic_or(is_behind_condition, no_obst_condition), 0, cObst)
 
     return obstacles_term
 
