@@ -18,6 +18,16 @@ namespace trajectory_optimization {
  */
 bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& X, const std::vector<double>& Y,
                                                      const double& desired_x, double& output_y) {
+  if(desired_x == X.front()) {
+    RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Min of the given vector!");
+    output_y = Y.front();
+    return true;
+  }
+  if(desired_x == X.back()) {
+    RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Max of the given vector!");
+    output_y = Y.back();
+    return true;
+  }
   if (desired_x < *min_element(X.begin(), X.end()) || desired_x > *max_element(X.begin(), X.end())) {
     RCLCPP_ERROR(get_logger(), "Desired Time is not in between of Time-Min and Time-Max of the given vector!");
     RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);

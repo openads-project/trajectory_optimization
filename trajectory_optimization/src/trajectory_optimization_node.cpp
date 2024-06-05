@@ -280,7 +280,6 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
   double des_time =
       (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
-  RCLCPP_INFO(this->get_logger(), "Desired time: %f", des_time);
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
@@ -581,9 +580,11 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
-        if (!linearInterpolation(TIME, X, des_time, x_tgt)) break;
-        if (!linearInterpolation(TIME, Y, des_time, y_tgt)) break;
-        if (!linearInterpolation(TIME, YAW, des_time, yaw_tgt)) break;
+        // TODO: use break at this point does not seem to be valid, otherwise the object could be ignored in some shooting intervals.
+        // Nevertheless, if interpolation fails we should use tha last valid predicted pose instead of the current pose of the object?
+        linearInterpolation(TIME, X, des_time, x_tgt);
+        linearInterpolation(TIME, Y, des_time, y_tgt);
+        linearInterpolation(TIME, YAW, des_time, yaw_tgt);
       } 
       // ensure that x_tgt and y_tgt represent the geometric center of the object
       x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
