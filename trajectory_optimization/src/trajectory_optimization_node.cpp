@@ -424,8 +424,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   if (verbose_) printSolution(status);
   if (status == 1 || status == 3 || status == 4) {
-    RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d. Publishing latest valid trajectory.", status);
-    trajectory_pub_->publish(latest_valid_trajectory_);
+    RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
     // reset control problem
     freeSolver();
     setupSolver();
