@@ -176,7 +176,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
         # approximate object geometry with circles
         # n_circles = determine_n_discretization_circles(length, width)
-        n_circles = 3 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
+        n_circles = 1 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
         circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
         # initialize closest distances to object with a large value
         closest_distance = ca.inf

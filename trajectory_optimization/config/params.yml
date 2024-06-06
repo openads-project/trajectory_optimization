@@ -14,7 +14,7 @@
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.2                # maximum y-offset before bi-level stabilization hits [m]
-    bi_level_dYaw: 3.0              # maximum yaw difference before bi-level stabilization hits [degree]
+    bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
     bi_level_dDelta: 5.0           # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
@@ -27,7 +27,7 @@
     length: 4.799                     # length [m]
     width: 1.855                      # width [m]
     offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-    n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
+    n_ego_circles: 1                  # number of circles to discretize ego-vehicle geometry
     delta_max: 0.4956735              # max. absolute steering angle [rad]
     v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
     v_max: 6.0                        # upper boundary constraint for longitudinal velocity [m/s]
@@ -47,7 +47,7 @@
     
     #### cost weights
     # [dlat, x, y, v, obstacles, a, j_lat, j_lon, alpha, endYaw]
-    cost_weights: [0.5, 0.0, 0.0, 0.1, 1.0, 0.1, 0.4, 0.1, 0.1, 1.0]
+    cost_weights: [0.5, 0.0, 0.0, 0.1, 1.0, 0.1, 0.1, 0.1, 0.1, 1.0]
     dynamic_weight: 1.0                         # base for exponential weight (also used in ROS node)
     slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
       linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables 
