@@ -61,10 +61,8 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha"]
 
     # define terminal-costs
-    # end v
-    ocp.model.cost_expr_ext_cost_e = w_v * ref_path_costs["v"]
     # end yaw
-    ocp.model.cost_expr_ext_cost_e += w_end_yaw * ref_path_costs["dpsi"]
+    ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["dpsi"]
 
     # define inital-costs
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
