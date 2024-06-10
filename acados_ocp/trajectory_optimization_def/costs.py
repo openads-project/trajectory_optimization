@@ -34,11 +34,13 @@ def set_costs(ocp: AcadosOcp, config):
     w_v = p_cost_weights[3]
     w_obstacles = p_cost_weights[4]
     w_a_lat = p_cost_weights[5]
-    w_a_lon = p_cost_weights[6]
-    w_j_lat = p_cost_weights[7]
-    w_j_lon = p_cost_weights[8]
-    w_alpha = p_cost_weights[9]
-    w_end_yaw = p_cost_weights[10]
+    w_a_lon_pos = p_cost_weights[6]
+    w_a_lon_neg = p_cost_weights[7]
+    w_j_lat = p_cost_weights[8]
+    w_j_lon_pos = p_cost_weights[9]
+    w_j_lon_neg = p_cost_weights[10]
+    w_alpha = p_cost_weights[11]
+    w_end_yaw = p_cost_weights[12]
 
     # define running-costs
     # reference path costs
@@ -49,15 +51,17 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += w_v * ref_path_costs["v"]
     # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
-    # acceleration magnitude costs
+    # acceleration costs
     a_costs = calc_a_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon * a_costs["a_lon"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon_pos * a_costs["a_lon_pos"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon_neg * a_costs["a_lon_neg"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lat * a_costs["a_lat"]
     # lateral jerk costs
     ocp.model.cost_expr_ext_cost += w_j_lat * calc_j_lat_cost(ocp, config)
     # control variable costs
     control_costs = calc_control_cost(ocp, config)
-    ocp.model.cost_expr_ext_cost += w_j_lon * control_costs["j_lon"]
+    ocp.model.cost_expr_ext_cost += w_j_lon_pos * control_costs["j_lon_pos"]
+    ocp.model.cost_expr_ext_cost += w_j_lon_neg * control_costs["j_lon_neg"]
     ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha"]
 
     # define terminal-costs
@@ -181,13 +185,16 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     return obstacles_term
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
-    j_lon_term = ca.power(ocp.model.u[CONTROL_INDEX_J_LON], 2) / ca.power(config["c_jlon"], 2)
-    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA],2 ) / ca.power(config["c_alpha"], 2)
+    j_lon_pos = ca.if_else(ocp.model.u[CONTROL_INDEX_J_LON] >= 0, ocp.model.u[CONTROL_INDEX_J_LON], 0)
+    j_lon_pos_term = ca.power(j_lon_pos, 2) / ca.power(config["c_jlon"], 2)
+    j_lon_neg = ca.if_else(ocp.model.u[CONTROL_INDEX_J_LON] < 0, ocp.model.u[CONTROL_INDEX_J_LON], 0)
+    j_lon_neg_term = ca.power(j_lon_neg, 2) / ca.power(config["c_jlon"], 2)
+    alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2) / ca.power(config["c_alpha"], 2)
 
-    cost_terms = {"j_lon": j_lon_term, "alpha": alpha_term}
+    cost_terms = {"j_lon_pos": j_lon_pos_term, "j_lon_neg": j_lon_neg_term, "alpha": alpha_term}
     return cost_terms
 
-def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
+def calc_a_cost(ocp: AcadosOcp, config: dict) -> dict:
     # single track model parameters
     l = config["wheelbase"]
     v = ocp.model.x[STATE_INDEX_V]
@@ -196,10 +203,14 @@ def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     psi_dot = v / l * tan_delta
     # derive a_lat
     a_lat = v * psi_dot
+    a_lat_term = ca.power(a_lat, 2) / ca.power(config["c_alat"], 2)
     # a_lon is given as state vaiable
-    a_lon = ocp.model.x[STATE_INDEX_A_LON]
+    a_lon_pos = ca.if_else(ocp.model.x[STATE_INDEX_A_LON] >= 0, ocp.model.x[STATE_INDEX_A_LON], 0)
+    a_lon_pos_term = ca.power(a_lon_pos, 2) / ca.power(config["c_alon"], 2)
+    a_lon_neg = ca.if_else(ocp.model.x[STATE_INDEX_A_LON] < 0, ocp.model.x[STATE_INDEX_A_LON], 0)
+    a_lon_neg_term = ca.power(a_lon_neg, 2) / ca.power(config["c_alon"], 2)
 
-    cost_terms = {"a_lon": ca.power(a_lon, 2) / ca.power(config["c_alon"], 2), "a_lat": ca.power(a_lat, 2) / ca.power(config["c_alat"], 2)}
+    cost_terms = {"a_lon_pos": a_lon_pos_term, "a_lon_neg": a_lon_neg_term, "a_lat": a_lat_term}
 
     return cost_terms
 

@@ -12,9 +12,9 @@
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
-    bi_level_dY: 0.1                # maximum y-offset before bi-level stabilization hits [m]
-    bi_level_dYaw: 5.0              # maximum yaw difference before bi-level stabilization hits [degree]
-    bi_level_dDelta: 90.0           # maximum ackermann delta difference before bi-level stabilization hits [degree]
+    bi_level_dY: 0.2                # maximum y-offset before bi-level stabilization hits [m]
+    bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
+    bi_level_dDelta: 5.0           # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
     model_name: 'trajectory_planning' # name of the acados model
@@ -27,7 +27,7 @@
     width: 1.855                      # width [m]
     delta_max: 0.4956735              # max. absolute steering angle [rad]
     v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
-    v_max: 30.0                       # upper boundary constraint for longitudinal velocity [m/s]
+    v_max: 10.0                       # upper boundary constraint for longitudinal velocity [m/s]
     acceleration_max: 9.0             # max. absolute acceleration [m/s²]
     acceleration_lon_max: 3.5         # max. absolute longitudinal acceleration [m/s²]
     alpha_max: 0.5                    # max. absolute steering rate [rad/s]
@@ -44,8 +44,20 @@
     c_alpha: 0.35 # steering-rate-value for scaling the steering-rate costs [rad/s]
     
     #### cost weights
-    # [dlat, x, y, v, obstacles, a_lat, a_lon,  j_lat, j_lon, alpha, endYaw]
-    cost_weights: [0.5, 0.0, 0.0, 0.1, 0.0, 0.1, 0.1, 0.5, 0.1, 0.1, 1.0]
+    cost_weights:
+      - 0.5  # dlat (0)
+      - 0.0  # x (1)
+      - 0.0  # y (2)
+      - 0.1  # v (3)
+      - 0.0  # obstacles (4)
+      - 0.1  # a_lat (5)
+      - 0.1  # a_lon_pos (6)
+      - 0.05 # a_lon_neg (7)
+      - 0.5  # j_lat (8)
+      - 0.1  # j_lon_pos (9)
+      - 0.05 # j_lon_neg (10)
+      - 0.1  # alpha (11)
+      - 1.0  # endYaw (12)
     dynamic_weight: 1.0                         # base for exponential weight (also used in ROS node)
     slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
       linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables 
@@ -55,6 +67,6 @@
 
     ### parameter vector structure
     # [cost_weights, ref_path, objects]
-    p_cost_weights_shape: [11, 1] # nWeights x weightDim
+    p_cost_weights_shape: [13, 1] # nWeights x weightDim
     p_ref_path_shape: [51, 4] # nStates x stateDim
     p_obstacles_shape: [1, 3] # nObstacles x [x, y, radius]
