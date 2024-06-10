@@ -133,11 +133,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   double dynamic_weight_ = 1.0;
 
   // ocp parameter vector structure
-  std::vector<int64_t> p_cost_weights_shape_ = {10, 1};
+  std::vector<int64_t> p_cost_weights_shape_ = {11, 1};
   std::vector<int64_t> p_ref_path_shape_ = {100, 4};
   std::vector<int64_t> p_obstacles_shape_ = {10, 3};
 

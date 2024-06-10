@@ -33,11 +33,12 @@ def set_costs(ocp: AcadosOcp, config):
     w_y = p_cost_weights[2]
     w_v = p_cost_weights[3]
     w_obstacles = p_cost_weights[4]
-    w_a = p_cost_weights[5]
-    w_j_lat = p_cost_weights[6]
-    w_j_lon = p_cost_weights[7]
-    w_alpha = p_cost_weights[8]
-    w_end_yaw = p_cost_weights[9]
+    w_a_lat = p_cost_weights[5]
+    w_a_lon = p_cost_weights[6]
+    w_j_lat = p_cost_weights[7]
+    w_j_lon = p_cost_weights[8]
+    w_alpha = p_cost_weights[9]
+    w_end_yaw = p_cost_weights[10]
 
     # define running-costs
     # reference path costs
@@ -45,13 +46,15 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
+    ocp.model.cost_expr_ext_cost += w_v * ref_path_costs["v"]
     # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
     # acceleration magnitude costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a * calc_a_cost(ocp, config)
+    a_costs = calc_a_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon * a_costs["a_lon"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lat * a_costs["a_lat"]
     # lateral jerk costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += w_j_lat * calc_j_lat_cost(ocp, config)
     # control variable costs
     control_costs = calc_control_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += w_j_lon * control_costs["j_lon"]
@@ -59,7 +62,7 @@ def set_costs(ocp: AcadosOcp, config):
 
     # define terminal-costs
     # end v
-    ocp.model.cost_expr_ext_cost_e = p_dynamic_weight * w_v * ref_path_costs["v"]
+    ocp.model.cost_expr_ext_cost_e = w_v * ref_path_costs["v"]
     # end yaw
     ocp.model.cost_expr_ext_cost_e += w_end_yaw * ref_path_costs["dpsi"]
 
@@ -198,9 +201,9 @@ def calc_a_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     # a_lon is given as state vaiable
     a_lon = ocp.model.x[STATE_INDEX_A_LON]
 
-    a_term = ca.power(a_lon, 2) + ca.power(a_lat, 2)/ ca.power(config["c_a"], 2)
+    cost_terms = {"a_lon": ca.power(a_lon, 2) / ca.power(config["c_alon"], 2), "a_lat": ca.power(a_lat, 2) / ca.power(config["c_alat"], 2)}
 
-    return a_term
+    return cost_terms
 
 def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     l = config["wheelbase"]
