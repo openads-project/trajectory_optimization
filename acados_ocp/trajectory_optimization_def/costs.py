@@ -211,7 +211,6 @@ def calc_a_cost(ocp: AcadosOcp, config: dict) -> dict:
     a_lon_neg_term = ca.power(a_lon_neg, 2) / ca.power(config["c_alon"], 2)
 
     cost_terms = {"a_lon_pos": a_lon_pos_term, "a_lon_neg": a_lon_neg_term, "a_lat": a_lat_term}
-
     return cost_terms
 
 def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
@@ -222,6 +221,6 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
     alpha = ocp.model.u[CONTROL_INDEX_ALPHA]
 
     j_lat = 2 * v * a_lon / l * tan_delta + ca.power(v, 2) / l * alpha * (1.0 + ca.power(tan_delta, 2))
-    j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
 
+    j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
     return j_lat_term
