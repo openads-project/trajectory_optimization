@@ -20,48 +20,8 @@ void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::Ego
  * @param[in] msg   input object list
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
-
-  RCLCPP_INFO(this->get_logger(), "Received object list");
-
-  // transform to reference frame
-  perception_msgs::msg::ObjectList tf_object_list;
-  try {
-    if (msg->header.frame_id != vehicle_frame_id_) {
-      tf_object_list = tf2_buffer_->transform(*msg, vehicle_frame_id_, tf2::durationFromSec(0.01));
-    } else {
-      tf_object_list = *msg;
-    }
-  } catch (tf2::TransformException &ex) {
-    RCLCPP_ERROR(this->get_logger(), "Could not transform object list from frame '%s' to '%s', skipping: %s",
-                 msg->header.frame_id.c_str(), vehicle_frame_id_.c_str(), ex.what());
-    return;
-  }
-
-  // calculate distance to each object
-  std::vector<double> distances;
-  for (size_t i = 0; i < tf_object_list.objects.size(); ++i) {
-    double distance = std::sqrt(std::pow(perception_msgs::object_access::getX(tf_object_list.objects[i]), 2) +
-                                std::pow(perception_msgs::object_access::getY(tf_object_list.objects[i]), 2));
-    distances.push_back(distance);
-  }
-
-  // sort objects by distance
-  std::vector<size_t> indices_sorted_by_distance(distances.size());
-  std::iota(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), 0);
-  std::sort(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), [&distances](size_t i1, size_t i2) {
-    return distances[i1] < distances[i2];
-  });
-
-  // keep only the closest objects
-  std::vector<perception_msgs::msg::Object> closest_objects;
-  const int n_objects = std::min<size_t>(p_obstacles_shape_[0], indices_sorted_by_distance.size());
-  for (int i = 0; i < n_objects; ++i) {
-    closest_objects.push_back(tf_object_list.objects[indices_sorted_by_distance[i]]);
-  }
-  tf_object_list.objects = closest_objects;
-
-  // store as current object list
-  object_list_ = tf_object_list;
+  RCLCPP_DEBUG(this->get_logger(), "Received object list");
+  object_list_ = *msg;
   received_object_list_ = true;
 }
 
