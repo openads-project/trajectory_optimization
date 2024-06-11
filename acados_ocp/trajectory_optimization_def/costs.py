@@ -48,7 +48,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
-    ocp.model.cost_expr_ext_cost += w_v * ref_path_costs["v"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
     # acceleration costs
@@ -57,7 +57,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon_neg * a_costs["a_lon_neg"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lat * a_costs["a_lat"]
     # lateral jerk costs
-    ocp.model.cost_expr_ext_cost += w_j_lat * calc_j_lat_cost(ocp, config)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_j_lat * calc_j_lat_cost(ocp, config)
     # control variable costs
     control_costs = calc_control_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += w_j_lon_pos * control_costs["j_lon_pos"]
