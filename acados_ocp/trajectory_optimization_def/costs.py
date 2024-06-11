@@ -185,9 +185,9 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.
     return obstacles_term
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
-    j_lon_pos = ca.if_else(ocp.model.u[CONTROL_INDEX_J_LON] >= 0, ocp.model.u[CONTROL_INDEX_J_LON], 0)
+    j_lon_pos = ca.fmax(0, ocp.model.u[CONTROL_INDEX_J_LON])
     j_lon_pos_term = ca.power(j_lon_pos, 2) / ca.power(config["c_jlon"], 2)
-    j_lon_neg = ca.if_else(ocp.model.u[CONTROL_INDEX_J_LON] < 0, ocp.model.u[CONTROL_INDEX_J_LON], 0)
+    j_lon_neg = ca.fmin(0, ocp.model.u[CONTROL_INDEX_J_LON])
     j_lon_neg_term = ca.power(j_lon_neg, 2) / ca.power(config["c_jlon"], 2)
     alpha_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA], 2) / ca.power(config["c_alpha"], 2)
 
@@ -205,9 +205,9 @@ def calc_a_cost(ocp: AcadosOcp, config: dict) -> dict:
     a_lat = v * psi_dot
     a_lat_term = ca.power(a_lat, 2) / ca.power(config["c_alat"], 2)
     # a_lon is given as state vaiable
-    a_lon_pos = ca.if_else(ocp.model.x[STATE_INDEX_A_LON] >= 0, ocp.model.x[STATE_INDEX_A_LON], 0)
+    a_lon_pos = ca.fmax(0, ocp.model.x[STATE_INDEX_A_LON])
     a_lon_pos_term = ca.power(a_lon_pos, 2) / ca.power(config["c_alon"], 2)
-    a_lon_neg = ca.if_else(ocp.model.x[STATE_INDEX_A_LON] < 0, ocp.model.x[STATE_INDEX_A_LON], 0)
+    a_lon_neg = ca.fmin(0, ocp.model.x[STATE_INDEX_A_LON])
     a_lon_neg_term = ca.power(a_lon_neg, 2) / ca.power(config["c_alon"], 2)
 
     cost_terms = {"a_lon_pos": a_lon_pos_term, "a_lon_neg": a_lon_neg_term, "a_lat": a_lat_term}
