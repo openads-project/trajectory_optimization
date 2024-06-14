@@ -62,6 +62,7 @@
       - 0.03 # alpha (11)
       - 1.0  # endYaw (12)
     dynamic_weight: 1.0                         # base for exponential weight (also used in ROS node)
+    enable_slack: False                         # activate slack weights for soft constraints
     slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
       linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables
       linear_upper: [0.1, 0.1, 0.1]             # Linear cost on upper bound slack variables
