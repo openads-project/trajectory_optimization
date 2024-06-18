@@ -537,9 +537,9 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // replace all t values with theta since we don't need t in the ocp
     trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
-    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++i) {
+    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++j) {
       trajectory_planning_msgs::trajectory_access::setT(
-          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i), i);
+          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, j), j);
     }
 
     // fill ref_path vector with values from ref
@@ -568,11 +568,12 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
-      x_tgt = perception_msgs::object_access::getX(object_list.objects[j]);
-      y_tgt = perception_msgs::object_access::getY(object_list.objects[j]);
-      yaw_tgt = perception_msgs::object_access::getYaw(object_list.objects[j]);
-      if (i > 0 && use_prediction_) { // i > 0 indicates we're not on the first shooting interval --> may use prediction
-        std::vector<double> TIME, X, Y, YAW;
+      std::vector<double> TIME, X, Y, YAW;
+      TIME.push_back(rclcpp::Time(object_list.header.stamp).nanoseconds() / 1e9);
+      X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
+      Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
+      YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
+      if (use_prediction_) {
         for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
@@ -585,7 +586,11 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
         linearInterpolation(TIME, X, des_time, x_tgt);
         linearInterpolation(TIME, Y, des_time, y_tgt);
         linearInterpolation(TIME, YAW, des_time, yaw_tgt);
-      } 
+      } else {
+        x_tgt = X.front();
+        y_tgt = Y.front();
+        yaw_tgt = YAW.front();
+      }
       // ensure that x_tgt and y_tgt represent the geometric center of the object
       x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
       y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
