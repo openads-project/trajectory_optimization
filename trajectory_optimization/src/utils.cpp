@@ -127,10 +127,10 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
   ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
 
-  printf("\n--- xtraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
-  printf("\n--- utraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
+  // printf("\n--- xtraj ---\n");
+  // d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
+  // printf("\n--- utraj ---\n");
+  // d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
   // ocp_nlp_out_print(nlp_solver_->dims, nlp_out_);
 
   if (status == ACADOS_SUCCESS) {
@@ -139,7 +139,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     printf("\033[1;31mtrajectory_planning_acados_solve() failed with status %d.\033[0m\n", status);
   }
 
-  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
+  // trajectory_planning_acados_print_stats(acados_ocp_capsule_);
 
   printf("\nSolver info:\n");
   printf("SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
