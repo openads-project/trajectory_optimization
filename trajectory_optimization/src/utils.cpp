@@ -123,9 +123,19 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   double kkt_norm_inf;
   double elapsed_time;
   int sqp_iter;
+  double cost_value;
+  double nlp_res;
+  ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
+  ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
+  
   ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
   ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "cost_value", &cost_value);
+  ocp_nlp_get(nlp_config_, nlp_solver_, "nlp_res", &nlp_res);
+
+  RCLCPP_WARN(get_logger(), "cost_value = %f", cost_value);
+  RCLCPP_WARN(get_logger(), "nlp_res = %f", nlp_res);
 
   // printf("\n--- xtraj ---\n");
   // d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
