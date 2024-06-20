@@ -104,8 +104,13 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
   // keep only the closest objects
   std::vector<perception_msgs::msg::Object> closest_objects;
   const int n_objects_to_keep = std::min<size_t>(n_objects, indices_sorted_by_distance.size());
-  for (int i = 0; i < n_objects_to_keep; ++i) {
-    closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
+  int i = 0;
+  while(closest_objects.size() < (size_t)n_objects_to_keep) {
+    if((size_t)i >= indices_sorted_by_distance.size()) break;
+    if(perception_msgs::object_access::getX(object_list.objects[indices_sorted_by_distance[i]]) > 0.0) {
+      closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
+    }
+    ++i;
   }
   object_list.objects = closest_objects;
 }
