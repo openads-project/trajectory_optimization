@@ -27,7 +27,7 @@
     length: 4.799                     # length [m]
     width: 1.855                      # width [m]
     offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-    n_ego_circles: 1                  # number of circles to discretize ego-vehicle geometry
+    n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
     delta_max: 0.4956735              # max. absolute steering angle [rad]
     v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
     v_max: 7.0                        # upper boundary constraint for longitudinal velocity [m/s]
@@ -52,7 +52,7 @@
       - 0.0  # x (1)
       - 0.0  # y (2)
       - 0.15 # v (3)
-      - 2.0  # obstacles (4)
+      - 1.0  # obstacles (4)
       - 0.2  # a_lat (5)
       - 0.2  # a_lon_pos (6)
       - 0.05 # a_lon_neg (7)

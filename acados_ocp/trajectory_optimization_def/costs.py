@@ -171,8 +171,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
     ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
     # approximate ego-vehicle geometry with circles
-    #ego_circles_x, ego_circles_y, r_ego = approximate_object_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
-    r_ego = ca.sqrt(ca.power((config["length"] / 2.0), 2) + ca.power((config["width"] / 2.0), 2))
+    ego_circles_x, ego_circles_y, r_ego = approximate_object_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
     obstacles_term = ca.MX(0.0)
     obstacle_state_dim = config["p_obstacles_shape"][1]
     n_obstacles = config["p_obstacles_shape"][0]
@@ -184,44 +183,28 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
         # approximate object geometry with circles
         # n_circles = determine_n_discretization_circles(length, width)
-        #n_circles = 1 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
-        #circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
-        r_obstacle = ca.sqrt(ca.power((length / 2.0), 2) + ca.power((width / 2.0), 2))
+        # determine n_circles in c++ node
+        n_circles = 3 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
+        circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
         # initialize closest distances to object with a large value
         closest_distance = ca.inf
         dLong = ca.inf
         dLat = ca.inf
 
-        dx_circles = x_center - ego_center_x
-        dy_circles = y_center - ego_center_y
-        beta = ca.atan2(dy_circles, dx_circles)
-        alpha = beta - ocp.model.x[STATE_INDEX_PSI]
-        c = ca.sqrt(ca.power(dx_circles, 2) + ca.power(dy_circles, 2))
-        # update the minimum dLong and dLat value if c < closest_distance
-        dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
-        dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
-        closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
-
-        # for j in range(config["n_ego_circles"]):
-        #     # find the object circle that is the nearest to the given ego-vehicle-circle and store dLat and dLong
-        #     if circle_centers_x.rows() > 1:
-        #         dx = ca.power(circle_centers_x[:] - ego_circles_x[j], 2)
-        #         dy = ca.power(circle_centers_y[:] - ego_circles_y[j], 2)
-        #         dd = ca.sqrt(dx + dy)
-        #         # index min gives us the index of the circle that is nearest to the ego-vehicle-circle
-        #         idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
-        #     else:
-        #         idx_min = 0
-        #     # determine dLong and dLat wrt. idx_min
-        #     dx_circles = circle_centers_x[idx_min] - ego_circles_x[j]
-        #     dy_circles = circle_centers_y[idx_min] - ego_circles_y[j]
-        #     beta = ca.atan2(dy_circles, dx_circles)
-        #     alpha = beta - ocp.model.x[STATE_INDEX_PSI]
-        #     c = ca.sqrt(ca.power(dx_circles, 2) + ca.power(dy_circles, 2))
-        #     # update the minimum dLong and dLat value if c < closest_distance
-        #     dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
-        #     dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
-        #     closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
+        for j in range(config["n_ego_circles"]):
+            # find the object- and ego-circle pair that gives the closest distance and store dLat and dLon
+            for k in range(len(circle_centers_x)):
+                dx = circle_centers_x[k] - ego_circles_x[j]
+                dy = circle_centers_y[k] - ego_circles_y[j]
+                # determine dLong and dLat wrt. idx_min
+                beta = ca.atan2(dy, dx)
+                # To-Do: limit angles from -pi to pi
+                alpha = beta - ocp.model.x[STATE_INDEX_PSI]
+                c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
+                # update the minimum dLong and dLat value if c < closest_distance
+                dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
+                dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
+                closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
         d_min_obstacle_long = ca.fmax(D_MIN_OBSTACLE_LONG, p_thw * ocp.model.x[STATE_INDEX_V])
@@ -254,11 +237,23 @@ def determine_n_discretization_circles(length: ca.MX, width: ca.MX) -> ca.MX:
 def approximate_object_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
-
-    n_circle_vec = ca.linspace(ca.MX(0), ca.MX(n_circles-1), n_circles)
-    circle_centers_x = x_center - (length / 2.0 + (2*n_circle_vec + 1) * length / (2 * n_circles)) * ca.cos(yaw)
-    circle_centers_y = y_center - (length / 2.0 + (2*n_circle_vec + 1) * length / (2 * n_circles)) * ca.sin(yaw)
+  
+    # Initialize an empty list for circle centers coordinates
+    circle_centers_x = []
+    circle_centers_y = []
     
+    if n_circles==1:
+        circle_centers_x.append(x_center)
+        circle_centers_y.append(y_center)
+    else:
+        # Loop to compute the centers of each circle
+        for i in range(n_circles):
+            lon_offset = -length / 2 + (2 * i + 1) * length / (2 * n_circles)
+            x_offset = lon_offset * ca.cos(yaw)
+            y_offset = lon_offset * ca.sin(yaw)
+            circle_centers_x.append(x_center + x_offset)
+            circle_centers_y.append(y_center + y_offset)
+
     return circle_centers_x, circle_centers_y, radius
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
