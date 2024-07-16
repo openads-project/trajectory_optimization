@@ -56,6 +56,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
   this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_,
                                 "Threshold for bi-level stabilization: maximum steering angle difference [degree]");
+  this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states (global setting)");
 
   this->setup();
 }
@@ -491,6 +492,22 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
+  }
+
+  bool one_time_init_as_ref = false;
+  if (trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory) > 0 and perception_msgs::object_access::getVelLon(ego_data) < standstill_threshold_) {
+    one_time_init_as_ref = true;
+  }
+
+  if (init_as_ref_ or one_time_init_as_ref) {
+    // set initial guess
+    double initial_guess[TRAJECTORY_PLANNING_NX] = {0.0};
+    for (int i = 0; i <= n_shots_; ++i) {
+      initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
+      initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
+      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess);
+    }
   }
 
   // update ocp parameters
