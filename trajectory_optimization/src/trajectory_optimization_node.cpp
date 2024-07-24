@@ -400,7 +400,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     x_init = high_level_stabilization_ ? getHighLevelX0(ego_data_) : getBiLevelX0(ego_data_);
   } else {
-    RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
+    RCLCPP_WARN(this->get_logger(), "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
+    x_init = getHighLevelX0(ego_data_);
   }
   RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
                x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
