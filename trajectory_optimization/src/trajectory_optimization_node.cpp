@@ -502,11 +502,19 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   if (init_as_ref_condition) {
     // set initial guess
     double initial_guess[TRAJECTORY_PLANNING_NX] = {0.0};
+    int max_stat_index = std::min(n_shots_, trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory)-1);
     for (int i = 0; i <= n_shots_; ++i) {
-      initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
-      initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
-      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
-      initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, i);
+      if (i <= max_stat_index){
+        initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, i);
+        initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, i);
+        initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, i);
+        initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, i);
+      } else {
+        initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, max_stat_index);
+        initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, max_stat_index);
+        initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, max_stat_index);
+        initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, max_stat_index);
+      }
       ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess);
     }
   }
