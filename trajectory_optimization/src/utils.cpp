@@ -78,9 +78,10 @@ void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
 }
 
 /**
- * @brief Keeps the N closest objects from the given object list.
+ * @brief Keeps the N closest objects from the given object list (relative to the header frame).
  * 
- * This function calculates the distance to each object in the object list and keeps the N closest objects.
+ * This function calculates the distance to each object in the object list and keeps the N closest objects (relative to the header frame).
+ * All objects with a negative x-coordinate are discarded (ignores objects behind the ego vehicle).
  *
  * @param object_list The object list to filter.
  * @param n_objects The number of closest objects to keep.
@@ -107,6 +108,7 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
   int i = 0;
   while(closest_objects.size() < (size_t)n_objects_to_keep) {
     if((size_t)i >= indices_sorted_by_distance.size()) break;
+    // ignore object with negative x-coordinate (behind the ego vehicle)
     if(perception_msgs::object_access::getX(object_list.objects[indices_sorted_by_distance[i]]) > 0.0) {
       closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
     }
@@ -142,11 +144,10 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   RCLCPP_WARN(get_logger(), "cost_value = %f", cost_value);
   RCLCPP_WARN(get_logger(), "nlp_res = %f", nlp_res);
 
-  // printf("\n--- xtraj ---\n");
-  // d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
-  // printf("\n--- utraj ---\n");
-  // d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
-  // ocp_nlp_out_print(nlp_solver_->dims, nlp_out_);
+  printf("\n--- xtraj ---\n");
+  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
+  printf("\n--- utraj ---\n");
+  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
 
   if (status == ACADOS_SUCCESS) {
     printf("\033[1;32mtrajectory_planning_acados_solve(): SUCCESS!\033[0m\n");
@@ -154,7 +155,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     printf("\033[1;31mtrajectory_planning_acados_solve() failed with status %d.\033[0m\n", status);
   }
 
-  // trajectory_planning_acados_print_stats(acados_ocp_capsule_);
+  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
 
   printf("\nSolver info:\n");
   printf("SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,

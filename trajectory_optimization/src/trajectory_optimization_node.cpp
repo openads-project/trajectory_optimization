@@ -484,10 +484,10 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-      keepNClosestObjects(tf_object_list, p_obstacles_shape_[0]);
     } else {
       tf_object_list = object_list;
     }
+    keepNClosestObjects(tf_object_list, p_obstacles_shape_[0]);
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
