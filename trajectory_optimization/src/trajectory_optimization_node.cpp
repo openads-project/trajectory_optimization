@@ -36,6 +36,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
+  this->declareAndLoadParameter("d_min_obstacle_long", d_min_obstacle_long_,
+                                "Minimum distance to keep to obstacle in longitudinal direction [m]");
+  this->declareAndLoadParameter("d_min_obstacle_lat", d_min_obstacle_lat_,
+                                "Minimum distance to keep to obstacle in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
                                 "Threshold for standstill detection [m/s]. If all state velocities are below this "
                                 "threshold, publish standstill trajectory");
@@ -618,14 +622,16 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+  RCLCPP_ERROR(this->get_logger(), "TEST 4");
 
     // Other cost params
     idx += n;
-    n = 1;
+    n = 3;
+    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
     std::vector<int> idx_cost_params(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_params.begin(), idx_cost_params.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), &thw_, n);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
 
   }
 }

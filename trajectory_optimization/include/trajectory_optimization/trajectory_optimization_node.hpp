@@ -151,6 +151,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
+  double d_min_obstacle_long_ = 5.0;
+  double d_min_obstacle_lat_ = 0.5;
 
   // ocp parameter vector structure
   std::vector<int64_t> p_cost_weights_shape_ = {13, 1};
