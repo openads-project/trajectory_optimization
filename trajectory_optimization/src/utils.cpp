@@ -117,6 +117,66 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
   object_list.objects = closest_objects;
 }
 
+std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width) {
+  
+  uint8_t n_circles = 1;
+  if (length <= 0.0 || width <= 0.0) {
+    RCLCPP_WARN(get_logger(), "Invalid bounding box dimensions: length = %f, width = %f. Setting n_circles = 1.", length, width);
+  } else {
+    double aspect_ratio = length / width;
+    if (aspect_ratio > 8.0) n_circles = 9;
+    else if (aspect_ratio > 6.0) n_circles = 7;
+    else if (aspect_ratio > 4.0) n_circles = 5;
+    else if (aspect_ratio > 2.0) n_circles = 3;
+    else n_circles = 1;
+  }
+
+  double radius = std::sqrt(std::pow(length / (2 * n_circles), 2) + std::pow(width / 2.0, 2));
+
+  std::vector<double> circles(p_obstacle_circles_shape_[1] * n_circles);
+
+  for (int i = 0; i < n_circles; i++) {
+    double lon_offset = -length / 2 + (2 * i + 1) * length / (2 * n_circles);
+    double x_offset = lon_offset * std::cos(yaw);
+    double y_offset = lon_offset * std::sin(yaw);
+    circles[p_obstacle_circles_shape_[1] * i + 0] = x + x_offset;
+    circles[p_obstacle_circles_shape_[1] * i + 1] = y + y_offset;
+    circles[p_obstacle_circles_shape_[1] * i + 2] = radius;
+  }
+
+  return circles;
+}
+
+void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles) {
+  visualization_msgs::msg::MarkerArray marker_array;
+  int n_circles = obstacles.size() / p_obstacle_circles_shape_[1];
+  for (int j = 0; j < n_circles; ++j) {
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = "base_link";
+    marker.header.stamp = rclcpp::Time(object_list_.header.stamp);
+    marker.ns = "obstacles";
+    marker.id = j;
+    marker.type = visualization_msgs::msg::Marker::CYLINDER;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = obstacles[p_obstacle_circles_shape_[1] * j + 0];
+    marker.pose.position.y = obstacles[p_obstacle_circles_shape_[1] * j + 1];
+    marker.pose.position.z = 0.0;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
+    marker.scale.y = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
+    marker.scale.z = 1.0;
+    marker.color.a = 0.5;
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+    marker_array.markers.push_back(marker);
+  }
+  circles_pub_->publish(marker_array);
+}
+
 /**
  * @brief Prints the solution of the trajectory optimization problem.
  *

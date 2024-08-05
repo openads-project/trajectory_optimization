@@ -45,7 +45,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
                                 "OCP parameter vector shape for cost weights");
   this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacles_shape", p_obstacles_shape_, "OCP parameter vector shape for obstacles");
+  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circles approximation)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -180,6 +180,7 @@ void TrajectoryOptimizationNode::setup() {
   // set up publisher for output topic
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/circles", 1);
 
   // create timer for planning cycle
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
@@ -362,10 +363,22 @@ void TrajectoryOptimizationNode::freeSolver() {
 }
 
 /**
+ * @brief Resets the solver by freeing the existing solver and setting up a new one.
+ * 
+ * This function first frees the existing solver by calling the `freeSolver` function,
+ * and then sets up a new solver by calling the `setupSolver` function.
+ */
+void TrajectoryOptimizationNode::resetSolver() {
+  freeSolver();
+  setupSolver();
+}
+
+/**
  * @brief This function is invoked every period seconds by the timer
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
+  viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
     return;
@@ -389,8 +402,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory2outputFrame(*trajectory);
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
-    freeSolver();
-    setupSolver();
+    resetSolver();
     return;
   }
 
@@ -411,6 +423,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
+  vizCircles(viz_circles_);
 
   // solve the optimization problem
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
@@ -424,9 +437,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (verbose_) printSolution(status);
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
-    // reset control problem
-    freeSolver();
-    setupSolver();
+    resetSolver();
     return;
   }
 
@@ -449,8 +460,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, standstill);
   if (standstill) {
-    freeSolver();
-    setupSolver();
+    resetSolver();
   }
 
   // transform trajectory to output frame
@@ -487,7 +497,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
     } else {
       tf_object_list = object_list;
     }
-    keepNClosestObjects(tf_object_list, p_obstacles_shape_[0]);
+    keepNClosestObjects(tf_object_list, p_obstacle_circles_shape_[0]);
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
@@ -554,17 +564,8 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // obstacles
     idx += n;
-    n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
-    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
-    // init with dummy "ghost" obstacles at (10000, 10000) to avoid NaNs in the optimization problem
-    // TODO: improve this
-    for (int j = 0; j < p_obstacles_shape_[0]; ++j) {
-      obstacles[p_obstacles_shape_[1] * j + 0] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * j + 1] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * j + 2] = 0.0;
-      obstacles[p_obstacles_shape_[1] * j + 3] = 0.0;
-      obstacles[p_obstacles_shape_[1] * j + 4] = 0.0;
-    }
+    n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
+    std::vector<double> circles; // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
@@ -594,17 +595,29 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       // ensure that x_tgt and y_tgt represent the geometric center of the object
       x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
       y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
-      
-      obstacles[p_obstacles_shape_[1] * j + 0] = x_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 1] = y_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 2] = yaw_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 3] = perception_msgs::object_access::getLength(object_list.objects[j]);
-      obstacles[p_obstacles_shape_[1] * j + 4] = perception_msgs::object_access::getWidth(object_list.objects[j]);
+
+      std::vector<double> obj_circles = discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt,
+                                                         perception_msgs::object_access::getLength(object_list.objects[j]),
+                                                         perception_msgs::object_access::getWidth(object_list.objects[j]));
+
+      circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
+      if (circles.size() >= (size_t)n) {
+        circles.resize(n);
+        break;
+      }
     }
+    // fill up with dummy "ghost" obstacle circles at (10000, 10000) to avoid NaNs in the optimization problem
+    // TODO: improve this
+    while (circles.size() < (size_t)n) {
+      std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
+      circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());
+    }
+    viz_circles_.insert(viz_circles_.end(), circles.begin(), circles.end());
+
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
 
     // Other cost params
     idx += n;

@@ -15,7 +15,7 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
     n_params_cost_params = 1
     n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles + n_params_cost_params
     ocp.parameter_values = np.zeros(n_params)
@@ -158,7 +158,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
 
     # TODO: slicing doesnt work
     # consider only the relevant obstacles (could be smaller than the parameter space; identify by first infinite value)
-    # n_params_obstacles = np.prod(config["p_obstacles_shape"])
+    # n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
     # idx_inf = n_params_obstacles
     # for i in range(n_params_obstacles):
     #     if p_obstacles[i] == ca.MX_inf:
@@ -171,45 +171,37 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
     ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
     # approximate ego-vehicle geometry with circles
-    ego_circles_x, ego_circles_y, r_ego = approximate_object_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
+    ego_circles_x, ego_circles_y, r_ego = approximate_ego_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
     obstacles_term = ca.MX(0.0)
-    obstacle_state_dim = config["p_obstacles_shape"][1]
-    n_obstacles = config["p_obstacles_shape"][0]
-    for i in range(n_obstacles):
+    obstacle_state_dim = config["p_obstacle_circles_shape"][1]
+    n_obstacle_circles = config["p_obstacle_circles_shape"][0]
+    for i in range(n_obstacle_circles):
         x_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
         y_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
-        yaw = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_YAW]
-        length = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_LENGTH]
-        width = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_WIDTH]
-        # approximate object geometry with circles
-        # n_circles = determine_n_discretization_circles(length, width)
-        # determine n_circles in c++ node
-        n_circles = 3 # WORKAROUND use 3 circles for objects--> TODO: fix the issue in determine_n_discretization_circles
-        circle_centers_x, circle_centers_y, r_obstacle = approximate_object_geometry(n_circles, x_center, y_center, yaw, length, width)
+        r_circle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_RADIUS]
         # initialize closest distances to object with a large value
         closest_distance = ca.inf
         dLong = ca.inf
         dLat = ca.inf
 
+        # find the object-circle and ego-circle pair that gives the closest distance and store dLat and dLon
         for j in range(config["n_ego_circles"]):
-            # find the object- and ego-circle pair that gives the closest distance and store dLat and dLon
-            for k in range(len(circle_centers_x)):
-                dx = circle_centers_x[k] - ego_circles_x[j]
-                dy = circle_centers_y[k] - ego_circles_y[j]
-                # determine dLong and dLat wrt. idx_min
-                beta = ca.atan2(dy, dx)
-                # To-Do: limit angles from -pi to pi
-                alpha = beta - ocp.model.x[STATE_INDEX_PSI]
-                c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
-                # update the minimum dLong and dLat value if c < closest_distance
-                dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
-                dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
-                closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
+            dx = x_center - ego_circles_x[j]
+            dy = y_center - ego_circles_y[j]
+            # determine dLong and dLat wrt. idx_min
+            beta = ca.atan2(dy, dx)
+            # To-Do: limit angles from -pi to pi
+            alpha = beta - ocp.model.x[STATE_INDEX_PSI]
+            c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
+            # update the minimum dLong and dLat value if c < closest_distance
+            dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
+            dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
+            closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
         # define minimum lateral and longitudinal distance to object circles
         d_min_obstacle_long = ca.fmax(D_MIN_OBSTACLE_LONG, p_thw * ocp.model.x[STATE_INDEX_V])
-        dLatMin = D_MIN_OBSTACLE_LAT   + r_ego + r_obstacle
-        dLongMin = d_min_obstacle_long + r_ego + r_obstacle
+        dLatMin = D_MIN_OBSTACLE_LAT   + r_ego + r_circle
+        dLongMin = d_min_obstacle_long + r_ego + r_circle
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
         cLong = ca.cos((ca.fabs(dLong) / dLongMin) * ca.pi) + 1
         cLat = ca.cos((ca.fabs(dLat) / dLatMin) * ca.pi) + 1
@@ -219,21 +211,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
 
     return obstacles_term
 
-def determine_n_discretization_circles(length: ca.MX, width: ca.MX) -> ca.MX:
-    # ensure that width > 0.0 for numeric stability
-    width = ca.fmax(0.5, width)
-    # define aspect_ratio of object
-    aspect_ratio = length / width
-    # define n_circles based on aspect_ratio
-    n_circles = ca.if_else(ca.logic_and(aspect_ratio > 0.0, aspect_ratio <= 2.0), 1,
-                 ca.if_else(ca.logic_and(aspect_ratio > 2.0, aspect_ratio <= 4.0), 3,
-                 ca.if_else(ca.logic_and(aspect_ratio > 4.0, aspect_ratio <= 6.0), 5,
-                 ca.if_else(ca.logic_and(aspect_ratio > 6.0, aspect_ratio <= 8.0), 7,
-                 ca.if_else(aspect_ratio > 8.0, 9, 1)))))
-    
-    return n_circles
-
-def approximate_object_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
+def approximate_ego_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
   
