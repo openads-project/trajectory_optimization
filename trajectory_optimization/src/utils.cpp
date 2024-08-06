@@ -152,26 +152,18 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
   int n_circles = obstacles.size() / p_obstacle_circles_shape_[1];
   for (int j = 0; j < n_circles; ++j) {
     visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "base_link";
+    marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(object_list_.header.stamp);
-    marker.ns = "obstacles";
+    marker.ns = "obstacle-circles";
     marker.id = j;
     marker.type = visualization_msgs::msg::Marker::CYLINDER;
     marker.action = visualization_msgs::msg::Marker::ADD;
     marker.pose.position.x = obstacles[p_obstacle_circles_shape_[1] * j + 0];
     marker.pose.position.y = obstacles[p_obstacle_circles_shape_[1] * j + 1];
-    marker.pose.position.z = 0.0;
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
     marker.scale.x = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
     marker.scale.y = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
-    marker.scale.z = 1.0;
     marker.color.a = 0.5;
     marker.color.r = 1.0;
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
     marker_array.markers.push_back(marker);
   }
   circles_pub_->publish(marker_array);

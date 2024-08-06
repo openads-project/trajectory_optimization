@@ -622,7 +622,6 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
-  RCLCPP_ERROR(this->get_logger(), "TEST 4");
 
     // Other cost params
     idx += n;
