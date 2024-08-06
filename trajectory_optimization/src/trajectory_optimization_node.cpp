@@ -50,7 +50,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
                                 "OCP parameter vector shape for cost weights");
   this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circles approximation)");
+  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circle approximation)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -185,7 +185,7 @@ void TrajectoryOptimizationNode::setup() {
   // set up publisher for output topic
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
-  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/circles", 1);
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/object-circles", 1);
 
   // create timer for planning cycle
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
