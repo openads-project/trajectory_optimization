@@ -22,20 +22,23 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
     RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Min of the given vector!");
     output_y = Y.front();
     return true;
-  }
-  if(desired_x == X.back()) {
+  } else if(desired_x == X.back()) {
     RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Max of the given vector!");
     output_y = Y.back();
     return true;
-  }
-  if (desired_x < *min_element(X.begin(), X.end()) || desired_x > *max_element(X.begin(), X.end())) {
-    RCLCPP_ERROR(get_logger(), "Desired Time is not in between of Time-Min and Time-Max of the given vector!");
+  } else if (desired_x < *min_element(X.begin(), X.end())) {
+    RCLCPP_WARN(get_logger(), "Desired Time is smaller than Time-Min of the given vector! Using first valid value.");
     RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
     RCLCPP_DEBUG(get_logger(), "Time-Min: %f s", *min_element(X.begin(), X.end()));
-    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
+    output_y = Y.front();
     return false;
-  }
-  if (X.size() != Y.size()) {
+  } else if (desired_x > *max_element(X.begin(), X.end())) {
+    RCLCPP_WARN(get_logger(), "Desired Time is greater than Time-Max of the given vector! Using last valid value.");
+    RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
+    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
+    output_y = Y.back();
+    return false;
+  } else if (X.size() != Y.size()) {
     RCLCPP_ERROR(get_logger(), "Input vectors don't have the same length!");
     return false;
   }
@@ -115,6 +118,59 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
     ++i;
   }
   object_list.objects = closest_objects;
+}
+
+std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width) {
+  
+  uint8_t n_circles = 1;
+  if (length <= 0.0 || width <= 0.0) {
+    RCLCPP_WARN(get_logger(), "Invalid bounding box dimensions: length = %f, width = %f. Setting n_circles = 1.", length, width);
+  } else {
+    double aspect_ratio = length / width;
+    if (aspect_ratio > 8.0) n_circles = 9;
+    else if (aspect_ratio > 6.0) n_circles = 7;
+    else if (aspect_ratio > 4.0) n_circles = 5;
+    else if (aspect_ratio > 2.0) n_circles = 3;
+    else n_circles = 1;
+  }
+
+  double radius = std::sqrt(std::pow(length / (2 * n_circles), 2) + std::pow(width / 2.0, 2));
+
+  std::vector<double> circles(p_obstacle_circles_shape_[1] * n_circles);
+
+  for (int i = 0; i < n_circles; i++) {
+    double lon_offset = -length / 2 + (2 * i + 1) * length / (2 * n_circles);
+    double x_offset = lon_offset * std::cos(yaw);
+    double y_offset = lon_offset * std::sin(yaw);
+    circles[p_obstacle_circles_shape_[1] * i + 0] = x + x_offset;
+    circles[p_obstacle_circles_shape_[1] * i + 1] = y + y_offset;
+    circles[p_obstacle_circles_shape_[1] * i + 2] = radius;
+  }
+
+  return circles;
+}
+
+void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles) {
+  visualization_msgs::msg::MarkerArray marker_array;
+  int n_circles = obstacles.size() / p_obstacle_circles_shape_[1];
+  for (int j = 0; j < n_circles; ++j) {
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = vehicle_frame_id_;
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.ns = "obstacle-circles";
+    marker.id = j;
+    marker.type = visualization_msgs::msg::Marker::CYLINDER;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = obstacles[p_obstacle_circles_shape_[1] * j + 0];
+    marker.pose.position.y = obstacles[p_obstacle_circles_shape_[1] * j + 1];
+    marker.scale.x = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
+    marker.scale.y = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
+    marker.scale.z = 0.1;
+    marker.color.a = 0.3;
+    marker.color.r = 1.0;
+    marker_array.markers.push_back(marker);
+  }
+  circles_pub_->publish(marker_array);
 }
 
 /**

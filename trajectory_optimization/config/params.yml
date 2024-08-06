@@ -9,6 +9,7 @@
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: True                   # print debug infromation and solver statistics
+    debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
 
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
@@ -70,10 +71,12 @@
       quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables
 
     # other cost params
-    thw: 2.0
+    thw: 2.0                    # time headway [s]
+    d_min_obstacle_long: 5.0    # minimum distance to keep to obstacles in longitudinal direction [m]
+    d_min_obstacle_lat: 0.5     # minimum distance to keep to obstacles in lateral direction [m]
 
     ### parameter vector structure
-    # [cost_weights, ref_path, objects]
+    # [cost_weights, dyn_weight (1), ref_path, obstacles, additional_cost_params (3)]
     p_cost_weights_shape: [13, 1] # nWeights x weightDim
     p_ref_path_shape: [51, 4]     # nStates x stateDim
-    p_obstacles_shape: [10, 5]    # nObstacles x [x, y, yaw, length, width]
+    p_obstacle_circles_shape: [30, 3]    # nObstacleCircles x [x, y, radius]
