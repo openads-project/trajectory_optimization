@@ -153,7 +153,7 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
   for (int j = 0; j < n_circles; ++j) {
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
-    marker.header.stamp = rclcpp::Time(object_list_.header.stamp);
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
     marker.ns = "obstacle-circles";
     marker.id = j;
     marker.type = visualization_msgs::msg::Marker::CYLINDER;
@@ -162,7 +162,8 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
     marker.pose.position.y = obstacles[p_obstacle_circles_shape_[1] * j + 1];
     marker.scale.x = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
     marker.scale.y = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
-    marker.color.a = 0.5;
+    marker.scale.z = 0.1;
+    marker.color.a = 0.3;
     marker.color.r = 1.0;
     marker_array.markers.push_back(marker);
   }

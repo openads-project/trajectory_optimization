@@ -182,7 +182,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
             dy = y_center - ego_circles_y[j]
             # determine dLong and dLat wrt. idx_min
             beta = ca.atan2(dy, dx)
-            # To-Do: limit angles from -pi to pi
+            # To-Do: limit angles from -pi to pi (overthink if this is necessary)
             alpha = beta - ocp.model.x[STATE_INDEX_PSI]
             c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
             # update the minimum dLong and dLat value if c < closest_distance

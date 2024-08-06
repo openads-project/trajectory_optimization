@@ -32,6 +32,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
+  this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
   this->declareAndLoadParameter("wheelbase", wheelbase_, "Wheelbase of the vehicle [m]");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
@@ -382,7 +383,7 @@ void TrajectoryOptimizationNode::resetSolver() {
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
-  viz_circles_.clear();
+  if (debug_viz_) viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
     return;
@@ -427,7 +428,6 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
-  vizCircles(viz_circles_);
 
   // solve the optimization problem
   int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
@@ -439,6 +439,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
   if (verbose_) printSolution(status);
+  if (debug_viz_) vizCircles(viz_circles_);
+
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
     resetSolver();
@@ -574,6 +576,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
       std::vector<double> TIME, X, Y, YAW;
+      // TODO: should not be done for each shooting interval. Could be improved.
       TIME.push_back(rclcpp::Time(object_list.header.stamp).nanoseconds() / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
@@ -597,6 +600,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
         yaw_tgt = YAW.front();
       }
       // ensure that x_tgt and y_tgt represent the geometric center of the object
+      // TODO: is this valid?
       x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
       y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
 
@@ -616,7 +620,11 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
       circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());
     }
-    viz_circles_.insert(viz_circles_.end(), circles.begin(), circles.end());
+    if ((circles.size() % p_obstacle_circles_shape_[1]) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Circles vector size is not a multiple of the circle shape. Resizing.");
+      circles.resize(n);
+    }
+    if (debug_viz_) viz_circles_.insert(viz_circles_.end(), circles.begin(), circles.end());
 
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
