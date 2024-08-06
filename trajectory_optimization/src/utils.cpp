@@ -22,20 +22,23 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
     RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Min of the given vector!");
     output_y = Y.front();
     return true;
-  }
-  if(desired_x == X.back()) {
+  } else if(desired_x == X.back()) {
     RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Max of the given vector!");
     output_y = Y.back();
     return true;
-  }
-  if (desired_x < *min_element(X.begin(), X.end()) || desired_x > *max_element(X.begin(), X.end())) {
-    RCLCPP_ERROR(get_logger(), "Desired Time is not in between of Time-Min and Time-Max of the given vector!");
+  } else if (desired_x < *min_element(X.begin(), X.end())) {
+    RCLCPP_WARN(get_logger(), "Desired Time is smaller than Time-Min of the given vector! Using first valid value.");
     RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
     RCLCPP_DEBUG(get_logger(), "Time-Min: %f s", *min_element(X.begin(), X.end()));
-    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
+    output_y = Y.front();
     return false;
-  }
-  if (X.size() != Y.size()) {
+  } else if (desired_x > *max_element(X.begin(), X.end())) {
+    RCLCPP_WARN(get_logger(), "Desired Time is greater than Time-Max of the given vector! Using last valid value.");
+    RCLCPP_DEBUG(get_logger(), "Desired Time: %f s", desired_x);
+    RCLCPP_DEBUG(get_logger(), "Time-Max: %f s", *max_element(X.begin(), X.end()));
+    output_y = Y.back();
+    return false;
+  } else if (X.size() != Y.size()) {
     RCLCPP_ERROR(get_logger(), "Input vectors don't have the same length!");
     return false;
   }

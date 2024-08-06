@@ -589,8 +589,6 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
-        // TODO: use break at this point does not seem to be valid, otherwise the object could be ignored in some shooting intervals.
-        // Nevertheless, if interpolation fails we should use tha last valid predicted pose instead of the current pose of the object?
         linearInterpolation(TIME, X, des_time, x_tgt);
         linearInterpolation(TIME, Y, des_time, y_tgt);
         linearInterpolation(TIME, YAW, des_time, yaw_tgt);
