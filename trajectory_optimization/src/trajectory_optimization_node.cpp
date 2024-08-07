@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <thread>
 
@@ -596,9 +597,11 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
         yaw_tgt = YAW.front();
       }
       // ensure that x_tgt and y_tgt represent the geometric center of the object
-      // TODO: is this valid?
-      x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
-      y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
+      double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, object_list.objects[j].state.reference_point.translation_to_geometric_center.x);
+      double beta = yaw_tgt - alpha;
+      double a = std::sqrt(std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.x, 2) + std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, 2));
+      x_tgt += a * std::cos(beta);
+      y_tgt += a * std::sin(beta);
 
       std::vector<double> obj_circles = discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt,
                                                          perception_msgs::object_access::getLength(object_list.objects[j]),
