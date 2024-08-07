@@ -1,5 +1,3 @@
-#include <math.h>
-
 #include <chrono>
 #include <functional>
 #include <thread>
