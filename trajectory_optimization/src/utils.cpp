@@ -159,6 +159,7 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
     marker.ns = "obstacle-circles";
     marker.id = j;
     marker.type = visualization_msgs::msg::Marker::CYLINDER;
@@ -185,7 +186,9 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
  */
 void TrajectoryOptimizationNode::printSolution(int status) {
   if (status == ACADOS_SUCCESS) {
-    RCLCPP_INFO(get_logger(), "\033[1;32mtrajectory_planning_acados_solve(): SUCCESS!\033[0m");
+    RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
+  } else if (status == ACADOS_MAXITER) {
+    RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
   } else {
     RCLCPP_ERROR(get_logger(), "trajectory_planning_acados_solve() failed with status %d.", status);
   }
