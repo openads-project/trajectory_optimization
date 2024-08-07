@@ -438,7 +438,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   for (int ii = 0; ii < nlp_dims_->N; ++ii)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
-  if (verbose_) printSolution(status);
+  printSolution(status);
   if (debug_viz_) vizCircles(viz_circles_);
 
   if (status == 1 || status == 3 || status == 4) {

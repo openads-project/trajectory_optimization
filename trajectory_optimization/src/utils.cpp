@@ -182,40 +182,37 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
  * @param status The status of the trajectory optimization solver.
  */
 void TrajectoryOptimizationNode::printSolution(int status) {
-  // get statistics
-  double kkt_norm_inf;
-  double elapsed_time;
+  if (status == ACADOS_SUCCESS) {
+    RCLCPP_INFO(get_logger(), "\033[1;32mtrajectory_planning_acados_solve(): SUCCESS!\033[0m");
+  } else {
+    RCLCPP_ERROR(get_logger(), "trajectory_planning_acados_solve() failed with status %d.", status);
+  }
+
+  // print duration, KKT, and number of SQP iterations
+  double elapsed_time, kkt_norm_inf;
   int sqp_iter;
-  double cost_value;
-  double nlp_res;
-  ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
-  ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
-  
   ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
   ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+  RCLCPP_INFO(get_logger(),
+            "Optimization took \033[1m%f ms.\033[0m (SQP iter: \033[1m%2d\033[0m; KKT: \033[1m%e\033[0m)",
+            elapsed_time * 1000, sqp_iter, kkt_norm_inf);
+  
+  // print cost value and residuals
+  double cost_value, nlp_res;
+  ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
+  ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_get(nlp_config_, nlp_solver_, "cost_value", &cost_value);
   ocp_nlp_get(nlp_config_, nlp_solver_, "nlp_res", &nlp_res);
+  RCLCPP_INFO(get_logger(), "cost_value: \033[1m%f\033[0m; nlp_res: \033[1m%f\033[0m", cost_value, nlp_res);
 
-  RCLCPP_WARN(get_logger(), "cost_value = %f", cost_value);
-  RCLCPP_WARN(get_logger(), "nlp_res = %f", nlp_res);
-
-  printf("\n--- xtraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
-  printf("\n--- utraj ---\n");
-  d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
-
-  if (status == ACADOS_SUCCESS) {
-    printf("\033[1;32mtrajectory_planning_acados_solve(): SUCCESS!\033[0m\n");
-  } else {
-    printf("\033[1;31mtrajectory_planning_acados_solve() failed with status %d.\033[0m\n", status);
+  if (verbose_) {
+    printf("\n--- xtraj ---\n");
+    d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
+    printf("\n--- utraj ---\n");
+    d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
+    trajectory_planning_acados_print_stats(acados_ocp_capsule_);
   }
-
-  trajectory_planning_acados_print_stats(acados_ocp_capsule_);
-
-  printf("\nSolver info:\n");
-  printf("SQP iterations %2d\n minimum time for %d solve %f [ms]\n KKT %e\n", sqp_iter, 1, elapsed_time * 1000,
-         kkt_norm_inf);
 }
 
 }  // namespace trajectory_optimization
