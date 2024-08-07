@@ -50,6 +50,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
+  const std::string kObjectCirclesTopic = "~/visualization/object_circles";
 
   template <typename T>
   void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,

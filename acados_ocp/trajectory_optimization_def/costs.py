@@ -158,12 +158,11 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
 
 def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw: ca.MX, d_min_obstacle_long: ca.MX, d_min_obstacle_lat: ca.MX) -> ca.MX:
 
-    # derive geo-center position of ego-vehicle
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
     ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
-    # approximate ego-vehicle geometry with circles
     ego_circles_x, ego_circles_y, r_ego = approximate_ego_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
+
     obstacles_term = ca.MX(0.0)
     obstacle_state_dim = config["p_obstacle_circles_shape"][1]
     n_obstacle_circles = config["p_obstacle_circles_shape"][0]
@@ -171,18 +170,19 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         x_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
         y_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
         r_circle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_RADIUS]
+
         # initialize closest distances to object with a large value
         closest_distance = ca.inf
         dLong = ca.inf
         dLat = ca.inf
 
-        # find the object-circle and ego-circle pair that gives the closest distance and store dLat and dLon
+        # find the ego-circle that gives the closest distance to the object-circle and store dLat and dLon
         for j in range(config["n_ego_circles"]):
             dx = x_center - ego_circles_x[j]
             dy = y_center - ego_circles_y[j]
             # determine dLong and dLat wrt. idx_min
             beta = ca.atan2(dy, dx)
-            # To-Do: limit angles from -pi to pi (overthink if this is necessary)
+            # TODO: limit angles from -pi to pi (overthink if this is necessary)
             alpha = beta - ocp.model.x[STATE_INDEX_PSI]
             c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
             # update the minimum dLong and dLat value if c < closest_distance
@@ -193,6 +193,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
         # define minimum lateral and longitudinal distance to object circles
         dLatMin = d_min_obstacle_lat + r_ego + r_circle
         dLongMin = ca.fmax(d_min_obstacle_long, p_thw * ocp.model.x[STATE_INDEX_V]) + r_ego + r_circle
+
         # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
         cLong = ca.cos((ca.fabs(dLong) / dLongMin) * ca.pi) + 1
         cLat = ca.cos((ca.fabs(dLat) / dLatMin) * ca.pi) + 1
