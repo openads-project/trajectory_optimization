@@ -71,8 +71,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
   std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
+  double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
-                           double &output_y);
+                           double &output_y, const bool wrap_angle = false);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);

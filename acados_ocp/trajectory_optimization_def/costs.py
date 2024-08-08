@@ -182,8 +182,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
             dy = y_center - ego_circles_y[j]
             # determine dLong and dLat wrt. idx_min
             beta = ca.atan2(dy, dx)
-            # TODO: limit angles from -pi to pi (overthink if this is necessary)
-            alpha = beta - ocp.model.x[STATE_INDEX_PSI]
+            alpha = wrap_angle(beta - ocp.model.x[STATE_INDEX_PSI])
             c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
             # update the minimum dLong and dLat value if c < closest_distance
             dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
@@ -265,3 +264,15 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
 
     j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
     return j_lat_term
+
+def wrap_angle(angle: ca.MX) -> ca.MX:
+    """
+    Wraps an angle to the range [-pi, pi].
+
+    Parameters:
+        angle (ca.MX): The angle to be wrapped.
+
+    Returns:
+        ca.MX: The wrapped angle.
+    """
+    return ca.fmod(angle + ca.pi, 2 * ca.pi) - ca.pi

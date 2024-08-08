@@ -7,6 +7,21 @@
 namespace trajectory_optimization {
 
 /**
+ * Wraps an angle in radians within a specified range.
+ *
+ * @param angle_rad The angle in radians to be wrapped.
+ * @param min_val The minimum value of the range (default: -M_PI).
+ * @param max_val The maximum value of the range (default: M_PI).
+ * @return The wrapped angle within the specified range.
+ */
+double TrajectoryOptimizationNode::wrap_angle_rad(double angle_rad, double min_val, double max_val) {
+  double capped_angle_rad = angle_rad;
+  while (capped_angle_rad > max_val) capped_angle_rad -= 2 * M_PI;
+  while (capped_angle_rad < min_val) capped_angle_rad += 2 * M_PI;
+  return capped_angle_rad;
+}
+
+/**
  * @brief Performs linear interpolation to find the corresponding y-value for a given x-value.
  *
  * This function takes two vectors, X and Y, representing the x and y values of a dataset, and a desired x-value.
@@ -16,10 +31,11 @@ namespace trajectory_optimization {
  * @param Y The vector of y-values.
  * @param desired_x The desired x-value.
  * @param output_y The output variable to store the interpolated y-value.
+ * @param wrap_angle If true (relevant if Y is an angle list), angle differences are wrapped to [-pi, pi] (default: false).
  * @return True if the interpolation is successful, false otherwise.
  */
 bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& X, const std::vector<double>& Y,
-                                                     const double& desired_x, double& output_y) {
+                                                     const double& desired_x, double& output_y, bool wrap_angle) {
   if(desired_x == X.front()) {
     RCLCPP_DEBUG(get_logger(), "Desired Time is equal to Time-Min of the given vector!");
     output_y = Y.front();
@@ -57,7 +73,14 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
       break;
     }
   }
-  output_y = Y[i - 1] + ((Y[i] - Y[i - 1]) / (X[i] - X[i - 1])) * (desired_x - X[i - 1]);
+  double diff = Y[i] - Y[i-1];
+  if (wrap_angle){
+    diff = wrap_angle_rad(diff);
+  }
+  output_y = Y[i - 1] + (diff / (X[i] - X[i - 1])) * (desired_x - X[i - 1]);
+  if (wrap_angle) {
+    output_y = wrap_angle_rad(output_y);
+  }
   return true;
 }
 

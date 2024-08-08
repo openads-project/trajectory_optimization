@@ -288,7 +288,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
-  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) theta_tgt = 0.0;
+  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
   if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
@@ -590,7 +590,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
         linearInterpolation(TIME, X, des_time, x_tgt);
         linearInterpolation(TIME, Y, des_time, y_tgt);
-        linearInterpolation(TIME, YAW, des_time, yaw_tgt);
+        linearInterpolation(TIME, YAW, des_time, yaw_tgt, true);
       } else {
         x_tgt = X.front();
         y_tgt = Y.front();
@@ -598,7 +598,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       }
       // ensure that x_tgt and y_tgt represent the geometric center of the object
       double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, object_list.objects[j].state.reference_point.translation_to_geometric_center.x);
-      double beta = yaw_tgt - alpha;
+      double beta = wrap_angle_rad(yaw_tgt - alpha);
       double a = std::sqrt(std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.x, 2) + std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, 2));
       x_tgt += a * std::cos(beta);
       y_tgt += a * std::sin(beta);
