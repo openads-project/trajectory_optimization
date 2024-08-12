@@ -2,6 +2,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 // definitions
 #include <perception_msgs/msg/ego_data.hpp>
@@ -49,6 +50,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
+  const std::string kObjectCirclesTopic = "~/visualization/object_circles";
 
   template <typename T>
   void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
@@ -60,6 +62,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
 
   void setup();
+  void resetSolver();
   void setupSolver();
   void freeSolver();
 
@@ -68,8 +71,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
   std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
+  double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
-                           double &output_y);
+                           double &output_y, const bool wrap_angle = false);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
@@ -89,6 +93,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list,
                                                        const int n_objects);
+  std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
+  void vizCircles(const std::vector<double> &obstacles);
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -98,6 +104,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
@@ -124,6 +131,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   int n_shots_ = TRAJECTORY_PLANNING_N;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  bool debug_viz_ = false;
   double wheelbase_ = 2.711;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
@@ -140,15 +148,20 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
 
+  // visualization
+  std::vector<double> viz_circles_;
+
   // cost weights
   std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
+  double d_min_obstacle_long_ = 5.0;
+  double d_min_obstacle_lat_ = 0.5;
 
   // ocp parameter vector structure
   std::vector<int64_t> p_cost_weights_shape_ = {13, 1};
   std::vector<int64_t> p_ref_path_shape_ = {100, 4};
-  std::vector<int64_t> p_obstacles_shape_ = {10, 5};
+  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};
 
   // ocp variables
   trajectory_planning_solver_capsule *acados_ocp_capsule_;

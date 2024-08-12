@@ -1,5 +1,3 @@
-#include <cmath>
-
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
 namespace trajectory_optimization {

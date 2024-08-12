@@ -1,6 +1,5 @@
-#include <math.h>
-
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <thread>
 
@@ -32,10 +31,15 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
+  this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
   this->declareAndLoadParameter("wheelbase", wheelbase_, "Wheelbase of the vehicle [m]");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
+  this->declareAndLoadParameter("d_min_obstacle_long", d_min_obstacle_long_,
+                                "Minimum distance to keep to obstacle in longitudinal direction [m]");
+  this->declareAndLoadParameter("d_min_obstacle_lat", d_min_obstacle_lat_,
+                                "Minimum distance to keep to obstacle in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
                                 "Threshold for standstill detection [m/s]. If all state velocities are below this "
                                 "threshold, publish standstill trajectory");
@@ -45,7 +49,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
                                 "OCP parameter vector shape for cost weights");
   this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacles_shape", p_obstacles_shape_, "OCP parameter vector shape for obstacles");
+  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circle approximation)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -178,9 +182,10 @@ void TrajectoryOptimizationNode::setup() {
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
-  // set up publisher for output topic
+  // set up publisher for output topics
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
   // create timer for planning cycle
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
@@ -284,7 +289,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
-  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt)) theta_tgt = 0.0;
+  if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
   if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
@@ -363,10 +368,22 @@ void TrajectoryOptimizationNode::freeSolver() {
 }
 
 /**
+ * @brief Resets the solver by freeing the existing solver and setting up a new one.
+ * 
+ * This function first frees the existing solver by calling the `freeSolver` function,
+ * and then sets up a new solver by calling the `setupSolver` function.
+ */
+void TrajectoryOptimizationNode::resetSolver() {
+  freeSolver();
+  setupSolver();
+}
+
+/**
  * @brief This function is invoked every period seconds by the timer
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
+  if (debug_viz_) viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
     return;
@@ -390,8 +407,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory2outputFrame(*trajectory);
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
-    freeSolver();
-    setupSolver();
+    resetSolver();
     return;
   }
 
@@ -423,12 +439,12 @@ void TrajectoryOptimizationNode::planningCycle() {
   for (int ii = 0; ii < nlp_dims_->N; ++ii)
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
 
-  if (verbose_) printSolution(status);
+  printSolution(status);
+  if (debug_viz_) vizCircles(viz_circles_);
+
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
-    // reset control problem
-    freeSolver();
-    setupSolver();
+    resetSolver();
     return;
   }
 
@@ -451,8 +467,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, standstill);
   if (standstill) {
-    freeSolver();
-    setupSolver();
+    resetSolver();
   }
 
   // transform trajectory to output frame
@@ -486,10 +501,10 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-      keepNClosestObjects(tf_object_list, p_obstacles_shape_[0]);
     } else {
       tf_object_list = object_list;
     }
+    keepNClosestObjects(tf_object_list, p_obstacle_circles_shape_[0]);
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
@@ -569,21 +584,13 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // obstacles
     idx += n;
-    n = p_obstacles_shape_[0] * p_obstacles_shape_[1];
-    std::vector<double> obstacles(n, std::numeric_limits<double>::infinity()); // [x1, y1, yaw1, l1, w1, x2, ...]
-    // init with dummy "ghost" obstacles at (10000, 10000) to avoid NaNs in the optimization problem
-    // TODO: improve this
-    for (int j = 0; j < p_obstacles_shape_[0]; ++j) {
-      obstacles[p_obstacles_shape_[1] * j + 0] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * j + 1] = 10000.0;
-      obstacles[p_obstacles_shape_[1] * j + 2] = 0.0;
-      obstacles[p_obstacles_shape_[1] * j + 3] = 0.0;
-      obstacles[p_obstacles_shape_[1] * j + 4] = 0.0;
-    }
+    n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
+    std::vector<double> circles; // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
       std::vector<double> TIME, X, Y, YAW;
+      // TODO: should not be done for each shooting interval. Could be improved.
       TIME.push_back(rclcpp::Time(object_list.header.stamp).nanoseconds() / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
@@ -596,38 +603,56 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
         double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
-        // TODO: use break at this point does not seem to be valid, otherwise the object could be ignored in some shooting intervals.
-        // Nevertheless, if interpolation fails we should use tha last valid predicted pose instead of the current pose of the object?
         linearInterpolation(TIME, X, des_time, x_tgt);
         linearInterpolation(TIME, Y, des_time, y_tgt);
-        linearInterpolation(TIME, YAW, des_time, yaw_tgt);
+        linearInterpolation(TIME, YAW, des_time, yaw_tgt, true);
       } else {
         x_tgt = X.front();
         y_tgt = Y.front();
         yaw_tgt = YAW.front();
       }
       // ensure that x_tgt and y_tgt represent the geometric center of the object
-      x_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.x;
-      y_tgt += object_list.objects[j].state.reference_point.translation_to_geometric_center.y;
-      
-      obstacles[p_obstacles_shape_[1] * j + 0] = x_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 1] = y_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 2] = yaw_tgt;
-      obstacles[p_obstacles_shape_[1] * j + 3] = perception_msgs::object_access::getLength(object_list.objects[j]);
-      obstacles[p_obstacles_shape_[1] * j + 4] = perception_msgs::object_access::getWidth(object_list.objects[j]);
+      double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, object_list.objects[j].state.reference_point.translation_to_geometric_center.x);
+      double beta = wrap_angle_rad(yaw_tgt - alpha);
+      double a = std::sqrt(std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.x, 2) + std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, 2));
+      x_tgt += a * std::cos(beta);
+      y_tgt += a * std::sin(beta);
+
+      std::vector<double> obj_circles = discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt,
+                                                         perception_msgs::object_access::getLength(object_list.objects[j]),
+                                                         perception_msgs::object_access::getWidth(object_list.objects[j]));
+
+      circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
+      if (circles.size() >= (size_t)n) {
+        circles.resize(n);
+        break;
+      }
     }
+    // fill up with dummy "ghost" obstacle circles at (10000, 10000) to avoid NaNs in the optimization problem
+    // TODO: improve this
+    while (circles.size() < (size_t)n) {
+      std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
+      circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());
+    }
+    if ((circles.size() % p_obstacle_circles_shape_[1]) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Circles vector size is not a multiple of the circle shape. Resizing.");
+      circles.resize(n);
+    }
+    if (debug_viz_) viz_circles_.insert(viz_circles_.end(), circles.begin(), circles.end());
+
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), obstacles.data(), n);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
 
     // Other cost params
     idx += n;
-    n = 1;
+    n = 3;
+    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
     std::vector<int> idx_cost_params(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_params.begin(), idx_cost_params.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), &thw_, n);
+    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
 
   }
 }
