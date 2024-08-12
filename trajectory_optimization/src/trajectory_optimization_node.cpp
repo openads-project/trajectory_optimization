@@ -60,6 +60,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
   this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_,
                                 "Threshold for bi-level stabilization: maximum steering angle difference [degree]");
+  this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
 
   this->setup();
 }
@@ -415,7 +416,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     x_init = high_level_stabilization_ ? getHighLevelX0(ego_data_) : getBiLevelX0(ego_data_);
   } else {
-    RCLCPP_WARN(this->get_logger(), "No latest trajectory available. Using default initial state. (0)");
+    RCLCPP_WARN(this->get_logger(), "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
+    x_init = getHighLevelX0(ego_data_);
   }
   RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
                x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
@@ -506,6 +508,19 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
+  }
+
+  if (init_as_ref_ && trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
+    // set initial guess
+    std::vector<double> initial_guess(TRAJECTORY_PLANNING_NX, 0.0);
+    for (int i = 0; i <= n_shots_; ++i) {
+      int idx = std::min(i, trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory)-1);
+      initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, idx);
+      initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, idx);
+      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, idx);
+      initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, idx);
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess.data());
+    }
   }
 
   // update ocp parameters

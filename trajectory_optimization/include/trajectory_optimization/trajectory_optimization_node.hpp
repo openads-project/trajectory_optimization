@@ -136,6 +136,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
+  bool init_as_ref_ = false;
 
   // bi-level thresholds
   double bi_level_dV_ = 5.0;
