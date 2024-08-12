@@ -155,7 +155,8 @@ std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(const doubl
     if (aspect_ratio > 8.0) n_circles = 9;
     else if (aspect_ratio > 6.0) n_circles = 7;
     else if (aspect_ratio > 4.0) n_circles = 5;
-    else if (aspect_ratio > 2.0) n_circles = 3;
+    else if (aspect_ratio > 1.8) n_circles = 3;
+    else if (aspect_ratio > 1.3) n_circles = 2;
     else n_circles = 1;
   }
 
