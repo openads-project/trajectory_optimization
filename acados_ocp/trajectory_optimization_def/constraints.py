@@ -41,16 +41,17 @@ def set_constraints(ocp: AcadosOcp, parameters):
     cons.uh_e = np.array([a_max**2])
     
     # Add slack to state constraints
-    # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
-    # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
-    cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
-    cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
-    # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
-    # So here, we have      v,    a_lon, a_squared
-    ocp.cost.Zl = np.diag(parameters["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables 
-    ocp.cost.Zu = np.diag(parameters["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
-    ocp.cost.zl = np.array(parameters["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
-    ocp.cost.zu = np.array(parameters["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
+    if parameters["enable_slack"]:
+        # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
+        # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
+        cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
+        cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
+        # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
+        # So here, we have      v,    a_lon, a_squared
+        ocp.cost.Zl = np.diag(parameters["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables 
+        ocp.cost.Zu = np.diag(parameters["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
+        ocp.cost.zl = np.array(parameters["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
+        ocp.cost.zu = np.array(parameters["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
 
     # set initial condition
     # Note that this internally is mapped to idxbx_0=range(nx), lbx_0=x0, ubx_0=x0, so when setting these in the C++ node for step 0, all variables can be constrained.

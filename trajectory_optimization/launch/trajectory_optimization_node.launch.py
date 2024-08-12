@@ -23,6 +23,7 @@ def generate_launch_description():
     route_topic_arg = DeclareLaunchArgument('route_topic', default_value='~/route')
 
     trajectory_topic_arg = DeclareLaunchArgument('trajectory_topic', default_value='~/trajectory')
+    object_circles_topic_arg = DeclareLaunchArgument('object_circles_topic', default_value='~/visualization/object_circles')
 
     use_sim_time_arg = DeclareLaunchArgument('use_sim_time', default_value='False')
 
@@ -37,6 +38,7 @@ def generate_launch_description():
         reference_trajectory_topic_arg,
         route_topic_arg,
         trajectory_topic_arg,
+        object_circles_topic_arg,
         use_sim_time_arg,
         SetParameter(name='use_sim_time', value=LaunchConfiguration('use_sim_time')),
         Node(
@@ -53,7 +55,8 @@ def generate_launch_description():
                 ("~/object_list", LaunchConfiguration('object_list_topic')),
                 ("~/reference_trajectory", LaunchConfiguration('reference_trajectory_topic')),
                 ("~/route", LaunchConfiguration('route_topic')),
-                ("~/trajectory", LaunchConfiguration('trajectory_topic'))
+                ("~/trajectory", LaunchConfiguration('trajectory_topic')),
+                ("~/visualization/object_circles", LaunchConfiguration('object_circles_topic'))
             ]
         )
     ])

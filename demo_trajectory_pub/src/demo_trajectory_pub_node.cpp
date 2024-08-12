@@ -19,6 +19,7 @@ namespace demo_trajectory_pub {
 // constants
 const std::string DemoTrajectoryPubNode::kTrajectoryTopic = "~/demo_trajectory";
 const std::string DemoTrajectoryPubNode::kEgoDataTopic = "~/ego_data";
+const std::string DemoTrajectoryPubNode::kObjectListTopic = "~/demo_object_list";
 const std::string DemoTrajectoryPubNode::kNStatesParam = "n_states";
 const std::string DemoTrajectoryPubNode::kPubFreqParam = "publish_frequency";
 const std::string DemoTrajectoryPubNode::kTrajectoryHorizonParam = "trajectory_horizon";
@@ -29,6 +30,9 @@ const std::string DemoTrajectoryPubNode::kVEgoParam = "v_ego";
 const std::string DemoTrajectoryPubNode::kAParam = "a";
 const std::string DemoTrajectoryPubNode::kTheta0Param = "theta0";
 const std::string DemoTrajectoryPubNode::kOmegaParam = "omega";
+const std::string DemoTrajectoryPubNode::kNObjectsParam = "n_objects";
+const std::string DemoTrajectoryPubNode::kObjectsDeltaX = "objects_delta_x";
+const std::string DemoTrajectoryPubNode::kObjectsDeltaY = "objects_delta_y";
 
 /**
  * @brief Creates a DemoTrajectoryPubNode node
@@ -92,6 +96,20 @@ void DemoTrajectoryPubNode::declareParameters() {
   param_range.set__from_value(-45.0).set__to_value(45.0).set__step(5.0);
   param_desc.floating_point_range = {param_range};
   this->declare_parameter(kOmegaParam, omega_, param_desc);
+
+  param_desc = rcl_interfaces::msg::ParameterDescriptor();
+  param_desc.description = "Number of objects in object list";
+  this->declare_parameter(kNObjectsParam, n_objects_, param_desc);
+
+  param_desc.description = "Delta x between objects";
+  param_range.set__from_value(0.0).set__to_value(20.0).set__step(1.0);
+  param_desc.floating_point_range = {param_range};
+  this->declare_parameter(kObjectsDeltaX, objects_delta_x_, param_desc);
+
+  param_desc.description = "Delta y between objects";
+  param_range.set__from_value(-5.0).set__to_value(5.0).set__step(1.0);
+  param_desc.floating_point_range = {param_range};
+  this->declare_parameter(kObjectsDeltaY, objects_delta_y_, param_desc);
 }
 
 /**
@@ -152,6 +170,21 @@ void DemoTrajectoryPubNode::loadParameters() {
   } catch (rclcpp::exceptions::ParameterUninitializedException&) {
     RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kOmegaParam.c_str());
   }
+  try {
+    n_objects_ = this->get_parameter(kNObjectsParam).as_int();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kNObjectsParam.c_str());
+  }
+  try {
+    objects_delta_x_ = this->get_parameter(kObjectsDeltaX).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kObjectsDeltaX.c_str());
+  }
+  try {
+    objects_delta_y_ = this->get_parameter(kObjectsDeltaY).as_double();
+  } catch (rclcpp::exceptions::ParameterUninitializedException&) {
+    RCLCPP_WARN(this->get_logger(), "Parameter '%s' is not specified, defaulting", kObjectsDeltaY.c_str());
+  }
 }
 
 /**
@@ -162,7 +195,6 @@ void DemoTrajectoryPubNode::loadParameters() {
  */
 rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
-  // update timer with newly configured period parameter value
   for (const auto& param : parameters) {
     if (param.get_name() == kX0Param) {
       x0_ = param.as_double();
@@ -178,6 +210,12 @@ rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallba
       theta0_ = param.as_double();
     } else if (param.get_name() == kOmegaParam) {
       omega_ = param.as_double();
+    } else if (param.get_name() == kNObjectsParam) {
+      n_objects_ = param.as_int();
+    } else if (param.get_name() == kObjectsDeltaX) {
+      objects_delta_x_ = param.as_double();
+    } else if (param.get_name() == kObjectsDeltaY) {
+      objects_delta_y_ = param.as_double();
     }
   }
 
@@ -195,12 +233,15 @@ rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallba
  */
 void DemoTrajectoryPubNode::setup() {
 
-  // set up publisher for output topic
+  // set up publishers
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 10);
   RCLCPP_INFO(this->get_logger(), "Publishing Trajectories to '%s'", trajectory_pub_->get_topic_name());
 
   egodata_pub_ = this->create_publisher<perception_msgs::msg::EgoData>(kEgoDataTopic, 10);
   RCLCPP_INFO(this->get_logger(), "Publishing EgoData to '%s'", egodata_pub_->get_topic_name());
+
+  object_list_pub_ = this->create_publisher<perception_msgs::msg::ObjectList>(kObjectListTopic, 10);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", object_list_pub_->get_topic_name());
 
   // create a callback for dynamic parameter configuration
   parameters_callback_ = this->add_on_set_parameters_callback(
@@ -208,14 +249,16 @@ void DemoTrajectoryPubNode::setup() {
 
   // create timer for planning cycle
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(pub_freq_),
-                                            std::bind(&DemoTrajectoryPubNode::pubTrajectory, this));
+                                            std::bind(&DemoTrajectoryPubNode::publish, this));
 }
 
 /**
  * @brief This function is invoked every period seconds by the timer
  *
  */
-void DemoTrajectoryPubNode::pubTrajectory() {
+void DemoTrajectoryPubNode::publish() {
+
+  // --- publish ego data ---
 
   perception_msgs::msg::EgoData::UniquePtr egodata = std::make_unique<perception_msgs::msg::EgoData>();
   perception_msgs::object_access::initializeState(*egodata, perception_msgs::msg::EGO::MODEL_ID);
@@ -223,6 +266,8 @@ void DemoTrajectoryPubNode::pubTrajectory() {
   egodata->header.frame_id = "map";
   perception_msgs::object_access::setVelLon(*egodata, v_ego_);
   egodata_pub_->publish(std::move(egodata));
+
+  // --- publish trajectory ---
 
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
@@ -265,6 +310,32 @@ void DemoTrajectoryPubNode::pubTrajectory() {
 
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_DEBUG(this->get_logger(), "Published trajectory");
+
+  // --- publish object list ---
+
+  perception_msgs::msg::ObjectList::UniquePtr object_list = std::make_unique<perception_msgs::msg::ObjectList>();
+  object_list->header.stamp = this->now();
+  object_list->header.frame_id = "map";
+
+  for (int i = 0; i < n_objects_; i++) {
+    perception_msgs::msg::Object obj;
+    perception_msgs::object_access::initializeState(obj, perception_msgs::msg::ISCACTR::MODEL_ID);
+    double l = 4.0;
+    double w = 2.0;
+    double h = 2.0;
+    double x = objects_delta_x_ * (i + 1);
+    double y = objects_delta_y_ * (i + 1);
+    double z = h / 2;
+    perception_msgs::object_access::setX(obj, x);
+    perception_msgs::object_access::setY(obj, y);
+    perception_msgs::object_access::setZ(obj, z);
+    perception_msgs::object_access::setLength(obj, l);
+    perception_msgs::object_access::setWidth(obj, w);
+    perception_msgs::object_access::setHeight(obj, h);
+    object_list->objects.push_back(obj);
+  }
+
+  object_list_pub_->publish(std::move(object_list));
 }
 
 }  // namespace demo_trajectory_pub

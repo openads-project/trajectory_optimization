@@ -15,8 +15,9 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_obstacles = np.prod(config["p_obstacles_shape"])
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_obstacles
+    n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
+    n_params_cost_params = 3
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles + n_params_cost_params
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
@@ -24,7 +25,8 @@ def set_costs(ocp: AcadosOcp, config):
     p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
     p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
-    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_obstacles)]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
+    p_cost_params = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_params)]
     assert idx_params == n_params
 
     # cost term weights
@@ -42,6 +44,11 @@ def set_costs(ocp: AcadosOcp, config):
     w_alpha = p_cost_weights[11]
     w_end_yaw = p_cost_weights[12]
 
+    # other cost params
+    p_thw = p_cost_params[0]
+    d_min_obstacle_long = p_cost_params[1]
+    d_min_obstacle_lat = p_cost_params[2]
+
     # define running-costs
     # reference path costs
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
@@ -50,7 +57,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v * ref_path_costs["v"]
     # obstacle costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles)
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * calc_obstacles_cost(ocp, config, p_obstacles, p_thw, d_min_obstacle_long, d_min_obstacle_lat)
     # acceleration costs
     a_costs = calc_a_cost(ocp, config)
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_lon_pos * a_costs["a_lon_pos"]
@@ -149,40 +156,73 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     cost_terms = {"dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
     return cost_terms
 
-def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX) -> ca.MX:
-    # obstacles
-    # r_ego = p_obstacles[2] # TODO: param for r_ego?
-    # d_obstacles_min = 0.5 # TODO: param for d_obstacles_min?
-    # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - p_obstacles[0], 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1], 2))
-    # dist_obstacles = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X] - 5, 2) + ca.power(ocp.model.x[STATE_INDEX_Y] - 0, 2))
-    # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + p_obstacles[2] + d_obstacles_min, dist_obstacles - (r_ego + p_obstacles[2] + d_obstacles_min), 0)
-    # conditional_obstacles_term = ca.if_else(dist_obstacles <= r_ego + 0.5 + d_obstacles_min, dist_obstacles, 0)
-    # obstacles_term = ca.power(conditional_obstacles_term, 2)
+def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw: ca.MX, d_min_obstacle_long: ca.MX, d_min_obstacle_lat: ca.MX) -> ca.MX:
 
-    MIN_D_LONG = 1.0
-    MIN_D_LAT = 1.0
-    obj_length = 1.0
-    obj_width = 1.0
-    ego_length = 1.0
-    ego_width = 1.0
-    # dT = v_ego * tau
-    dLongMin = MIN_D_LONG + 0.5 * obj_length + 0.5 * ego_length # + dT ; positions in geometric center
-    dLatMin = MIN_D_LAT + 0.5 * obj_width + 0.5 * ego_width
+    # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
+    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
+    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+    ego_circles_x, ego_circles_y, r_ego = approximate_ego_geometry(config["n_ego_circles"], ego_center_x, ego_center_y, ocp.model.x[STATE_INDEX_PSI], config["length"], config["width"])
 
-    # TODO: handle more objects
-    dLong = ca.fabs(ocp.model.x[STATE_INDEX_X] - p_obstacles[0])
-    dLat = ca.fabs(ocp.model.x[STATE_INDEX_Y] - p_obstacles[1])
+    obstacles_term = ca.MX(0.0)
+    obstacle_state_dim = config["p_obstacle_circles_shape"][1]
+    n_obstacle_circles = config["p_obstacle_circles_shape"][0]
+    for i in range(n_obstacle_circles):
+        x_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_X]
+        y_center = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_Y]
+        r_circle = p_obstacles[i * obstacle_state_dim + P_OBSTACLES_INDEX_RADIUS]
 
-    aLat = ca.pi / dLatMin # TODO: get dLatMin from param
-    cLat = ca.cos(aLat * dLat) + 1
-    aLong = ca.pi / dLongMin # TODO: get dLongMin from param
-    cLong = ca.cos(aLong * dLong) + 1
-    cObst = cLat * cLong
+        # initialize closest distances to object with a large value
+        closest_distance = ca.inf
+        dLong = ca.inf
+        dLat = ca.inf
 
-    obst_condition = ca.logic_or(dLat > dLatMin, dLong > dLongMin) 
-    obstacles_term = ca.if_else(obst_condition, 0, cObst)
+        # find the ego-circle that gives the closest distance to the object-circle and store dLat and dLon
+        for j in range(config["n_ego_circles"]):
+            dx = x_center - ego_circles_x[j]
+            dy = y_center - ego_circles_y[j]
+            # determine dLong and dLat wrt. idx_min
+            beta = ca.atan2(dy, dx)
+            alpha = wrap_angle(beta - ocp.model.x[STATE_INDEX_PSI])
+            c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
+            # update the minimum dLong and dLat value if c < closest_distance
+            dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
+            dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
+            closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
+
+        # define minimum lateral and longitudinal distance to object circles
+        dLatMin = d_min_obstacle_lat + r_ego + r_circle
+        dLongMin = ca.fmax(d_min_obstacle_long, p_thw * ocp.model.x[STATE_INDEX_V]) + r_ego + r_circle
+
+        # calculate cost for object-circle that shows the minimum distance to the ego-vehicle-circle
+        cLong = ca.cos((ca.fabs(dLong) / dLongMin) * ca.pi) + 1
+        cLat = ca.cos((ca.fabs(dLat) / dLatMin) * ca.pi) + 1
+        cObst = cLat * cLong
+        no_obst_condition = ca.logic_or(ca.fabs(dLat) > dLatMin, ca.fabs(dLong) > dLongMin)
+        obstacles_term += ca.if_else(no_obst_condition, 0, cObst)
 
     return obstacles_term
+
+def approximate_ego_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, yaw: ca.MX, length: ca.MX, width: ca.MX):
+    # Calculate the radius using symbolic operations
+    radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
+  
+    # Initialize an empty list for circle centers coordinates
+    circle_centers_x = []
+    circle_centers_y = []
+    
+    if n_circles==1:
+        circle_centers_x.append(x_center)
+        circle_centers_y.append(y_center)
+    else:
+        # Loop to compute the centers of each circle
+        for i in range(n_circles):
+            lon_offset = -length / 2 + (2 * i + 1) * length / (2 * n_circles)
+            x_offset = lon_offset * ca.cos(yaw)
+            y_offset = lon_offset * ca.sin(yaw)
+            circle_centers_x.append(x_center + x_offset)
+            circle_centers_y.append(y_center + y_offset)
+
+    return circle_centers_x, circle_centers_y, radius
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
     j_lon_pos = ca.fmax(0, ocp.model.u[CONTROL_INDEX_J_LON])
@@ -224,3 +264,15 @@ def calc_j_lat_cost(ocp: AcadosOcp, config: dict) -> ca.MX:
 
     j_lat_term = ca.power(j_lat, 2) / ca.power(config["c_jlat"], 2)
     return j_lat_term
+
+def wrap_angle(angle: ca.MX) -> ca.MX:
+    """
+    Wraps an angle to the range [-pi, pi].
+
+    Parameters:
+        angle (ca.MX): The angle to be wrapped.
+
+    Returns:
+        ca.MX: The wrapped angle.
+    """
+    return ca.fmod(angle + ca.pi, 2 * ca.pi) - ca.pi

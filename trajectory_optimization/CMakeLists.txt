@@ -15,9 +15,11 @@ find_package(rclcpp_components REQUIRED)
 find_package(route_planning_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_perception_msgs REQUIRED)
 find_package(tf2_trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs_utils REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 set(TARGET_NAME trajectory_optimization_node_component)
 
@@ -52,9 +54,11 @@ ament_target_dependencies(${TARGET_NAME}
   route_planning_msgs
   std_msgs
   tf2
+  tf2_perception_msgs
   tf2_trajectory_planning_msgs
   trajectory_planning_msgs
   trajectory_planning_msgs_utils
+  visualization_msgs
 )
 
 install(TARGETS ${TARGET_NAME}
