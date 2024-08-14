@@ -1,5 +1,7 @@
 include:
-  - remote: 'https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/main/.gitlab-ci/docker-ros.yml'
+  - project: 'fb-fi/ops/docker-ros'
+    ref: improvement/caching
+    file: '/.gitlab-ci/docker-ros.yml'
 
 variables:
   BASE_IMAGE: rwthika/ros2:humble-desktop-full
