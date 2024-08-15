@@ -8,6 +8,7 @@ def set_costs(ocp: AcadosOcp, config):
     # set up as external cost function
     cost = AcadosOcpCost()
     cost.cost_type = "EXTERNAL"
+    cost.cost_type_0 = "EXTERNAL"
     cost.cost_type_e = "EXTERNAL"
     ocp.cost = cost
 
