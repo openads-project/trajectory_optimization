@@ -234,13 +234,11 @@ void TrajectoryOptimizationNode::setupSolver() {
   double u0[TRAJECTORY_PLANNING_NU] = {0.0};
 
   // initialize solution
-  int rti_phase = 0;
   for (int i = 0; i < n_shots_; ++i) {
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init);
-  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "rti_phase", &rti_phase);
 
   xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_shots_ + 1)];
   utraj_ = new double[TRAJECTORY_PLANNING_NU * n_shots_];
