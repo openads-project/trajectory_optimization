@@ -283,7 +283,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
   double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
   double des_time =
-      (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(latest_valid_trajectory_.header.stamp)).seconds();
+      (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(tf_trajectory.header.stamp)).seconds();
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
