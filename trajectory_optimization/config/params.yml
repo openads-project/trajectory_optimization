@@ -21,32 +21,11 @@
 
     ### general parameters defining the ocp
     model_name: 'trajectory_planning' # name of the acados model
-    optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
-    n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+    optimization_horizon: 5.0         # optimization horizon [s] (also used as build parameter in OCP)
+    n_shots: 50                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
     #### vehicle specific parameters
-    wheelbase: 2.711                  # wheelbase [m] (also used in ROS node)
-    length: 4.799                     # length [m]
-    width: 1.855                      # width [m]
-    offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-    n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
-    delta_max: 0.4956735              # max. absolute steering angle [rad]
-    v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
-    v_max: 7.0                        # upper boundary constraint for longitudinal velocity [m/s]
-    acceleration_max: 9.0             # max. absolute acceleration [m/s²]
-    acceleration_lon_max: 3.5         # max. absolute longitudinal acceleration [m/s²]
-    alpha_max: 0.5                    # max. absolute steering rate [rad/s]
-    jerk_max: 4.0                     # max. absolute longitudinal jerk [m/s²]
-
-    ### cost scaling factors
-    c_lat: 0.5 # distance to scale the lateral deviation costs [m]
-    c_x: 1.0 # distance to scale the x deviation costs [m]
-    c_y: 1.0 # distance to scale the y deviation costs [m]
-    c_alon: 3.0 # acceleration magnitude-value for scaling acceleration costs [m/s²]
-    c_alat: 3.0 # acceleration magnitude-value for scaling acceleration costs [m/s²]
-    c_jlat: 3.0 # jerk-value for scaling the lateral jerk costs [m/s³]
-    c_jlon: 3.0 # jerk-value for scaling the longitudinal jerk costs [m/s³]
-    c_alpha: 0.35 # steering-rate-value for scaling the steering-rate costs [rad/s]
+    wheelbase: 2.711                  # wheelbase [m] (also used as build parameter in OCP)
 
     #### cost weights
     cost_weights:
@@ -63,13 +42,7 @@
       - 0.05 # j_lon_neg (10)
       - 0.03 # alpha (11)
       - 1.0  # endYaw (12)
-    dynamic_weight: 1.0                         # base for exponential weight (also used in ROS node)
-    enable_slack: False                         # activate slack weights for soft constraints
-    slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
-      linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables
-      linear_upper: [0.1, 0.1, 0.1]             # Linear cost on upper bound slack variables
-      quadratic_lower: [1000.0, 1000.0, 1000.0] # Quadratic cost on lower bound slack variables
-      quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables
+    dynamic_weight: 1.0                         # base for exponential weight (also used as build parameter in OCP)
 
     # other cost params
     thw: 2.0                    # time headway [s]

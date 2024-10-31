@@ -16,5 +16,6 @@ endforeach()
 set(GENERATOR generate_ocp.py)
 
 execute_process(
-  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR}"
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/passat_cc_params.yml"
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/auto_shuttle_params.yml"
 )
