@@ -208,14 +208,16 @@ void TrajectoryOptimizationNode::setup() {
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
   acados_ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  int status = trajectory_optimization::acados_create(acados_ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
 
   // allocate the array and fill it accordingly
   double* new_time_steps = NULL;
   if (n_shots_ != nlp_dims_->N) {
     new_time_steps = new double(optimization_horizon_ / n_shots_);
     RCLCPP_INFO(this->get_logger(), "new_time_steps = %f", *new_time_steps);
+    status = trajectory_optimization::acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps);
   }
-  int status = trajectory_optimization::acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps);
   delete[] new_time_steps;
 
   if (status) {

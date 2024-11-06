@@ -25,6 +25,16 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
   }
 }
 
+inline int acados_create(ocp_model_capsule_t capsule) {
+  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
+    return passat_cc_acados_create(std::get<passat_cc_solver_capsule*>(capsule));
+  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
+    return auto_shuttle_acados_create(std::get<auto_shuttle_solver_capsule*>(capsule));
+  } else {
+    throw std::invalid_argument("Invalid capsule type.");
+  }
+}
+
 inline int acados_create_with_discretization(ocp_model_capsule_t capsule, int n_time_steps, double* new_time_steps) {
   if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
     return passat_cc_acados_create_with_discretization(std::get<passat_cc_solver_capsule*>(capsule), n_time_steps, new_time_steps);

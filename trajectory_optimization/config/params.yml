@@ -20,7 +20,7 @@
     bi_level_dDelta: 5.0            # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
-    model_name: 'trajectory_planning' # name of the acados model
+    model_name: 'passat_cc'           # name of the acados model
     optimization_horizon: 5.0         # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
