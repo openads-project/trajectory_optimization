@@ -221,7 +221,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   delete[] new_time_steps;
 
   if (status) {
-    RCLCPP_INFO(this->get_logger(), "%s_acados_create() returned status %d. Exiting.", model_name_, status);
+    RCLCPP_INFO(this->get_logger(), "%s_acados_create() returned status %d. Exiting.", model_name_.c_str(), status);
     exit(1);
   }
 
@@ -360,12 +360,12 @@ void TrajectoryOptimizationNode::freeSolver() {
   // free solver
   status = trajectory_optimization::acados_free(acados_ocp_capsule_);
   if (status) {
-    printf("%s_acados_free() returned status %d. \n", model_name_, status);
+    printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
   }
   // free solver capsule
   status = trajectory_optimization::acados_free_capsule(acados_ocp_capsule_);
   if (status) {
-    printf("%s_acados_free_capsule() returned status %d. \n", model_name_, status);
+    printf("%s_acados_free_capsule() returned status %d. \n", model_name_.c_str(), status);
   }
 }
 

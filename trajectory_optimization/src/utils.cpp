@@ -214,7 +214,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   } else if (status == ACADOS_MAXITER) {
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
   } else {
-    RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_, status);
+    RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
   }
 
   // print duration, KKT, and number of SQP iterations
