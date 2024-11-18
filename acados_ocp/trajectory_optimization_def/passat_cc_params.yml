@@ -11,7 +11,7 @@ offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-fra
 n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
 delta_max: 0.4956735              # max. absolute steering angle [rad]
 v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
-v_max: 7.0                        # upper boundary constraint for longitudinal velocity [m/s]
+v_max: 15.0                       # upper boundary constraint for longitudinal velocity [m/s]
 acceleration_max: 9.0             # max. absolute acceleration [m/s²]
 acceleration_lon_max: 3.5         # max. absolute longitudinal acceleration [m/s²]
 alpha_max: 0.5                    # max. absolute steering rate [rad/s]
