@@ -8,8 +8,8 @@
 #include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 
 // models
-#include <acados_ocp/acados_solver_passat_cc.h>
 #include <acados_ocp/acados_solver_auto_shuttle.h>
+#include <acados_ocp/acados_solver_passat_cc.h>
 
 namespace trajectory_optimization {
 
@@ -25,134 +25,43 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
   }
 }
 
-inline int acados_create(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_create(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_create(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
+#define ACADOS_DISPATCH(function_name, ...)                                                              \
+  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {                                      \
+    return passat_cc_##function_name(std::get<passat_cc_solver_capsule*>(capsule), ##__VA_ARGS__);       \
+  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {                            \
+    return auto_shuttle_##function_name(std::get<auto_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  } else {                                                                                               \
+    throw std::invalid_argument("Invalid capsule type.");                                                \
   }
-}
+
+inline int acados_create(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_create); }
 
 inline int acados_create_with_discretization(ocp_model_capsule_t capsule, int n_time_steps, double* new_time_steps) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_create_with_discretization(std::get<passat_cc_solver_capsule*>(capsule), n_time_steps, new_time_steps);
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_create_with_discretization(std::get<auto_shuttle_solver_capsule*>(capsule), n_time_steps, new_time_steps);
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
+  ACADOS_DISPATCH(acados_create_with_discretization, n_time_steps, new_time_steps);
 }
 
-inline int acados_free_capsule(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_free_capsule(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_free_capsule(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
+inline int acados_free_capsule(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_free_capsule); }
+
+inline int acados_free(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_free); }
+
+inline int acados_solve(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_solve); }
+
+inline int acados_update_params_sparse(ocp_model_capsule_t capsule, int stage, int* idx, double* p, int n_update) {
+  ACADOS_DISPATCH(acados_update_params_sparse, stage, idx, p, n_update);
 }
 
-inline int acados_free(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_free(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_free(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline void acados_print_stats(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_print_stats); }
 
-inline int acados_solve(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_solve(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_solve(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline ocp_nlp_in* acados_get_nlp_in(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_in); }
 
-inline int acados_update_params_sparse(ocp_model_capsule_t capsule, int stage, int *idx, double *p, int n_update) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_update_params_sparse(std::get<passat_cc_solver_capsule*>(capsule), stage, idx, p, n_update);
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_update_params_sparse(std::get<auto_shuttle_solver_capsule*>(capsule), stage, idx, p, n_update);
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline ocp_nlp_out* acados_get_nlp_out(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_out); }
 
-inline void acados_print_stats(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    passat_cc_acados_print_stats(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    auto_shuttle_acados_print_stats(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline ocp_nlp_solver* acados_get_nlp_solver(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_solver); }
 
-inline ocp_nlp_in* acados_get_nlp_in(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_in(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_in(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline ocp_nlp_config* acados_get_nlp_config(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_config); }
 
-inline ocp_nlp_out* acados_get_nlp_out(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_out(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_out(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline void* acados_get_nlp_opts(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_opts); }
 
-inline ocp_nlp_solver* acados_get_nlp_solver(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_solver(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_solver(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
-
-inline ocp_nlp_config* acados_get_nlp_config(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_config(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_config(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
-
-inline void* acados_get_nlp_opts(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_opts(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_opts(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
-
-inline ocp_nlp_dims* acados_get_nlp_dims(ocp_model_capsule_t capsule) {
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {
-    return passat_cc_acados_get_nlp_dims(std::get<passat_cc_solver_capsule*>(capsule));
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {
-    return auto_shuttle_acados_get_nlp_dims(std::get<auto_shuttle_solver_capsule*>(capsule));
-  } else {
-    throw std::invalid_argument("Invalid capsule type.");
-  }
-}
+inline ocp_nlp_dims* acados_get_nlp_dims(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_dims); }
 
 }  // namespace trajectory_optimization
