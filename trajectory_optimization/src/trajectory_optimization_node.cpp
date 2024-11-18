@@ -47,10 +47,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter("use_prediction", use_prediction_, "use obstacle predictions for optimization (True) or only static obstacles (False)");
-  this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
-                                "OCP parameter vector shape for cost weights");
-  this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circle approximation)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
