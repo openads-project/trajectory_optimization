@@ -8,6 +8,7 @@ def set_costs(ocp: AcadosOcp, config):
     # set up as external cost function
     cost = AcadosOcpCost()
     cost.cost_type = "EXTERNAL"
+    cost.cost_type_0 = "EXTERNAL"
     cost.cost_type_e = "EXTERNAL"
     ocp.cost = cost
 
@@ -79,15 +80,6 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
 
 def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
-    n_params_ref_path = np.prod(config["p_ref_path_shape"])
-
-    # consider only the actual reference path (could be smaller than the parameter space; identify by first infinite value)
-    idx_inf = n_params_ref_path
-    for i in range(n_params_ref_path):
-        if p_ref_path[i] == ca.MX_inf:
-            idx_inf = i
-            break
-    p_ref_path = p_ref_path[:idx_inf]
 
     # ca.find reference point (min distance) on reference path
     ref_path_state_dim = config["p_ref_path_shape"][1]
@@ -97,19 +89,26 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 4th element starting from index 2
     v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 4th element starting from index 3
 
-    dx = ca.power(x_ref_path[:] - ocp.model.x[STATE_INDEX_X], 2)
-    dy = ca.power(y_ref_path[:] - ocp.model.x[STATE_INDEX_Y], 2)
-    dd = ca.sqrt(dx + dy)
-    idx_min = ca.find(ca.if_else(ca.mmin(dd) == dd[:], 1, 0))
+    n_ref_path_points = config["p_ref_path_shape"][0]
+    # initialize closest distances to path sample with a large value
+    closest_distance = ca.inf
+    idx_min = 0
+    for i in range(n_ref_path_points):
+        dx = x_ref_path[i] - ocp.model.x[STATE_INDEX_X]
+        dy = y_ref_path[i] - ocp.model.x[STATE_INDEX_Y]
+        c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
+        idx_min = ca.if_else(c < closest_distance, i, idx_min)
+        closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
+
     x_ref = x_ref_path[idx_min]
     y_ref = y_ref_path[idx_min]
 
     # find nearest adjacent sample on reference path
     condition_begin = (idx_min == 0)
-    condition_end = (idx_min == x_ref_path.rows()-1)
+    condition_end = (idx_min == n_ref_path_points-1)
     condition_intermediate = ca.logic_and(ca.logic_not(condition_begin), ca.logic_not(condition_end))
-    dist_1 = ca.if_else(condition_intermediate, dd[idx_min-1], ca.MX_inf(1,1), True)
-    dist_2 = ca.if_else(condition_intermediate, dd[idx_min+1], ca.MX_inf(1,1), True)
+    dist_1 = ca.if_else(condition_intermediate, ca.sqrt(ca.power(x_ref_path[idx_min-1] - ocp.model.x[STATE_INDEX_X], 2) + ca.power(y_ref_path[idx_min-1] - ocp.model.x[STATE_INDEX_Y], 2)), ca.MX_inf(1,1), True)
+    dist_2 = ca.if_else(condition_intermediate, ca.sqrt(ca.power(x_ref_path[idx_min+1] - ocp.model.x[STATE_INDEX_X], 2) + ca.power(y_ref_path[idx_min+1] - ocp.model.x[STATE_INDEX_Y], 2)), ca.MX_inf(1,1), True)
     condition_dist = (dist_1 < dist_2)
     next_idx_min = ca.if_else(condition_begin, idx_min+1, ca.if_else(condition_end, idx_min-1, ca.if_else(condition_dist, idx_min-1, idx_min+1, True), True), True)
 
