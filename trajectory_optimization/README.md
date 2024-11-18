@@ -2,16 +2,6 @@
 
 This package provides a ROS 2 node for solving the OCPs defined [here](../acados_ocp/). The OCP is based on [ACADOS](https://docs.acados.org/index.html) and is used for trajectory planning and optimization in the context of autonomous driving. This node provides the runtime integration of the OCP into ika's AD-Stack and acts as trajectory planner for the ego vehicle.
 
-  // input topics
-  const std::string kEgoDataTopic = "~/ego_data";
-  const std::string kObjectListTopic = "~/object_list";
-  const std::string kReferenceTrajectoryTopic = "~/reference_trajectory";
-  const std::string kRouteTopic = "~/route";
-
-  // output topics
-  const std::string kTrajectoryTopic = "~/trajectory";
-  const std::string kObjectCirclesTopic = "~/visualization/object_circles";
-
 ### Subscribed Topics
 
 | Topic | Type | Description |
