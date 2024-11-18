@@ -229,7 +229,6 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(acados_ocp_capsule_);
 
   // initialization of state and control values; set all to zero
-  RCLCPP_INFO(this->get_logger(),"OCP dims: NX -> %d, NU -> %d, N -> %d", *nlp_dims_->nx, *nlp_dims_->nu, nlp_dims_->N);
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   std::vector<double> u_init(*nlp_dims_->nu, 0.0);
 

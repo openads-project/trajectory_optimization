@@ -42,7 +42,7 @@
       - 0.05 # j_lon_neg (10)
       - 0.03 # alpha (11)
       - 1.0  # endYaw (12)
-    dynamic_weight: 1.0                         # base for exponential weight (also used as build parameter in OCP)
+    dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
     thw: 2.0                    # time headway [s]
