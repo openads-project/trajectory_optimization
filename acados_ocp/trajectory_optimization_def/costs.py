@@ -94,10 +94,8 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     closest_distance = ca.inf
     idx_min = 0
     for i in range(n_ref_path_points):
-        x = x_ref_path[i]
-        y = y_ref_path[i]
-        dx = x - ocp.model.x[STATE_INDEX_X]
-        dy = y - ocp.model.x[STATE_INDEX_Y]
+        dx = x_ref_path[i] - ocp.model.x[STATE_INDEX_X]
+        dy = y_ref_path[i] - ocp.model.x[STATE_INDEX_Y]
         c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
         idx_min = ca.if_else(c < closest_distance, i, idx_min)
         closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
