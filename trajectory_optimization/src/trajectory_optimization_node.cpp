@@ -233,16 +233,16 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(acados_ocp_capsule_);
 
   // initialization of state and control values; set all to zero
-  RCLCPP_INFO(this->get_logger(), "NX: %d, NU: %d, N: %d", *nlp_dims_->nx, *nlp_dims_->nu, nlp_dims_->N); // TODO: remove
-  double x_init[*nlp_dims_->nx] = {0.0};
-  double u0[*nlp_dims_->nu] = {0.0};
+  RCLCPP_INFO(this->get_logger(),"OCP dims: NX -> %d, NU -> %d, N -> %d", *nlp_dims_->nx, *nlp_dims_->nu, nlp_dims_->N);
+  std::vector<double> x_init(*nlp_dims_->nx, 0.0);
+  std::vector<double> u_init(*nlp_dims_->nu, 0.0);
 
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u_init.data());
   }
-  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init);
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init.data());
 
   xtraj_ = new double[*nlp_dims_->nx * (n_shots_ + 1)];
   utraj_ = new double[*nlp_dims_->nu * n_shots_];
