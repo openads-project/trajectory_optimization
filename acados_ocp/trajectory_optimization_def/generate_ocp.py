@@ -15,8 +15,7 @@ def parseArguments() -> argparse.Namespace:
 
 def readConfig(config):
     with open(os.path.join(CURRENT_DIR_PATH, config)) as configFile:
-        config_params = yaml.load(configFile, yaml.FullLoader)
-        params = config_params[next(iter(config_params))][next(iter(config_params[next(iter(config_params))]))]
+        params = yaml.load(configFile, yaml.FullLoader)
     return params
 
 def main():
@@ -34,7 +33,7 @@ def main():
     builder = builders.CMakeBuilder()
     builder.options_on = ['BUILD_ACADOS_SOLVER_LIB', 'BUILD_ACADOS_OCP_SOLVER_LIB']
 
-    acados_tp_ocp = AcadosOcpSolver(ocp, json_file = 'acados_tp_ocp.json', simulink_opts=None, build=True, generate=True, cmake_builder=builder)
+    acados_tp_ocp = AcadosOcpSolver(ocp, json_file = f"{parameters['model_name']}.json", simulink_opts=None, build=True, generate=True, cmake_builder=builder)
 
 if __name__ == '__main__':
     main()

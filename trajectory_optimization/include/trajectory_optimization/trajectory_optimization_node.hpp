@@ -22,12 +22,7 @@
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
 // acados
-#include <acados/utils/math.h>
-#include <acados/utils/print.h>
-#include <acados_c/external_function_interface.h>
-#include <acados_c/ocp_nlp_interface.h>
-#include <acados_ocp/acados_solver_trajectory_planning.h>
-#include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
+#include <trajectory_optimization/ocp_model_handler.hpp>
 
 namespace trajectory_optimization {
 
@@ -127,8 +122,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
+  std::string model_name_ = "passat_cc";
   double optimization_freq_ = 10.0;
-  int n_shots_ = TRAJECTORY_PLANNING_N;
+  int n_shots_ = 50;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
@@ -159,12 +155,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double d_min_obstacle_lat_ = 0.5;
 
   // ocp parameter vector structure
-  std::vector<int64_t> p_cost_weights_shape_ = {13, 1};
-  std::vector<int64_t> p_ref_path_shape_ = {100, 4};
-  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};
+  // attention: changes here must also be done in the OCP!
+  std::vector<int64_t> p_cost_weights_shape_ = {13, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
+  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
   // ocp variables
-  trajectory_planning_solver_capsule *acados_ocp_capsule_;
+  ocp_model_capsule_t acados_ocp_capsule_;
   ocp_nlp_config *nlp_config_;
   ocp_nlp_dims *nlp_dims_;
   ocp_nlp_in *nlp_in_;

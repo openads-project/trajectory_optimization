@@ -27,6 +27,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, "Frame ID of output trajectory");
   this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
+  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [passat_cc, auto_shuttle]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
@@ -46,10 +47,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter("use_prediction", use_prediction_, "use obstacle predictions for optimization (True) or only static obstacles (False)");
-  this->declareAndLoadParameter("p_cost_weights_shape", p_cost_weights_shape_,
-                                "OCP parameter vector shape for cost weights");
-  this->declareAndLoadParameter("p_ref_path_shape", p_ref_path_shape_, "OCP parameter vector shape for reference path");
-  this->declareAndLoadParameter("p_obstacle_circles_shape", p_obstacle_circles_shape_, "OCP parameter vector shape for obstacles (circle approximation)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -206,42 +203,44 @@ void TrajectoryOptimizationNode::setup() {
 
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
-  acados_ocp_capsule_ = trajectory_planning_acados_create_capsule();
+  acados_ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  int status = trajectory_optimization::acados_create(acados_ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
 
   // allocate the array and fill it accordingly
   double* new_time_steps = NULL;
-  if (n_shots_ != TRAJECTORY_PLANNING_N) {
+  if (n_shots_ != nlp_dims_->N) {
     new_time_steps = new double(optimization_horizon_ / n_shots_);
     RCLCPP_INFO(this->get_logger(), "new_time_steps = %f", *new_time_steps);
+    status = trajectory_optimization::acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps);
   }
-  int status = trajectory_planning_acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps);
   delete[] new_time_steps;
 
   if (status) {
-    RCLCPP_INFO(this->get_logger(), "trajectory_planning_acados_create() returned status %d. Exiting.", status);
+    RCLCPP_INFO(this->get_logger(), "%s_acados_create() returned status %d. Exiting.", model_name_.c_str(), status);
     exit(1);
   }
 
-  nlp_config_ = trajectory_planning_acados_get_nlp_config(acados_ocp_capsule_);
-  nlp_dims_ = trajectory_planning_acados_get_nlp_dims(acados_ocp_capsule_);
-  nlp_in_ = trajectory_planning_acados_get_nlp_in(acados_ocp_capsule_);
-  nlp_out_ = trajectory_planning_acados_get_nlp_out(acados_ocp_capsule_);
-  nlp_solver_ = trajectory_planning_acados_get_nlp_solver(acados_ocp_capsule_);
-  nlp_opts_ = trajectory_planning_acados_get_nlp_opts(acados_ocp_capsule_);
+  nlp_config_ = trajectory_optimization::acados_get_nlp_config(acados_ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
+  nlp_in_ = trajectory_optimization::acados_get_nlp_in(acados_ocp_capsule_);
+  nlp_out_ = trajectory_optimization::acados_get_nlp_out(acados_ocp_capsule_);
+  nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(acados_ocp_capsule_);
+  nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(acados_ocp_capsule_);
 
   // initialization of state and control values; set all to zero
-  double x_init[TRAJECTORY_PLANNING_NX] = {0.0};
-  double u0[TRAJECTORY_PLANNING_NU] = {0.0};
+  std::vector<double> x_init(*nlp_dims_->nx, 0.0);
+  std::vector<double> u_init(*nlp_dims_->nu, 0.0);
 
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init);
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u0);
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u_init.data());
   }
-  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init);
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init.data());
 
-  xtraj_ = new double[TRAJECTORY_PLANNING_NX * (n_shots_ + 1)];
-  utraj_ = new double[TRAJECTORY_PLANNING_NU * n_shots_];
+  xtraj_ = new double[*nlp_dims_->nx * (n_shots_ + 1)];
+  utraj_ = new double[*nlp_dims_->nu * n_shots_];
 }
 
 /**
@@ -310,7 +309,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
-  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
+  std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   x_init[0] = 0.0;
   x_init[1] = y_tgt;
   x_init[2] = 0.0;
@@ -331,7 +330,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
  * @return Initial state for the optimization problem.
  */
 std::vector<double> TrajectoryOptimizationNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
-  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
+  std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
   // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
   x_init[4] = 0.0;
@@ -354,14 +353,14 @@ void TrajectoryOptimizationNode::freeSolver() {
 
   int status;
   // free solver
-  status = trajectory_planning_acados_free(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free(acados_ocp_capsule_);
   if (status) {
-    printf("trajectory_planning_acados_free() returned status %d. \n", status);
+    printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
   }
   // free solver capsule
-  status = trajectory_planning_acados_free_capsule(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free_capsule(acados_ocp_capsule_);
   if (status) {
-    printf("trajectory_planning_acados_free_capsule() returned status %d. \n", status);
+    printf("%s_acados_free_capsule() returned status %d. \n", model_name_.c_str(), status);
   }
 }
 
@@ -410,7 +409,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // set initial state
-  std::vector<double> x_init(TRAJECTORY_PLANNING_NX, 0.0);
+  std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     x_init = high_level_stabilization_ ? getHighLevelX0(ego_data_) : getBiLevelX0(ego_data_);
   } else {
@@ -429,13 +428,13 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // solve the optimization problem
-  int status = trajectory_planning_acados_solve(acados_ocp_capsule_);
+  int status = trajectory_optimization::acados_solve(acados_ocp_capsule_);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ++ii)
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * TRAJECTORY_PLANNING_NX]);
+    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
   for (int ii = 0; ii < nlp_dims_->N; ++ii)
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * TRAJECTORY_PLANNING_NU]);
+    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
 
   printSolution(status);
   if (debug_viz_) vizCircles(viz_circles_);
@@ -448,13 +447,13 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // convert output into trajectory message
   for (int i = 0; i <= n_shots_; ++i) {
-    trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 0], i);
-    trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 1], i);
-    trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 2], i);
-    trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 3], i);
-    trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 4], i);
-    trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * TRAJECTORY_PLANNING_NX + 5], i);
-    double kappa = tan(xtraj_[i * TRAJECTORY_PLANNING_NX + 6]) / wheelbase_;
+    trajectory_planning_msgs::trajectory_access::setX(*trajectory, xtraj_[i * *nlp_dims_->nx + 0], i);
+    trajectory_planning_msgs::trajectory_access::setY(*trajectory, xtraj_[i * *nlp_dims_->nx + 1], i);
+    trajectory_planning_msgs::trajectory_access::setS(*trajectory, xtraj_[i * *nlp_dims_->nx + 2], i);
+    trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * *nlp_dims_->nx + 3], i);
+    trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * *nlp_dims_->nx + 4], i);
+    trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * *nlp_dims_->nx + 5], i);
+    double kappa = tan(xtraj_[i * *nlp_dims_->nx + 6]) / wheelbase_;
     trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
     // TODO: dKappa
   }
@@ -510,7 +509,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
   if (init_as_ref_ && trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     // set initial guess
-    std::vector<double> initial_guess(TRAJECTORY_PLANNING_NX, 0.0);
+    std::vector<double> initial_guess(*nlp_dims_->nx, 0.0);
     for (int i = 0; i <= n_shots_; ++i) {
       int idx = std::min(i, trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory)-1);
       initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, idx);
@@ -543,7 +542,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_cost_weights(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
                                                     cost_weights.data(), n);
 
     // dynamic weight
@@ -552,7 +551,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
                                                     &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
@@ -578,7 +577,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
       std::copy(ref.states.begin(), ref.states.end(), ref_path.begin());
     }
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
 
     // obstacles
     idx += n;
@@ -641,7 +640,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
 
     // Other cost params
     idx += n;
@@ -650,7 +649,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     std::vector<int> idx_cost_params(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_cost_params.begin(), idx_cost_params.end(), idx);
-    trajectory_planning_acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
 
   }
 }

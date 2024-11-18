@@ -5,4 +5,4 @@ variables:
   BASE_IMAGE: rwthika/ros2:humble-desktop-full
   TARGET: dev,run
   PLATFORM: amd64
-  COMMAND: ros2 launch trajectory_optimization trajectory_optimization_node_launch.py
+  COMMAND: ros2 launch trajectory_optimization trajectory_optimization_node.launch.py

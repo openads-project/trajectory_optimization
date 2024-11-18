@@ -214,7 +214,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   } else if (status == ACADOS_MAXITER) {
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
   } else {
-    RCLCPP_ERROR(get_logger(), "trajectory_planning_acados_solve() failed with status %d.", status);
+    RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
   }
 
   // print duration, KKT, and number of SQP iterations
@@ -237,10 +237,10 @@ void TrajectoryOptimizationNode::printSolution(int status) {
 
   if (verbose_) {
     printf("\n--- xtraj ---\n");
-    d_print_exp_tran_mat(TRAJECTORY_PLANNING_NX, n_shots_ + 1, xtraj_, TRAJECTORY_PLANNING_NX);
+    d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_, *nlp_dims_->nx);
     printf("\n--- utraj ---\n");
-    d_print_exp_tran_mat(TRAJECTORY_PLANNING_NU, n_shots_, utraj_, TRAJECTORY_PLANNING_NU);
-    trajectory_planning_acados_print_stats(acados_ocp_capsule_);
+    d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_, *nlp_dims_->nu);
+    trajectory_optimization::acados_print_stats(acados_ocp_capsule_);
   }
 }
 
