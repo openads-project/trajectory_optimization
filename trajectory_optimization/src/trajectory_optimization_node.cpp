@@ -592,7 +592,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
-      if (use_prediction_) {
+      if (use_prediction_ && object_list.objects[j].state_predictions.size() > 0) {
         for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
