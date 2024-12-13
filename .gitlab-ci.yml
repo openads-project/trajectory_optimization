@@ -3,6 +3,7 @@ include:
 
 variables:
   BASE_IMAGE: rwthika/ros2:jazzy
+  RMW_IMPLEMENTATION: rmw_zenoh_cpp
   TARGET: dev,run
   PLATFORM: amd64
   COMMAND: ros2 launch trajectory_optimization trajectory_optimization_node.launch.py
