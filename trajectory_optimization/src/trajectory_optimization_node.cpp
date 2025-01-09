@@ -305,7 +305,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     y_tgt = 0.0;
     theta_tgt = 0.0;
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_) {
+  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_ * M_PI / 180.0) {
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
