@@ -5,9 +5,9 @@ demo_trajectory_pub_node:
     publish_frequency: 1.0
     trajectory_horizon: 5.0
 
-    a: 0.0
-    v0: 10.0
-    omega: 20.0
+    a: 1.0
+    v0: 5.0
+    omega: 10.0
     theta0: -10.0
 
     n_objects: 3
