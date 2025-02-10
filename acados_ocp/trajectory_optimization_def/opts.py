@@ -17,6 +17,8 @@ def set_opts(ocp, config):
     opts.hessian_approx = "GAUSS_NEWTON"
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP"
+    opts.timeout_max_time = 100e-3              #default 0 => no timeout [s]
+    opts.timeout_heuristic = "MAX_CALL"         #default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
     opts.rti_log_residuals = 1
     opts.nlp_solver_max_iter = 35               # default 100. Bound to ensure real-time capability
     opts.tol = 1e-4                             # default 1e-6
