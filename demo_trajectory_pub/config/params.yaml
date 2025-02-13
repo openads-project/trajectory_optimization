@@ -7,9 +7,9 @@ demo_trajectory_pub_node:
 
     a: 0.0
     v0: 5.0
-    omega: 0.0
+    omega: 10.0
     theta0: -10.0
 
-    n_objects: 10
+    n_objects: 3
     objects_delta_x: 10.0
-    objects_delta_y: 0.0
+    objects_delta_y: 5.0
