@@ -18,6 +18,8 @@ def set_opts(ocp, config):
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP"
     opts.rti_log_residuals = 1
+    opts.timeout_max_time = 100e-3              # default 0 => no timeout [s]
+    opts.timeout_heuristic = "MAX_CALL"         # default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
     opts.nlp_solver_max_iter = 35               # default 100. Bound to ensure real-time capability
     opts.tol = 1e-4                             # default 1e-6
     opts.qp_solver_iter_max = 50                # default 50
