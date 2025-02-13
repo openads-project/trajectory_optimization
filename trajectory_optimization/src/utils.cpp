@@ -213,6 +213,8 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
   } else if (status == ACADOS_MAXITER) {
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
+  } else if (status == ACADOS_TIMEOUT) {
+    RCLCPP_WARN(get_logger(), "\033[38;5;214mOptimization failed with status %d (timeout).\033[0m", status);
   } else {
     RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
   }
