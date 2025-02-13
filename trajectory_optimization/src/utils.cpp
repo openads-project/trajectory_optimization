@@ -220,9 +220,9 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   // print duration, KKT, and number of SQP iterations
   double elapsed_time, kkt_norm_inf;
   int sqp_iter;
-  ocp_nlp_get(nlp_config_, nlp_solver_, "time_tot", &elapsed_time);
+  ocp_nlp_get(nlp_solver_, "time_tot", &elapsed_time);
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "sqp_iter", &sqp_iter);
+  ocp_nlp_get(nlp_solver_, "sqp_iter", &sqp_iter);
   RCLCPP_INFO(get_logger(),
             "Optimization took \033[1m%f ms.\033[0m (SQP iter: \033[1m%2d\033[0m; KKT: \033[1m%e\033[0m)",
             elapsed_time * 1000, sqp_iter, kkt_norm_inf);
@@ -231,8 +231,8 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   double cost_value, nlp_res;
   ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "cost_value", &cost_value);
-  ocp_nlp_get(nlp_config_, nlp_solver_, "nlp_res", &nlp_res);
+  ocp_nlp_get(nlp_solver_, "cost_value", &cost_value);
+  ocp_nlp_get(nlp_solver_, "nlp_res", &nlp_res);
   RCLCPP_INFO(get_logger(), "cost_value: \033[1m%f\033[0m; nlp_res: \033[1m%f\033[0m", cost_value, nlp_res);
 
   if (verbose_) {
