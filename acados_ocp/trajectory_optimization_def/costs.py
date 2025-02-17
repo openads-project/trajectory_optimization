@@ -132,7 +132,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     x_ref_inter = x1 + lmd * (x2 - x1)
     y_ref_inter = y1 + lmd * (y2 - y1)
     lmd = ca.fmin(ca.fmax(lmd, 0), 1)
-    psi_ref_inter = psi1 + lmd * (psi2 - psi1)
+    psi_ref_inter = psi1 + lmd * wrap_angle(psi2 - psi1)
     v_ref_inter = v1 + lmd * (v2 - v1)
     dlat = ca.sqrt(ca.power(ocp.model.x[STATE_INDEX_X]-x_ref_inter, 2)+ca.power(ocp.model.x[STATE_INDEX_Y]-y_ref_inter, 2))
 
@@ -150,7 +150,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     v_scale = ca.fmax(v_ref, V_SCALE_MIN)
     v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V]), 2) / ca.power(v_scale, 2)
     # psi deviation term
-    psi_term = ca.power(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter, 2)
+    psi_term = ca.power(wrap_angle(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter), 2)
 
     cost_terms = {"dlat": dlat_term, "dpsi": psi_term, "x": x_term, "y": y_term, "v": v_term}
     return cost_terms
@@ -274,4 +274,4 @@ def wrap_angle(angle: ca.MX) -> ca.MX:
     Returns:
         ca.MX: The wrapped angle.
     """
-    return ca.fmod(angle + ca.pi, 2 * ca.pi) - ca.pi
+    return angle - 2 * ca.pi * ca.floor((angle + ca.pi) / (2 * ca.pi))
