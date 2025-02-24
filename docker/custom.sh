@@ -5,7 +5,7 @@ git checkout faf2f79b73b58365d81b9e0c73e81b658076803b
 mkdir -p /opt/acados/build
 cd /opt/acados/build
 cmake -DCMAKE_BUILD_TYPE=Release .. # -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_QORE=ON -DACADOS_WITH_OOQP=ON -DACADOS_WITH_QPDUNES=ON -DACADOS_WITH_OSQP=ON -DACADOS_WITH_OPENMP=ON
-make install -j8
+make install -j4
 
 # install acados python interface
 pip install -e /opt/acados/interfaces/acados_template
@@ -14,6 +14,11 @@ pip install -e /opt/acados/interfaces/acados_template
 rm -f /opt/acados/bin/t_renderer
 curl -L -o /opt/acados/bin/t_renderer https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux
 chmod +x /opt/acados/bin/t_renderer
+
+#install nightly-se2
+rm -f /opt/acados/bin/casadi
+curl -L --remote-name https://github.com/casadi/casadi/releases/download/nightly-main/casadi-3.6.7.dev+main-cp310-none-manylinux2014_x86_64.whl
+pip install casadi-3.6.7.dev+main-cp310-none-manylinux2014_x86_64.whl
 
 # write necessary environment variables to .bashrc
 echo "export ACADOS_SOURCE_DIR=/opt/acados" >> /root/.bashrc
