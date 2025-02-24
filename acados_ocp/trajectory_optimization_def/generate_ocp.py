@@ -2,6 +2,7 @@ from acados_template import AcadosOcp, AcadosOcpSolver, builders
 import argparse
 import os
 import yaml
+import numpy as np
 
 import model, dims, constraints, costs, opts
 
@@ -24,6 +25,7 @@ def main():
 
     ocp = AcadosOcp()
     model.set_model(ocp, parameters)
+    ocp.p_global_values = np.zeros(17)
     costs.set_costs(ocp, parameters)
     constraints.set_constraints(ocp, parameters) # Set constraints AFTER costs as soft constraints need to modify cost
     dims.set_dims(ocp, parameters)

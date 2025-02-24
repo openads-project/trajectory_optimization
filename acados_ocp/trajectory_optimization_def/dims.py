@@ -8,5 +8,6 @@ def set_dims(ocp, config):
     dims.nx = ocp.model.x.rows() # number of states
     dims.nu = ocp.model.u.rows() # number of inputs/controls
     dims.np = ocp.model.p.rows() # number of model parameters
+    dims.np_global = ocp.model.p_global.rows() # number of model global parameters
 
     ocp.dims = dims
