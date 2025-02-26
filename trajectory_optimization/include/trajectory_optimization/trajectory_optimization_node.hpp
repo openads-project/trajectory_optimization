@@ -105,7 +105,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
 
-  rclcpp::TimerBase::SharedPtr planning_timer_;
+  // rclcpp::TimerBase::SharedPtr planning_timer_;
 
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;

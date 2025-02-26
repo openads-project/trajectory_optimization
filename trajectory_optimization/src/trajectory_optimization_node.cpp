@@ -176,9 +176,11 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
+  /*
   // create timer for planning cycle
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+  */
 
   // init reference trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
