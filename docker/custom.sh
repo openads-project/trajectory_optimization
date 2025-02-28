@@ -10,6 +10,10 @@ make install -j8
 # install acados python interface
 pip install -e /opt/acados/interfaces/acados_template
 
+#install nightly-se8 version of casadi
+curl -L -o casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl https://github.com/casadi/casadi/releases/download/nightly-se8/casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
+pip install casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
+
 # install t_renderer
 rm -f /opt/acados/bin/t_renderer
 curl -L -o /opt/acados/bin/t_renderer https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux
