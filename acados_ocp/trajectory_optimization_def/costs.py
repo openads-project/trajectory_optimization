@@ -23,21 +23,16 @@ def set_costs(ocp: AcadosOcp, config):
 
     # get parameters
     idx_params = 0
-    p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
-    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
-    p_cost_params = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_params)]
-    assert idx_params == n_params
 
     #get global parameters
-    #idx_global_params = 0
-    #p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_weights)]
-    #p_dynamic_weight = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_dynamic_weight)]
-    #p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_params)]
-    #assert idx_params + idx_global_params == n_params
-    #Beim Einfügen redundante Parameter oben entfernen
-
+    idx_global_params = 0
+    p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_weights)]
+    p_dynamic_weight = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_dynamic_weight)]
+    p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_params)]
+    assert idx_params + idx_global_params == n_params
+    
     # cost term weights
     w_lat = p_cost_weights[0]
     w_x = p_cost_weights[1]
