@@ -18,8 +18,10 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
     n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
     n_params_cost_params = 3
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles + n_params_cost_params
+    n_params =  n_params_ref_path + n_params_obstacles
+    n_global_params = n_params_cost_weights + n_params_dynamic_weight + n_params_cost_params 
     ocp.parameter_values = np.zeros(n_params)
+    ocp.p_global_values = np.zeros(n_global_params)
 
     # get parameters
     idx_params = 0
@@ -31,7 +33,7 @@ def set_costs(ocp: AcadosOcp, config):
     p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_weights)]
     p_dynamic_weight = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_dynamic_weight)]
     p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + n_params_cost_params)]
-    assert idx_params + idx_global_params == n_params
+    assert idx_params + idx_global_params == n_params + n_global_params
     
     # cost term weights
     w_lat = p_cost_weights[0]
