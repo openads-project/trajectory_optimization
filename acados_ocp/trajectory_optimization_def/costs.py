@@ -13,13 +13,15 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.cost = cost
 
     # initialize parameters
+    n_params_ref_path = np.prod(config["p_ref_path_shape"]) 
+    n_params_obstacles = np.prod(config["p_obstacle_circles_shape"]) 
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
-    n_params_dynamic_weight = 1
-    n_params_ref_path = np.prod(config["p_ref_path_shape"])
-    n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
-    n_params_cost_params = 3
+    n_params_dynamic_weight = 1 
+    n_params_cost_params = 3 
+    # total number of parameters
     n_params =  n_params_ref_path + n_params_obstacles
     n_global_params = n_params_cost_weights + n_params_dynamic_weight + n_params_cost_params 
+    #  set initial parameter values
     ocp.parameter_values = np.zeros(n_params)
     ocp.p_global_values = np.zeros(n_global_params)
 
