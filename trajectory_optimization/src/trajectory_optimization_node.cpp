@@ -521,39 +521,41 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   }
 
   // update ocp parameters
-  this->setOcpParameters(cost_weights_, ego_data, tf_reference_trajectory, tf_object_list);
+  this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
+  this->setOcpGlobalParameters(cost_weights_);
 
   return true;
 }
 
-void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weights,
-                                                  const perception_msgs::msg::EgoData& ego_data,
+void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
+  double floating_dynamic_weight = 1.0;
+  for (int i = 0; i<= n_shots_; ++i) {
+    int n;
+
+    // cost weights 
+    n = p_cost_weights_shape_[0] * p_cost_weights_shape_[1]; //1*13
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, cost_weights.data(), n);
+
+    // dynamic weight 
+    n = 1;
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, &floating_dynamic_weight, n);
+    floating_dynamic_weight *= dynamic_weight_;
+
+    // Other cost params
+    n = 3;
+    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, other_cost_params.data(), n);  
+  }
+}
+
+
+void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
                                                   const perception_msgs::msg::ObjectList& object_list) {
   // loop over shooting intervals
-  double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
     int idx, n;
-
-    // cost weights
-    idx = 0;
-    n = p_cost_weights_shape_[0] * p_cost_weights_shape_[1];
-    std::vector<int> idx_cost_weights(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
-                                                    cost_weights.data(), n);
-
-    // dynamic weight
-    idx += n;
-    n = 1;
-    std::vector<int> idx_dynamic_weight(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
-                                                    &floating_dynamic_weight, n);
-    floating_dynamic_weight *= dynamic_weight_;
 
     // ref path
     idx += n;
@@ -641,15 +643,6 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
-
-    // Other cost params
-    idx += n;
-    n = 3;
-    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
-    std::vector<int> idx_cost_params(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_cost_params.begin(), idx_cost_params.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
 
   }
 }

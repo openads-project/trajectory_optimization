@@ -50,6 +50,10 @@ inline int acados_update_params_sparse(ocp_model_capsule_t capsule, int stage, i
   ACADOS_DISPATCH(acados_update_params_sparse, stage, idx, p, n_update);
 }
 
+inline int acados_set_p_global_and_precompute_dependencies(ocp_model_capsule_t capsule, double* data, int data_len) {
+  ACADOS_DISPATCH(acados_set_p_global_and_precompute_dependencies, data, data_len);
+}
+
 inline void acados_print_stats(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_print_stats); }
 
 inline ocp_nlp_in* acados_get_nlp_in(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_in); }
