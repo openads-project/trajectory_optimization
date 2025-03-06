@@ -163,11 +163,11 @@ void TrajectoryOptimizationNode::setup() {
 
   // set up subscriber for input topics
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
-      kEgoDataTopic, 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+      "/demo_trajectory_pub_node/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
-      kObjectListTopic, 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+      "/demo_trajectory_pub_node/demo_object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
@@ -175,7 +175,7 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
-      kReferenceTrajectoryTopic, 1,
+      "/demo_trajectory_pub_node/demo_trajectory", 1,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
@@ -521,30 +521,28 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   }
 
   // update ocp parameters
-  this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
   this->setOcpGlobalParameters(cost_weights_);
+  this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
 
   return true;
 }
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
-    int n;
 
-    // cost weights 
-    n = p_cost_weights_shape_[0] * p_cost_weights_shape_[1]; //1*13
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, cost_weights.data(), n);
-
-    // dynamic weight 
-    n = 1;
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, &floating_dynamic_weight, n);
-    floating_dynamic_weight *= dynamic_weight_;
-
-    // Other cost params
-    n = 3;
-    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, other_cost_params.data(), n);  
-}
+    std::vector<double> global_params;
+    // cost weights
+    global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
+    // dynamic weight
+    global_params.push_back(floating_dynamic_weight);
+    // other cost params
+    global_params.push_back(thw_);
+    global_params.push_back(d_min_obstacle_long_);
+    global_params.push_back(d_min_obstacle_lat_);
+    // get size of np_global
+    int n = global_params.size();
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
+  }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
