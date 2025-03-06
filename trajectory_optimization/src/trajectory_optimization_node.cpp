@@ -529,7 +529,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
-
+  
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
@@ -539,8 +539,9 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cos
     global_params.push_back(thw_);
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
-    // get size of np_global
+    // get size of global_params (must be equivalent to np_global = 17)
     int n = global_params.size();
+
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
   }
 
@@ -550,7 +551,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   // loop over shooting intervals
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
-    int idx, n;
+    int idx = 0, n;
 
     // ref path
     idx += n;
