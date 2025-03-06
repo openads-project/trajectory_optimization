@@ -209,6 +209,16 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
  * @param status The status of the trajectory optimization solver.
  */
 void TrajectoryOptimizationNode::printSolution(int status) {
+  // Status codes:
+  // 0: Success (ACADOS_SUCCESS)
+  // 1: NaN detected (ACADOS_NAN_DETECTED)
+  // 2: Maximum number of iterations reached (ACADOS_MAXITER)
+  // 3: Minimum step size reached (ACADOS_MINSTEP)
+  // 4: QP solver failed (ACADOS_QP_FAILURE)
+  // 5: Solver created (ACADOS_READY)
+  // 6: Problem unbounded (ACADOS_UNBOUNDED)
+  // 7: Solver timeout (ACADOS_TIMEOUT)
+
   if (status == ACADOS_SUCCESS) {
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
   } else if (status == ACADOS_MAXITER) {
