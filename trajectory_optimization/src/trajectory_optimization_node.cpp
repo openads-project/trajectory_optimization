@@ -543,7 +543,7 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cos
     int n = global_params.size();
 
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
-  }
+}
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
