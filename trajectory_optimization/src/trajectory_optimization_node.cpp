@@ -380,7 +380,6 @@ void TrajectoryOptimizationNode::resetSolver() {
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
-  this->setOcpGlobalParameters(cost_weights_);
   if (debug_viz_) viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
@@ -523,6 +522,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
   // update ocp parameters
   this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
+  this->setOcpGlobalParameters(cost_weights_);
 
   return true;
 }
