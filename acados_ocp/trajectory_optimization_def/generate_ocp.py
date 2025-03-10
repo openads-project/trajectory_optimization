@@ -2,7 +2,6 @@ from acados_template import AcadosOcp, AcadosOcpSolver, builders
 import argparse
 import os
 import yaml
-import numpy as np
 
 import model, dims, constraints, costs, opts
 
