@@ -529,7 +529,6 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
-  
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
@@ -551,10 +550,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   // loop over shooting intervals
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
-    int idx = 0, n;
+    int idx, n;
 
     // ref path
-    idx += n;
+    idx = 0;
     n = p_ref_path_shape_[0] * p_ref_path_shape_[1];
     std::vector<int> idx_ref_path(n);
     // fill vector with values from idx to idx + n
