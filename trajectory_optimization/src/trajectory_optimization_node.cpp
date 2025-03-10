@@ -171,11 +171,11 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
-      kReferenceTrajectoryTopic, 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+      kRouteTopic, 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
-      "/demo_trajectory_pub_node/demo_trajectory", 1,
+    kReferenceTrajectoryTopic , 1,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
@@ -529,7 +529,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
-  for (int i = 0; i<= n_shots_; ++i) {
+  for (int i = 0; i <= n_shots_; ++i) {
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
