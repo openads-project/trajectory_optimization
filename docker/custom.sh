@@ -10,7 +10,7 @@ make install -j8
 # install acados python interface
 pip install -e /opt/acados/interfaces/acados_template
 
-#install nightly-se8 version of casadi
+# Install CasADi version nightly-se8 for global parameters support in OCP. Acados defaults to v3.6.7, which lacks this functionality.
 curl -L -o casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl https://github.com/casadi/casadi/releases/download/nightly-se8/casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
 pip install casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
 
