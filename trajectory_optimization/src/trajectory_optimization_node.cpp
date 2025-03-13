@@ -529,7 +529,6 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
-  for (int i = 0; i <= n_shots_; ++i) {
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
@@ -543,7 +542,6 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cos
     int n = global_params.size();
 
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
-  }
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
