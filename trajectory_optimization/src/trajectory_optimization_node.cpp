@@ -232,6 +232,9 @@ void TrajectoryOptimizationNode::setupSolver() {
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   std::vector<double> u_init(*nlp_dims_->nu, 0.0);
 
+  // set ocp global parameters and precompute dependencies
+  this->setOcpGlobalParameters(cost_weights_);
+
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init.data());
@@ -522,12 +525,11 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
   // update ocp parameters
   this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
-  this->setOcpGlobalParameters(cost_weights_);
 
   return true;
 }
 
-void TrajectoryOptimizationNode::setOcpGlobalParameters(std::vector<double>& cost_weights) {
+void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
   double floating_dynamic_weight = 1.0;
     std::vector<double> global_params;
     // cost weights
