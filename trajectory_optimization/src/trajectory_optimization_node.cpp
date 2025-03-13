@@ -530,17 +530,14 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 }
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
-  double floating_dynamic_weight = 1.0;
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
-    // dynamic weight
-    global_params.push_back(floating_dynamic_weight);
     // other cost params
     global_params.push_back(thw_);
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
-    // get size of global_params (must be equivalent to np_global = 17)
+    // get size of global_params (must be equivalent to np_global = 16)
     int n = global_params.size();
 
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
@@ -550,12 +547,24 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
                                                   const perception_msgs::msg::ObjectList& object_list) {
   // loop over shooting intervals
+  double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
     int idx, n;
 
-    // ref path
+    // dynamic weight
     idx = 0;
+    n = 1;
+    std::vector<int> idx_dynamic_weight(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
+                                                         &floating_dynamic_weight, n);
+    floating_dynamic_weight *= dynamic_weight_;
+
+
+    // ref path
+    idx += n;
     n = p_ref_path_shape_[0] * p_ref_path_shape_[1];
     std::vector<int> idx_ref_path(n);
     // fill vector with values from idx to idx + n
