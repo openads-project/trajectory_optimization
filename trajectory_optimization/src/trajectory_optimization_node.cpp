@@ -140,8 +140,16 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         std::get<1>(auto_reconfigurable_param)(param);
       }
     }
-  }
 
+    // check if any global parameters have changed
+    if (param.get_name() == "cost_weights") {cost_weights_ = param.get_value<std::vector<double>>();} 
+    else if (param.get_name() == "thw") {thw_ = param.get_value<double>();} 
+    else if (param.get_name() == "d_min_obstacle_long") {d_min_obstacle_long_ = param.get_value<double>();} 
+    else if (param.get_name() == "d_min_obstacle_lat") {d_min_obstacle_lat_ = param.get_value<double>();}
+    // update ocp global parameters
+    this->setOcpGlobalParameters(cost_weights_);
+  }
+  
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
