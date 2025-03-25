@@ -1,5 +1,8 @@
 ## Generate OCP Model ##
-file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py" "trajectory_optimization_def/*.yml")
+file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py" 
+                       "trajectory_optimization_def/*.yml"
+                       "trajectory_optimization_def/models/*.py"
+                       "trajectory_optimization_def/config/*.yml")
 
 set(ACADOS_BUILD_FILES)
 foreach(input_file ${ACADOS_FILES})
@@ -22,4 +25,8 @@ execute_process(
 
 execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/auto_shuttle_params.yml"
+)
+
+execute_process(
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/omni_shuttle_params.yml"
 )

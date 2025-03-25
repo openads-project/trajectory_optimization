@@ -10,16 +10,19 @@
 // models
 #include <acados_ocp/acados_solver_auto_shuttle.h>
 #include <acados_ocp/acados_solver_passat_cc.h>
+#include <acados_ocp/acados_solver_omni_shuttle.h>
 
 namespace trajectory_optimization {
 
-typedef std::variant<passat_cc_solver_capsule*, auto_shuttle_solver_capsule*> ocp_model_capsule_t;
+typedef std::variant<passat_cc_solver_capsule*, auto_shuttle_solver_capsule*, omni_shuttle_solver_capsule*> ocp_model_capsule_t;
 
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "passat_cc") {
     return passat_cc_acados_create_capsule();
   } else if (model_name == "auto_shuttle") {
     return auto_shuttle_acados_create_capsule();
+  } else if (model_name == "omni_shuttle") {
+    return omni_shuttle_acados_create_capsule();
   } else {
     throw std::invalid_argument("Invalid model name: " + model_name);
   }
@@ -30,6 +33,8 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
     return passat_cc_##function_name(std::get<passat_cc_solver_capsule*>(capsule), ##__VA_ARGS__);       \
   } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {                            \
     return auto_shuttle_##function_name(std::get<auto_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  } else if (std::holds_alternative<omni_shuttle_solver_capsule*>(capsule)) {                            \
+    return omni_shuttle_##function_name(std::get<omni_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
   } else {                                                                                               \
     throw std::invalid_argument("Invalid capsule type.");                                                \
   }

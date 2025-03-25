@@ -29,19 +29,20 @@
 
     #### cost weights
     cost_weights:
-      - 0.3  # dlat (0)
-      - 0.0  # x (1)
-      - 0.0  # y (2)
-      - 0.15 # v (3)
-      - 1.0  # obstacles (4)
-      - 0.2  # a_lat (5)
-      - 0.2  # a_lon_pos (6)
-      - 0.05 # a_lon_neg (7)
-      - 0.1  # j_lat (8)
-      - 0.1  # j_lon_pos (9)
-      - 0.05 # j_lon_neg (10)
-      - 0.03 # alpha (11)
-      - 1.0  # endYaw (12)
+      - 0.5  # dlat (0)
+      - 0.3  # psi (1)
+      - 0.0  # x (2)
+      - 0.0  # y (3)
+      - 0.3  # v_t (4)
+      - 0.0  # obstacles (5)            //TODO: no weighting for this costs yet
+      - 0.03 # a_n (6)
+      - 0.1  # a_t_pos (7)
+      - 0.05 # a_t_neg (8)
+      - 0.05  # j_n (9)
+      - 0.1  # j_t_pos (10)
+      - 0.05 # j_t_neg (11)
+      - 0.1  # alpha_f/alpha_r (12)
+      - 1.0  # endYaw (13)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
