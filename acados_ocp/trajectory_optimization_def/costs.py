@@ -242,20 +242,20 @@ def approximate_ego_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, y
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
     j_t_pos = ca.fmax(0, ocp.model.u[CONTROL_INDEX_J_T])
-    j_t_pos_term = ca.power(j_t_pos, 2) / ca.power(config["c_jerk_t"], 2)
+    j_t_pos_term = ca.power(j_t_pos, 2) / ca.power(config["c_j_t"], 2)
     j_t_neg = ca.fmin(0, ocp.model.u[CONTROL_INDEX_J_T])
-    j_t_neg_term = ca.power(j_t_neg, 2) / ca.power(config["c_jerk_t"], 2)
+    j_t_neg_term = ca.power(j_t_neg, 2) / ca.power(config["c_j_t"], 2)
 
     # derive nominal jerk j_n = d(a_n)/dt =d(v_t * psi_dot)/dt = a_t * psi_dot + v_t * psi_ddot (second derivative)
     psi_dot = (compute_psi_dot_RWS(ocp, config) if config["model_type"] == "RWS" else compute_psi_dot_Ack(ocp, config))
     psi_ddot = (compute_psi_ddot_RWS(ocp, config) if config["model_type"] == "RWS" else compute_psi_ddot_Ack(ocp, config))
 
     j_n = ocp.model.x[STATE_INDEX_A_T] * psi_dot + ocp.model.x[STATE_INDEX_V_T] * psi_ddot
-    j_n_term = ca.power(j_n, 2) / ca.power(config["c_jerk_n"], 2)
+    j_n_term = ca.power(j_n, 2) / ca.power(config["c_j_n"], 2)
 
     alpha_f_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA_F], 2) / ca.power(config["c_alpha"], 2)
     alpha_r_term = (compute_alpha_r_cost_RWS(ocp, config) if config["model_type"] == "RWS" else 0.0)
-    
+
     cost_terms = {"j_t_pos": j_t_pos_term, "j_t_neg": j_t_neg_term, "j_n": j_n_term,"alpha_f": alpha_f_term, "alpha_r": alpha_r_term}
     return cost_terms
 

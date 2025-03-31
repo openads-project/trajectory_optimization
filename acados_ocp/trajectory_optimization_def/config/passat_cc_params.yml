@@ -1,6 +1,6 @@
 ### general parameters defining the ocp
 model_name: 'passat_cc'           # name of the acados model (also used in ROS node)
-model_type: 'Ackermann'           # steering type model (also used in ROS node)
+model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
 optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
@@ -23,11 +23,10 @@ c_lat: 0.5            # distance to scale the lateral deviation costs [m]
 c_psi: 1.0            # distance to scale the yaw deviation costs [rad] -> not used cost function
 c_x: 1.0              # distance to scale the x deviation costs [m]
 c_y: 1.0              # distance to scale the y deviaton costs [m]
-c_v_t: 3.0            # distance to scale the tangential velocity costs [m/s]
 c_a_t: 3.0            # distance to scale the tangential acceleration costs [m/s²]
 c_a_n: 3.0            # distance to scale the nominal acceleration costs [m/s²]
-c_jerk_t: 3.0         # distance to scale the tangential jerk costs [m/s³]
-c_jerk_n: 3.0         # distance to scale the normal jerk costs [m/s³]
+c_j_t: 3.0            # distance to scale the tangential jerk costs [m/s³]
+c_j_n: 3.0            # distance to scale the normal jerk costs [m/s³]
 c_alpha: 0.35         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
