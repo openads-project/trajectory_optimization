@@ -12,13 +12,13 @@ def set_constraints(ocp: AcadosOcp, parameters):
     # set v_min < v < v_max [m/s]
     # set a_min < a < a_max [m/s^2]
     # set delta_min < delta_f < delta_max [rad]
-    # set delta_min < delta_r < delta_max [rad]
+    # RWS: set delta_min < delta_r < delta_max [rad] 
 
     # constraints on initiall shooting node
     # initial state
     cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         cons.x0 = np.concatenate((cons.x0, [0.0]))
 
     # constraints on intermediate shooting nodes
@@ -26,30 +26,25 @@ def set_constraints(ocp: AcadosOcp, parameters):
     cons.ubx = np.array([parameters['v_max'], parameters['acceleration_t_max'], parameters['delta_max']])
     cons.idxbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
 
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         cons.lbx = np.concatenate((cons.lbx, [-parameters['delta_max']]))
         cons.ubx = np.concatenate((cons.ubx, [parameters['delta_max']]))
         cons.idxbx = np.concatenate((cons.idxbx, [STATE_INDEX_DELTA_R]))
 
     # constraints on terminal shooting node
-    cons.lbx_e = np.array([parameters['v_min'], -parameters['acceleration_t_max'], -parameters['delta_max']])
-    cons.ubx_e = np.array([parameters['v_max'], parameters['acceleration_t_max'], parameters['delta_max']])
-    cons.idxbx_e = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
-
-    if parameters['model_name'] == 'omni_shuttle':
-        cons.lbx_e = np.concatenate((cons.lbx_e, [-parameters['delta_max']]))
-        cons.ubx_e = np.concatenate((cons.ubx_e, [parameters['delta_max']]))
-        cons.idxbx_e = np.concatenate((cons.idxbx_e, [STATE_INDEX_DELTA_R]))
+    cons.lbx_e = cons.lbx
+    cons.ubx_e = cons.ubx
+    cons.idxbx_e = cons.idxbx
 
     ########## static constraints on control ##########
     # set -j_max < j < j_max [m/s^3]
     # set -alpha_max < alpha_f < alpha_max [rad]
-    # set -alpha_max < alpha_r < alpha_max [rad]
+    # RWS: set -alpha_max < alpha_r < alpha_max [rad]
     cons.lbu = np.array([-parameters["jerk_max"], -parameters["alpha_max"]])
     cons.ubu = np.array([parameters["jerk_max"], parameters["alpha_max"]])
     cons.idxbu = np.array([CONTROL_INDEX_J_T, CONTROL_INDEX_ALPHA_F])
 
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         cons.lbu = np.concatenate((cons.lbu, [-parameters['alpha_max']]))
         cons.ubu = np.concatenate((cons.ubu, [parameters['alpha_max']]))
         cons.idxbu = np.concatenate((cons.idxbu, [CONTROL_INDEX_ALPHA_R]))
@@ -57,11 +52,11 @@ def set_constraints(ocp: AcadosOcp, parameters):
     ########## nonlinear constraints ##########
 
     # compute psi_dot:
-    # FWS: psi_dot = v / l * tan(delta_f)
+    # Ackermann: psi_dot = v / l * tan(delta_f)
     # RWS: psi_dot = v * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r) 
     #beta = atan((L_r / (L_f + L_r)) * tan(delta_f) + (L_f / (L_f + L_r)) * tan(delta_r))
     psi_dot = None
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         L_f = parameters['distance_cg_front_axle']
         L_r = parameters['distance_cg_rear_axle']
         beta = atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
@@ -90,7 +85,7 @@ def set_constraints(ocp: AcadosOcp, parameters):
     cons.uh = np.array([a_max_squared])
     cons.uh_e = np.array([a_max_squared])
 
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, psi_dot)
         ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, psi_dot)
         cons.lh = np.concatenate((cons.lh, [-parameters['psi_dot_max']]))
@@ -100,31 +95,29 @@ def set_constraints(ocp: AcadosOcp, parameters):
 
     ########## nonlinear constraints for steering mode ##########
 
-    if parameters['model_name'] == 'omni_shuttle':
+    if parameters['model_type'] == 'RWS':
         steering_mode_constraints = {
             "in-phase": ocp.model.x[STATE_INDEX_DELTA_F] - ocp.model.x[STATE_INDEX_DELTA_R],
             "anti-phase": ocp.model.x[STATE_INDEX_DELTA_F] + ocp.model.x[STATE_INDEX_DELTA_R]
             }
-        if parameters["steering_mode"] in steering_mode_constraints:
+        if parameters["steering_mode_constraint"] in steering_mode_constraints:
             ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, steering_mode_constraints[parameters["steering_mode"]])
             ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, steering_mode_constraints[parameters["steering_mode"]])
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [0.0]))
             cons.lh_e = np.concatenate((cons.lh_e, [0.0]))
             cons.uh_e = np.concatenate((cons.uh_e, [0.0]))
-        elif parameters["steering_mode"] == "ackermann":
-            pass
-        else:
-            raise ValueError("Invalid steering mode.")
+        elif parameters["steering_mode_constraint"] != "none":
+            raise ValueError("Invalid steering mode. Choose between 'in-phase', 'anti-phase' or 'none'(default).")
 
     ########## soft constraints ##########
 
     if parameters["enable_slack"]:
 
         #Add slack to nonlinear constraints (idxsh)
-        if parameters['model_name'] == 'omni_shuttle' and parameters['steering_mode'] in ['in-phase', 'anti-phase']:
-            cons.idxsh = np.array([0, 1, 2])                                    # Index of nonlinear constraints: a_abs_squared, psi_dot and steering_mode_constraints
-        elif parameters['model_name'] == 'omni_shuttle' and parameters['steering_mode'] == 'ackermann':
+        if parameters['model_type'] == 'RWS' and parameters['steering_mode_constraint'] in ['in-phase', 'anti-phase']:
+            cons.idxsh = np.array([0, 1, 2])                                    # Index of nonlinear constraints: a_abs_squared, psi_dot and steering_mode_constraint
+        elif parameters['model_type'] == 'RWS' and parameters['steering_mode_constraint'] == 'none':
             cons.idxsh = np.array([0, 1])                                       # Index of nonlinear constraints: a_abs_squared and psi_dot
         else:
              cons.idxsh = np.array([0])                                         # Index of nonlinear constraints: a_abs_squared 
@@ -132,7 +125,7 @@ def set_constraints(ocp: AcadosOcp, parameters):
         #Add slack to state bounds (idxsbx)                                      
         cons.idxsbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T])              # Index of state constraints: v_t, a_t               
         # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
-        # Attention: parameters must have the same length as cons.isxsbx + cons.idxsh (depending on the steering mode and model)
+        # Attention: parameters must have the same length as cons.isxsbx + cons.idxsh (depending on the steering mode and model type)
         ocp.cost.Zl = np.diag(parameters["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables 
         ocp.cost.Zu = np.diag(parameters["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
         ocp.cost.zl = np.array(parameters["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables

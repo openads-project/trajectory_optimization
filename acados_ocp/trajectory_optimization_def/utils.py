@@ -1,5 +1,4 @@
 from casadi import fmax, fmin, tan
-import numpy as np
 
 def stable_tan(rad):
     # for numerical stability of the tangent function

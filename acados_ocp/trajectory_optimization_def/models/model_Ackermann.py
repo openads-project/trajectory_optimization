@@ -2,9 +2,13 @@ import numpy as np
 from acados_template import AcadosModel
 from constants import *
 from casadi import MX, vertcat, sin, cos, tan, fmin, fmax
+from utils import stable_tan
 
 def set_model(ocp, config):
-
+    """
+    Set up kinematic bicycle model with front wheel steering
+    referenced at the rear axle
+    """
     model = AcadosModel()
 
     # set model_name
@@ -45,7 +49,7 @@ def set_model(ocp, config):
     f_v_t_dot = state[STATE_INDEX_A_T]
     f_a_t_dot = u[CONTROL_INDEX_J_T]
     # For numeric stability, constraint the tan function
-    f_psi_dot = state[STATE_INDEX_V_T] / l * fmax(-10, fmin(10, tan(state[STATE_INDEX_DELTA_F])))
+    f_psi_dot = state[STATE_INDEX_V_T] / l * stable_tan(state[STATE_INDEX_DELTA_F])
     f_delta_f_dot = u[CONTROL_INDEX_ALPHA_F]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_t_dot, f_a_t_dot, f_psi_dot, f_delta_f_dot)
 

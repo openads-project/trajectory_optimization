@@ -5,6 +5,10 @@ from casadi import MX, vertcat, sin, cos, atan
 from utils import stable_tan
 
 def set_model(ocp, config):
+    """
+    Set up bicycle model with front and rear wheel steering 
+    referenced at the center of gravtiy
+    """
 
     model = AcadosModel()
 

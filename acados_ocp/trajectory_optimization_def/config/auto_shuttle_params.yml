@@ -1,12 +1,11 @@
 ### general parameters defining the ocp
 model_name: 'auto_shuttle'        # name of the acados model (also used in ROS node)
+model_type: 'Ackermann'           # steering type model (also used in ROS node)
 optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 3.4                    # wheelbase [m] (also used in ROS node)
-distance_cg_front_axle: 1.7       # distance from center of gravity to front axle [m] TODO: VALUE
-distance_cg_rear_axle: 1.7        # distance from center of gravity to rear axle [m]  TODO: VALUE
 length: 4.97                      # length [m]
 width: 2.12                       # width [m]
 offset2geocenter: [0.0, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
