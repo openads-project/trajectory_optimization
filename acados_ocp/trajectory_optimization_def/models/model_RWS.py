@@ -6,7 +6,7 @@ from utils import stable_tan
 
 def set_model(ocp, config):
     """
-    Set up bicycle model with front and rear wheel steering 
+    Set up bicycle model with front and rear wheel steering
     referenced at the center of gravtiy
     """
 
@@ -18,38 +18,37 @@ def set_model(ocp, config):
     # set constants
     L_f = config['distance_cg_front_axle']
     L_r = config['distance_cg_rear_axle']
-    
-    # set up states -> x = [x, y, s, psi, v_t, a_t, delta_f, delta_r,]
+
+    # set up states -> x = [x, y, s, v_t, a_t, psi, delta_f, delta_r,]
     x = MX.sym('x')
     y = MX.sym('y')
     s = MX.sym('s')
-    psi = MX.sym('psi')
     v_t = MX.sym('v_t')
     a_t = MX.sym('a_t')
+    psi = MX.sym('psi')
     delta_f = MX.sym('delta_f')
     delta_r = MX.sym('delta_r')
 
-    state = vertcat(x, y, s, psi, v_t, a_t, delta_f, delta_r)
+    state = vertcat(x, y, s, v_t, a_t, psi, delta_f, delta_r)
 
     # set up controls -> u = [j_t, delta_f_dot, delta_r_dot]
     j_t = MX.sym('j_t')
     alpha_f = MX.sym('alpha_f')
     alpha_r = MX.sym('alpha_r')
-   
+
     u = vertcat(j_t, alpha_f, alpha_r)
 
-    # derivates -> x_dot = f(x, u) = [x_dot, y_dot, s_dot, psi_dot, alpha_f, alpha_r, v_t_dot, a_t_dot]
+    # derivates -> x_dot = f(x, u) = [x_dot, y_dot, s_dot, v_t_dot, a_t_dot, psi_dot, alpha_f, alpha_r]
     x_dot = MX.sym('x_dot')
     y_dot = MX.sym('y_dot')
     s_dot = MX.sym('s_dot')
-    psi_dot = MX.sym('psi_dot')
     v_t_dot = MX.sym('v_t_dot')
     a_t_dot = MX.sym('a_t_dot')
+    psi_dot = MX.sym('psi_dot')
     alpha_f = MX.sym('alpha_f')
     alpha_r = MX.sym('alpha_r')
-    
 
-    state_dot = vertcat(x_dot, y_dot, s_dot, psi_dot, v_t_dot, a_t_dot, alpha_f, alpha_r,)
+    state_dot = vertcat(x_dot, y_dot, s_dot, v_t_dot, a_t_dot, psi_dot, alpha_f, alpha_r)
 
     # intermediate variable: vehicle side slip angle (depends on system states delta_f, delta_r)
     beta = atan((L_r / (L_f + L_r)) * stable_tan(state[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(state[STATE_INDEX_DELTA_R]))
@@ -58,16 +57,15 @@ def set_model(ocp, config):
     f_x_dot = state[STATE_INDEX_V_T] * cos(state[STATE_INDEX_PSI] + beta)
     f_y_dot = state[STATE_INDEX_V_T] * sin(state[STATE_INDEX_PSI] + beta)
     f_s_dot = state[STATE_INDEX_V_T]
-    f_psi_dot = state[STATE_INDEX_V_T] * cos(beta) * (stable_tan(state[STATE_INDEX_DELTA_F]) - stable_tan(state[STATE_INDEX_DELTA_R])) / (L_f + L_r)
     f_v_t_dot = state[STATE_INDEX_A_T]
     f_a_t_dot = u[CONTROL_INDEX_J_T]
+    f_psi_dot = state[STATE_INDEX_V_T] * cos(beta) * (stable_tan(state[STATE_INDEX_DELTA_F]) - stable_tan(state[STATE_INDEX_DELTA_R])) / (L_f + L_r)
     f_alpha_f = u[CONTROL_INDEX_ALPHA_F]
     f_alpha_r = u[CONTROL_INDEX_ALPHA_R]
 
-    f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_psi_dot, f_v_t_dot, f_a_t_dot, f_alpha_f, f_alpha_r)
+    f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_t_dot, f_a_t_dot, f_psi_dot, f_alpha_f, f_alpha_r)
     model.f_expl_expr = f_expl
 
-    
     # dynamics: implicit DAE
     model.f_impl_expr = state_dot - f_expl
 
@@ -77,10 +75,10 @@ def set_model(ocp, config):
     model.u = u
 
     # parameters
-    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts(14) x 1)
+    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts x 1)
     p_dynamic_weight = MX.sym('dynamic_weight', 1) # (1 x 1)
-    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v)) -> N(51) x (psi, x, y, v), t wird gegen theta ausgestauscht
-    p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacle_circles_shape'])) # (nObstacleCircles(30) x (x, y, radius))
+    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v)) -> t will be replaced with the heading "theta"
+    p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacle_circles_shape'])) # (nObstacleCircles x (x, y, radius))
     p_cost_params = MX.sym('cost_params', 3) # (thw, d_min_obstacle_long, d_min_obstacle_lat)
     params = vertcat(p_cost_weights, p_dynamic_weight, p_ref_path, p_obstacles, p_cost_params)
     model.p = params
