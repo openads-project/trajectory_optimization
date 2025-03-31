@@ -63,8 +63,7 @@ def set_costs(ocp: AcadosOcp, config):
     #### define costs at intermediate nodes
     # reference path costs
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_psi * ref_path_costs["psi"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"] 
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t * ref_path_costs["v_t"]
     # obstacle costs
@@ -161,9 +160,9 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     # for numeric stability (low reference speeds) we ensure that v_scale > V_SCALE_MIN > 0
     v_scale = ca.fmax(v_ref, V_SCALE_MIN)
     v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V_T]), 2) / ca.power(v_scale, 2)
-    # psi deviation term TODO: discuss if beta needs to be included
+    # psi deviation term
     psi_term = ca.power(wrap_angle(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter), 2) / ca.power(config["c_psi"], 2)
-  
+
     cost_terms = {"dlat": dlat_term, "psi": psi_term, "x": x_term, "y": y_term, "v_t": v_term}
     return cost_terms
 
@@ -202,7 +201,7 @@ def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw:
 
         # define minimum lateral and longitudinal distance to object circles
         beta = compute_side_slip_angle(ocp, config)
-    
+
         x = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta)) # TODO: verify if this is correct
         y = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.sin(beta)) # TODO: verify if this is correct
         dLatMin = ca.fmax(d_min_obstacle_lat, y) + r_ego + r_circle
@@ -221,11 +220,11 @@ def approximate_ego_geometry(n_circles: int, x_center: ca.MX, y_center: ca.MX, y
     # rectangular ego-vehicle approximation with n_circles circles
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(length / (2 * n_circles), 2) + ca.power((width / 2.0), 2))
-  
+
     # Initialize an empty list for circle centers coordinates
     circle_centers_x = []
     circle_centers_y = []
-    
+
     if n_circles==1:
         circle_centers_x.append(x_center)
         circle_centers_y.append(y_center)
@@ -275,6 +274,9 @@ def calc_acceleration_cost(ocp: AcadosOcp, config: dict) -> dict:
     cost_terms = {"a_n": a_n_term, "a_t_pos": a_t_pos_term, "a_t_neg": a_t_neg_term}
     return cost_terms
 
+
+########## helper functions ##########
+
 def wrap_angle(angle: ca.MX) -> ca.MX:
     """
     Wraps an angle to the interval [-pi, pi]
@@ -306,7 +308,7 @@ def compute_psi_dot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
     Computes the yaw rate for for a vehicle with RWS:
     psi_dot = v_t * cos(beta) * (tan(delta_f) - tan(delta_r)) / L
     """
-    L = config["wheelbase"]
+    L = config['wheelbase']
     beta = compute_side_slip_angle(ocp, config)
     psi_dot = ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / L
     return psi_dot
@@ -316,11 +318,10 @@ def compute_psi_dot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
     Computes the yaw rate for a vehicle with Ackermann steering
     psi_dot = v_t / L * tan(delta)
     """
-    L = config["wheelbase"]
+    L = config['wheelbase']
     tan_delta = stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
     psi_dot = ocp.model.x[STATE_INDEX_V_T] / L * tan_delta
     return psi_dot
-
 
 def compute_psi_ddot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
     """
@@ -331,22 +332,22 @@ def compute_psi_ddot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
     L_r = config["distance_cg_rear_axle"]
     beta = compute_side_slip_angle(ocp, config)
     # Compute beta_dot (rate of change of beta which is a function of delta_f and delta_r)
-    beta_dot = (1 / (1 + ((L_r * ca.tan(ocp.model.x[STATE_INDEX_DELTA_F]) + 
+    beta_dot = (1 / (1 + ((L_r * ca.tan(ocp.model.x[STATE_INDEX_DELTA_F]) +
                         L_f * ca.tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r))**2) *
-                ((L_r * ocp.model.u[CONTROL_INDEX_ALPHA_F] / ca.cos(ocp.model.x[STATE_INDEX_DELTA_F])**2 + 
+                ((L_r * ocp.model.u[CONTROL_INDEX_ALPHA_F] / ca.cos(ocp.model.x[STATE_INDEX_DELTA_F])**2 +
                 L_f * ocp.model.u[CONTROL_INDEX_ALPHA_R] / ca.cos(ocp.model.x[STATE_INDEX_DELTA_R])**2) / (L_f + L_r)))
 
     # Compute partial derivatives
     d_psi_dot_d_v = ocp.model.x[STATE_INDEX_A_T] * ca.cos(beta) * (
                         stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r)
 
-    d_psi_dot_d_beta = (-ocp.model.x[STATE_INDEX_V_T] * ca.sin(beta) * 
+    d_psi_dot_d_beta = (-ocp.model.x[STATE_INDEX_V_T] * ca.sin(beta) *
                         (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r))
 
-    d_psi_dot_d_delta_f = (ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * 
+    d_psi_dot_d_delta_f = (ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) *
                             ocp.model.u[CONTROL_INDEX_ALPHA_F] / (ca.cos(ocp.model.x[STATE_INDEX_DELTA_F])**2) / (L_f + L_r))
 
-    d_psi_dot_d_delta_r = (-ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * 
+    d_psi_dot_d_delta_r = (-ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) *
                             ocp.model.u[CONTROL_INDEX_ALPHA_R] / (ca.cos(ocp.model.x[STATE_INDEX_DELTA_R])**2) / (L_f + L_r))
 
     # Compute final yaw acceleration
@@ -358,8 +359,8 @@ def compute_psi_ddot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
     Computes the second derivative of yaw angle (yaw acceleration) for Ackermann steering:
     ψ̈ = (∂ψ̇/∂v) * ∂v/∂t + (∂ψ̇/∂δ_f) * (∂δ_f/∂t)
     """
-    L = config["wheelbase"]
+    L = config['wheelbase']
     tan_delta = stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
-    psi_ddot = (ocp.model.x[STATE_INDEX_A_T] / L * tan_delta + 
+    psi_ddot = (ocp.model.x[STATE_INDEX_A_T] / L * tan_delta +
                 ocp.model.x[STATE_INDEX_V_T] / L * ocp.model.u[CONTROL_INDEX_ALPHA_F] * (1 + tan_delta**2))
     return psi_ddot
