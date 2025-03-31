@@ -5,8 +5,6 @@ optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS n
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
-wheelbase: 3.4                    # wheelbase [m] (also used in ROS node)
-track_width: 1.78                 # track width [m]
 distance_cg_front_axle: 1.7       # distance from center of gravity to front axle [m] TODO: VALUE
 distance_cg_rear_axle: 1.7        # distance from center of gravity to rear axle [m]  TODO: VALUE
 length: 4.97                      # length [m]
@@ -23,13 +21,12 @@ v_min: 0.0                        # lower boundary constraint for longitudinal/l
 v_max: 7.0                        # upper boundary constraint for longitudinal/lateral velocity [m/s]
 acceleration_max: 8.0             # max. absolute acceleration [m/s²]
 acceleration_t_max: 3.5           # max. absolute tangential acceleration [m/s²]
-jerk_max: 4                       # max. absolute jerk [m/s³]
+jerk_max: 4                       # max. absolute tangential jerk [m/s³]
 # constraint on front and rear steering angle
 # none (default): no constraint, ICR (instantaneous center of rotation) is free to move
 # anti-phase: ICR is restricted to the y-axis in the vehicles center of gravity frame -> achieves minimum turning radius
 # in-phase: ICR lies in infinity -> vehicle is not able to turn, but can move sideways -> vehicle slip angle (beta) is equal to the path gradient
 steering_mode_constraint: 'none'  # steering mode of the vehicle (in-phase, anti-phase or none (default))
-
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
@@ -41,7 +38,6 @@ c_a_n: 3.0            # distance to scale the nominal acceleration costs [m/s²]
 c_j_t: 3.0         # distance to scale the tangential jerk costs [m/s³]
 c_j_n: 3.0         # distance to scale the normal jerk costs [m/s³]
 c_alpha: 0.15         # distance to scale the steering rate costs [rad/s]
-
 
 ### slack weights for soft constraints
 enable_slack: False                         # activate slack weights for soft constraints

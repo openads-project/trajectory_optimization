@@ -306,11 +306,12 @@ def compute_alpha_r_cost_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
 def compute_psi_dot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
     """
     Computes the yaw rate for for a vehicle with RWS:
-    psi_dot = v_t * cos(beta) * (tan(delta_f) - tan(delta_r)) / L
+    psi_dot = v_t * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r)
     """
-    L = config['wheelbase']
+    L_f = config["distance_cg_front_axle"]
+    L_r = config["distance_cg_rear_axle"]
     beta = compute_side_slip_angle(ocp, config)
-    psi_dot = ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / L
+    psi_dot = ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r)
     return psi_dot
 
 def compute_psi_dot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
