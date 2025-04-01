@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
@@ -244,6 +245,19 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_, *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(acados_ocp_capsule_);
   }
+}
+
+std::vector<double> TrajectoryOptimizationNode::projectVector(const perception_msgs::gm::Vector3& a, const perception_msgs::gm::Vector3& b) {
+  double b_magnitude_squared = b.x * b.x + b.y * b.y;
+  if (b_magnitude_squared < std::numeric_limits<double>::epsilon()) {
+    return {0.0, 0.0};
+  }
+  double scale = (a.x * b.x + a.y * b.y) / b_magnitude_squared;
+  return {scale * b.x, scale * b.y};
+}
+
+double TrajectoryOptimizationNode::computeMagnitude(const std::vector<double>& a) {
+  return std::sqrt(a[0] * a[0] + a[1] * a[1]);
 }
 
 }  // namespace trajectory_optimization
