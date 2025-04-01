@@ -380,10 +380,16 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
  */
 std::vector<double> TrajectoryOptimizationNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
+  if (model_type_ == "Ackermann") {
   x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
-  // x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
-  x_init[4] = 0.0;
+  x_init[4] = 0.0;  //x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
   x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  } else if (model_type_ == "RWS") {
+    x_init[3] = perception_msgs::object_access::getVelocityMagnitude(ego_data);
+    x_init[4] = 0.0; 
+    x_init[6] = perception_msgs::object_access::getSteeringAngleFront(ego_data);
+    x_init[7] = perception_msgs::object_access::getSteeringAngleRear(ego_data);
+  }
   return x_init;
 }
 
