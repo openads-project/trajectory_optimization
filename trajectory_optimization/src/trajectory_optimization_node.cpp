@@ -440,8 +440,13 @@ void TrajectoryOptimizationNode::planningCycle() {
   // init trajectory message and set header
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
-  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  if (model_type_ == "Ackermann") {
+    trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+        *trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  } else if (model_type_ == "RWS") {
+    trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+        *trajectory, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
+  }
   trajectory->header.frame_id = vehicle_frame_id_;
   trajectory->header.stamp = ego_data_.header.stamp;  // use latest ego_data stamp as trajectory stamp
 
@@ -468,8 +473,13 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
   }
-  RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
+  if (model_type_ == "Ackermann") {
+    RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta: %f ", x_init[0],
                x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6]);
+  } else if (model_type_ == "RWS") {
+    RCLCPP_DEBUG(this->get_logger(), "Initial state: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta_front: %f, delta_rear: %f ", x_init[0],
+               x_init[1], x_init[2], x_init[3], x_init[4], x_init[5], x_init[6], x_init[7]);
+  }
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 
@@ -505,7 +515,12 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * *nlp_dims_->nx + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * *nlp_dims_->nx + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * *nlp_dims_->nx + 5], i);
-    trajectory_planning_msgs::trajectory_access::setDeltaAck(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], i);
+    if (model_type_ == "Ackermann") {
+      trajectory_planning_msgs::trajectory_access::setDeltaAck(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], i);
+    } else if (model_type_ == "RWS") {
+      trajectory_planning_msgs::trajectory_access::setDeltaFront(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], i);
+      trajectory_planning_msgs::trajectory_access::setDeltaRear(*trajectory, xtraj_[i * *nlp_dims_->nx + 7], i);
+    }
   }
 
   bool standstill = true;
