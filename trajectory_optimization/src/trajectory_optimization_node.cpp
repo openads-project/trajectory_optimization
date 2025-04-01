@@ -54,8 +54,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                 "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_,
-                                "Threshold for bi-level stabilization: maximum steering angle difference [degree]");
+  this->declareAndLoadParameter("bi_level_dDelta_f_", bi_level_dDelta_f_,
+                                "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
+  this->declareAndLoadParameter("bi_level_dDelta_r_", bi_level_dDelta_r_,
+                                "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
 
   this->setup();
@@ -266,29 +268,29 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   }
 
   // fill vectors with state values from the transformed trajectory
-  std::vector<double> TIME, V, Y, A, THETA, DELTA;
+  std::vector<double> TIME, V, Y, A, THETA, DELTA_F;
   for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_trajectory); i++) {
     TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(tf_trajectory, i));
     Y.push_back(trajectory_planning_msgs::trajectory_access::getY(tf_trajectory, i));
     V.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_trajectory, i));
     A.push_back(trajectory_planning_msgs::trajectory_access::getA(tf_trajectory, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_trajectory, i));
-    DELTA.push_back(trajectory_planning_msgs::trajectory_access::getDeltaAck(tf_trajectory, i));
+    DELTA_F.push_back(trajectory_planning_msgs::trajectory_access::getDeltaAck(tf_trajectory, i));
   }
 
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
-  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
+  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_f_tgt;
   double des_time =
       (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(tf_trajectory.header.stamp)).seconds();
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
-  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
-    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  if (!linearInterpolation(TIME, DELTA_F, des_time, delta_f_tgt))
+    delta_f_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
-  RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", y_tgt, v_tgt, a_tgt,
-               theta_tgt, delta_tgt);
+  RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_f_tgt: %f", y_tgt, v_tgt, a_tgt,
+               theta_tgt, delta_f_tgt);
 
   // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
@@ -301,9 +303,9 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
     y_tgt = 0.0;
     theta_tgt = 0.0;
-    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_ * M_PI / 180.0) {
-    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+    delta_f_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  } else if (fabs(delta_f_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_f_ * M_PI / 180.0) {
+    delta_f_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   }
 
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -313,7 +315,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   x_init[3] = v_tgt;
   x_init[4] = a_tgt;
   x_init[5] = theta_tgt;
-  x_init[6] = delta_tgt;
+  x_init[6] = delta_f_tgt;
   return x_init;
 }
 
