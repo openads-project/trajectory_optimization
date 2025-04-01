@@ -1,8 +1,8 @@
 repositories:
   planning_interfaces:
         type: git
-        url: https://gitlab.ika.rwth-aachen.de/fb-fi/definitions/planning_interfaces.git
-        version: main
+        url: https://github.com/ika-rwth-aachen/planning_interfaces.git
+        version: improvement/delta-ackermann
   perception_interfaces:
         type: git
         url: https://gitlab.ika.rwth-aachen.de/fb-fi/definitions/perception_interfaces.git
