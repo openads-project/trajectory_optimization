@@ -33,7 +33,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
-  this->declareAndLoadParameter("wheelbase", wheelbase_, "Wheelbase of the vehicle [m]");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");

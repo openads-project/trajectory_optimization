@@ -5,7 +5,7 @@ optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS n
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
-wheelbase: 2.711                  # wheelbase [m] (also used in ROS node)
+wheelbase: 2.711                  # wheelbase [m]
 length: 4.799                     # length [m]
 width: 1.855                      # width [m]
 offset2geocenter: [1.281, 0.0]    # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]

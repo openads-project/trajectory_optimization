@@ -128,7 +128,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
-  double wheelbase_ = 2.711;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
