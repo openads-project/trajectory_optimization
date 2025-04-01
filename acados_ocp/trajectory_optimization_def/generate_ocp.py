@@ -3,7 +3,8 @@ import argparse
 import os
 import yaml
 
-import model, dims, constraints, costs, opts
+import dims, constraints, costs, opts
+import model_Ackermann, model_RWS
 
 CURRENT_DIR_PATH = os.path.dirname(__file__)
 
@@ -23,7 +24,12 @@ def main():
     parameters = readConfig(args.config)
 
     ocp = AcadosOcp()
-    model.set_model(ocp, parameters)
+    if parameters['model_type'] == 'Ackermann':
+        model_Ackermann.set_model(ocp, parameters)
+    elif parameters['model_type'] == 'RWS':
+        model_RWS.set_model(ocp, parameters)
+    else:
+        raise ValueError(f"Unknown model type. Choose between 'Ackermann' or 'RWS'.")
     costs.set_costs(ocp, parameters)
     constraints.set_constraints(ocp, parameters) # Set constraints AFTER costs as soft constraints need to modify cost
     dims.set_dims(ocp, parameters)

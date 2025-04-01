@@ -148,7 +148,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> viz_circles_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
   double d_min_obstacle_long_ = 5.0;
@@ -156,7 +156,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {13, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_cost_weights_shape_ = {14, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 

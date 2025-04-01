@@ -1,60 +1,130 @@
 from acados_template import AcadosOcpConstraints, AcadosOcp
-from casadi import vertcat, fmin, fmax, tan
+from casadi import vertcat, atan, cos
+from utils import stable_tan
 from constants import *
 import numpy as np
 
-def set_constraints(ocp: AcadosOcp, parameters):
-    
+def set_constraints(ocp: AcadosOcp, config):
+
     cons = AcadosOcpConstraints()
-    
-    l = parameters['wheelbase']
 
-    # set constraints on state
+    ########## static constraints on state ##########
     # set v_min < v < v_max [m/s]
-    # set -a_lon_max < a_lon < a_lon_max [m/s^2]
-    # set -delta_max < delta < delta_max [rad]
-    cons.lbx = np.array([parameters['v_min'], -parameters['acceleration_lon_max'], -parameters['delta_max']])
-    cons.ubx = np.array([parameters['v_max'], parameters['acceleration_lon_max'], parameters['delta_max']])
-    cons.idxbx = np.array([STATE_INDEX_V, STATE_INDEX_A_LON, STATE_INDEX_DELTA])
+    # set a_min < a < a_max [m/s^2]
+    # set delta_min < delta_f < delta_max [rad]
+    # RWS: set delta_min < delta_r < delta_max [rad]
 
-    # set constraints on controls
-    alpha = parameters['alpha_max']
-    j_lon = parameters['jerk_max']
-    cons.lbu = np.array([-j_lon, -alpha])
-    cons.ubu = np.array([+j_lon, +alpha])
-    cons.idxbu = np.array([CONTROL_INDEX_J_LON, CONTROL_INDEX_ALPHA])
-
-    # define nonlinear constraint expression for acceleration
-    # a <= sqrt(a_lon^2 + a_lat^2) i.e. a^2 <= a_lon^2 + a_lat^2
-    # a_lat = v * psiDot
-    psi_dot = ocp.model.x[STATE_INDEX_V] / l * fmax(-10, fmin(10, tan(ocp.model.x[STATE_INDEX_DELTA])))
-    a_lat = ocp.model.x[STATE_INDEX_V] * psi_dot
-    a_squared = ocp.model.x[STATE_INDEX_A_LON]**2 + a_lat**2
-    ocp.model.con_h_expr = vertcat(a_squared)
-    ocp.model.con_h_expr_e = vertcat(a_squared)
-
-    # set boundaries for acceleration values through nonlinear constraints
-    a_max = parameters['acceleration_max']
-    cons.lh = np.array([0])
-    cons.lh_e = np.array([0])
-    cons.uh = np.array([a_max**2])
-    cons.uh_e = np.array([a_max**2])
-    
-    # Add slack to state constraints
-    if parameters["enable_slack"]:
-        # Here, we add a slack to velocity and acceleration constraints, but NOT to the steering angle
-        # This might make the optimization problem unfeasible, but we just cannot physically soften the steering angle constraint
-        cons.idxsbx = np.array([0, 1])        # Index of state bounds that are softened -> indices correspond to cons.idxbx
-        cons.idxsh = np.array([0])            # Index of nonlinear constraints that are softened -> indices correspond to entries in con_h_expr
-        # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
-        # So here, we have      v,    a_lon, a_squared
-        ocp.cost.Zl = np.diag(parameters["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables 
-        ocp.cost.Zu = np.diag(parameters["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
-        ocp.cost.zl = np.array(parameters["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
-        ocp.cost.zu = np.array(parameters["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
-
-    # set initial condition
-    # Note that this internally is mapped to idxbx_0=range(nx), lbx_0=x0, ubx_0=x0, so when setting these in the C++ node for step 0, all variables can be constrained.
+    # constraints on initiall shooting node
+    # initial state
     cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    if config['model_type'] == 'RWS':
+        cons.x0 = np.concatenate((cons.x0, [0.0]))
+
+    # constraints on intermediate shooting nodes
+    cons.lbx = np.array([config['v_min'], -config['acceleration_t_max'], -config['delta_max']])
+    cons.ubx = np.array([config['v_max'], config['acceleration_t_max'], config['delta_max']])
+    cons.idxbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
+
+    if config['model_type'] == 'RWS':
+        cons.lbx = np.concatenate((cons.lbx, [-config['delta_max']]))
+        cons.ubx = np.concatenate((cons.ubx, [config['delta_max']]))
+        cons.idxbx = np.concatenate((cons.idxbx, [STATE_INDEX_DELTA_R]))
+
+    # constraints on terminal shooting node
+    cons.lbx_e = cons.lbx
+    cons.ubx_e = cons.ubx
+    cons.idxbx_e = cons.idxbx
+
+    ########## static constraints on control ##########
+    # set -j_max < j < j_max [m/s^3]
+    # set -alpha_max < alpha_f < alpha_max [rad]
+    # RWS: set -alpha_max < alpha_r < alpha_max [rad]
+    cons.lbu = np.array([-config["jerk_max"], -config["alpha_max"]])
+    cons.ubu = np.array([config["jerk_max"], config["alpha_max"]])
+    cons.idxbu = np.array([CONTROL_INDEX_J_T, CONTROL_INDEX_ALPHA_F])
+
+    if config['model_type'] == 'RWS':
+        cons.lbu = np.concatenate((cons.lbu, [-config['alpha_max']]))
+        cons.ubu = np.concatenate((cons.ubu, [config['alpha_max']]))
+        cons.idxbu = np.concatenate((cons.idxbu, [CONTROL_INDEX_ALPHA_R]))
+
+    ########## nonlinear constraints ##########
+
+    # compute psi_dot:
+    # Ackermann: psi_dot = v / l * tan(delta_f)
+    # RWS: psi_dot = v * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r)
+    #beta = atan((L_r / (L_f + L_r)) * tan(delta_f) + (L_f / (L_f + L_r)) * tan(delta_r))
+    psi_dot = None
+    if config['model_type'] == 'RWS':
+        L_f = config['distance_cg_front_axle']
+        L_r = config['distance_cg_rear_axle']
+        beta = atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
+        psi_dot = ocp.model.x[STATE_INDEX_V_T] * cos(beta) * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r)
+    else:
+        l = config['wheelbase']
+        psi_dot = ocp.model.x[STATE_INDEX_V_T] / l * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
+
+    # compute normal acceleration
+    a_n = ocp.model.x[STATE_INDEX_V_T] * psi_dot
+
+    # compute absolute acceleration
+    a_abs_squared = ocp.model.x[STATE_INDEX_A_T]**2 + (a_n)**2
+
+    # Define nonlinear constraints
+    ocp.model.con_h_expr = vertcat(a_abs_squared)
+    ocp.model.con_h_expr_e = vertcat(a_abs_squared)
+
+    # Set boundaries for nonlinear constraints
+    # a_abs_squared < a_max_squared
+    #-psi_dot_max < psi_dot < psi_dot_max
+    #-beta_max < beta < beta_max TODO: check if this would improve stability
+    a_max_squared = config['acceleration_max']**2
+    cons.lh = np.array([0.0])
+    cons.uh = np.array([a_max_squared])
+
+    if config['model_type'] == 'RWS':
+        ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, psi_dot)
+        ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, psi_dot)
+        cons.lh = np.concatenate((cons.lh, [-config['psi_dot_max']]))
+        cons.uh = np.concatenate((cons.uh, [config['psi_dot_max']]))
+
+        # nonlinear constraints for steering mode
+        steering_mode_constraints = {
+            "in-phase": ocp.model.x[STATE_INDEX_DELTA_F] - ocp.model.x[STATE_INDEX_DELTA_R],
+            "anti-phase": ocp.model.x[STATE_INDEX_DELTA_F] + ocp.model.x[STATE_INDEX_DELTA_R]
+        }
+        if config["steering_mode_constraint"] in steering_mode_constraints:
+            ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, steering_mode_constraints[config["steering_mode"]])
+            ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, steering_mode_constraints[config["steering_mode"]])
+            cons.lh = np.concatenate((cons.lh, [0.0]))
+            cons.uh = np.concatenate((cons.uh, [0.0]))
+        elif config["steering_mode_constraint"] != "none":
+            raise ValueError("Invalid steering mode. Choose between 'in-phase', 'anti-phase' or 'none'(default).")
+
+    # also apply same constraints on terminal shooting node
+    cons.lh_e = cons.lh
+    cons.uh_e = cons.uh
+
+    ########## soft constraints ##########
+
+    if config["enable_slack"]:
+
+        # Add slack to nonlinear constraints (idxsh)
+        if config['model_type'] == 'RWS' and config['steering_mode_constraint'] in ['in-phase', 'anti-phase']:
+            cons.idxsh = np.array([0, 1, 2])                                    # Index of nonlinear constraints: a_abs_squared, psi_dot and steering_mode_constraint
+        elif config['model_type'] == 'RWS' and config['steering_mode_constraint'] == 'none':
+            cons.idxsh = np.array([0, 1])                                       # Index of nonlinear constraints: a_abs_squared and psi_dot
+        else:
+             cons.idxsh = np.array([0])                                         # Index of nonlinear constraints: a_abs_squared
+
+        # Add slack to state bounds (idxsbx)
+        cons.idxsbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T])              # Index of state constraints: v_t, a_t
+        # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
+        # Attention: parameters must have the same length as cons.isxsbx + cons.idxsh (depending on the steering mode and model type)
+        ocp.cost.Zl = np.diag(config["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables
+        ocp.cost.Zu = np.diag(config["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
+        ocp.cost.zl = np.array(config["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
+        ocp.cost.zu = np.array(config["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
 
     ocp.constraints = cons
