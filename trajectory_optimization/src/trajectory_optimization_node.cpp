@@ -60,6 +60,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("bi_level_dDelta_r_", bi_level_dDelta_r_,
                                 "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
+  this->declareAndLoadParameter("model_type_", model_name_,
+                                "Model type to be used in OCP (Ackermann, RWS)");
 
   this->setup();
 }
@@ -291,7 +293,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
   if (!linearInterpolation(TIME, DELTA_F, des_time, delta_f_tgt))
     delta_f_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-    
+
   RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_f_tgt: %f", y_tgt, v_tgt, a_tgt,
                theta_tgt, delta_f_tgt);
 

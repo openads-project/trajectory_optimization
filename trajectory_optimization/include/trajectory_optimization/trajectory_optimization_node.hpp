@@ -133,6 +133,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
   bool init_as_ref_ = false;
+  std::string model_type_ = "Ackermann";
 
   // bi-level thresholds
   double bi_level_dV_ = 5.0;
