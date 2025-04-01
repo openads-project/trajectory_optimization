@@ -59,6 +59,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("bi_level_dDelta_r_", bi_level_dDelta_r_,
                                 "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
+  this->declareAndLoadParameter("model_type_", model_name_,
+                                "Model type to be used in OCP (Ackermann, RWS)");
 
   this->setup();
 }
