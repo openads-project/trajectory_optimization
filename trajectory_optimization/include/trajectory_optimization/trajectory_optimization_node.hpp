@@ -140,8 +140,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double bi_level_dA_ = 2.0;
   double bi_level_dY_ = 0.1;
   double bi_level_dYaw_ = 5.0;
-  double bi_level_dDelta_f_ = 90.0;
-  double bi_level_dDelta_r_ = 90.0;
+  double bi_level_dDeltaFront_ = 90.0;
+  double bi_level_dDeltaRear_ = 0.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
