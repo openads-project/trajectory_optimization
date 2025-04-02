@@ -33,7 +33,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
-  this->declareAndLoadParameter("wheelbase", wheelbase_, "Wheelbase of the vehicle [m]");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
@@ -274,9 +273,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     V.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_trajectory, i));
     A.push_back(trajectory_planning_msgs::trajectory_access::getA(tf_trajectory, i));
     THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_trajectory, i));
-    double delta = atan(wheelbase_ * trajectory_planning_msgs::trajectory_access::getKappa(
-                                         tf_trajectory, i));  // export to trajectory_access?
-    DELTA.push_back(delta);
+    DELTA.push_back(trajectory_planning_msgs::trajectory_access::getDeltaAck(tf_trajectory, i));
   }
 
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
@@ -453,9 +450,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     trajectory_planning_msgs::trajectory_access::setV(*trajectory, xtraj_[i * *nlp_dims_->nx + 3], i);
     trajectory_planning_msgs::trajectory_access::setA(*trajectory, xtraj_[i * *nlp_dims_->nx + 4], i);
     trajectory_planning_msgs::trajectory_access::setTheta(*trajectory, xtraj_[i * *nlp_dims_->nx + 5], i);
-    double kappa = tan(xtraj_[i * *nlp_dims_->nx + 6]) / wheelbase_;
-    trajectory_planning_msgs::trajectory_access::setKappa(*trajectory, kappa, i);
-    // TODO: dKappa
+    trajectory_planning_msgs::trajectory_access::setDeltaAck(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], i);
   }
 
   bool standstill = true;
