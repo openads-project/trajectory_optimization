@@ -55,10 +55,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                 "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDeltaFront_", bi_level_dDeltaFront_,
+  this->declareAndLoadParameter("bi_level_dDeltaFront", bi_level_dDeltaFront_,
                                 "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
-  this->declareAndLoadParameter("model_type_", model_type_,
+  this->declareAndLoadParameter("model_type", model_type_,
                                 "Model type to be used in OCP (Ackermann, RWS)");
   if (model_type_ != "Ackermann") {
     if (model_type_ == "RWS") {
@@ -66,7 +66,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                     "Distance from center of gravity to front axle [m]");
       this->declareAndLoadParameter("distance_rear_axle", distance_rear_axle_,
                                     "Distance from center of gravity to rear axle [m]");
-      this->declareAndLoadParameter("bi_level_dDeltaRear_", bi_level_dDeltaRear_,
+      this->declareAndLoadParameter("bi_level_dDeltaRear", bi_level_dDeltaRear_,
                                     "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
     } else {
       RCLCPP_ERROR(this->get_logger(), "Model type '%s' not supported. Choose \"Ackermann\" or \"RWS\"", model_type_.c_str());
@@ -320,7 +320,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
                theta_tgt, delta_front_tgt);
   } else if (model_type_ == "RWS") {
     if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelocityMagnitude(ego_data);
-    if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = computeMagnitude(projectVector(perception_msgs::object_access::getAcceleration(ego_data), 
+    if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data), 
                                                                                                perception_msgs::object_access::getVelocity(ego_data)));
     if (!linearInterpolation(TIME, DELTA_FRONT, des_time, delta_front_tgt))
       delta_front_tgt = perception_msgs::object_access::getSteeringAngleFront(ego_data);
@@ -348,7 +348,7 @@ std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_ms
     }
   } else if (model_type_ == "RWS") {
     // longitudinal reinits
-    double a_proj_v = computeMagnitude(projectVector(perception_msgs::object_access::getAcceleration(ego_data), 
+    double a_proj_v = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data), 
                                          perception_msgs::object_access::getVelocity(ego_data)));
     if (fabs(v_tgt - perception_msgs::object_access::getVelocityMagnitude(ego_data)) > bi_level_dV_ ||
         fabs(a_tgt - a_proj_v) > bi_level_dA_) {
@@ -399,7 +399,8 @@ std::vector<double> TrajectoryOptimizationNode::getHighLevelX0(const perception_
     x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
   } else if (model_type_ == "RWS") {
     x_init[3] = perception_msgs::object_access::getVelocityMagnitude(ego_data);
-    x_init[4] = 0.0; 
+    x_init[4] = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data), 
+                                 perception_msgs::object_access::getVelocity(ego_data)));
     x_init[6] = perception_msgs::object_access::getSteeringAngleFront(ego_data);
     x_init[7] = perception_msgs::object_access::getSteeringAngleRear(ego_data);
   }
