@@ -196,10 +196,10 @@ void TrajectoryOptimizationNode::setup() {
   reference_trajectory_.header.frame_id = vehicle_frame_id_;
 
   // init latest trajectory
-  if (model_type_ == "Ackermann") {
+  if (*nlp_dims_->nx == ACKERMANN_STATE_DIM) {
     trajectory_planning_msgs::trajectory_access::initializeTrajectory(
         latest_valid_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
-  } else if (model_type_ == "RWS") {
+  } else if (*nlp_dims_->nx == RWS_STATE_DIM) {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       latest_valid_trajectory_, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
   latest_valid_trajectory_.header.frame_id = trajectory_frame_id_;
