@@ -523,7 +523,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     } else if (*nlp_dims_->nx == RWS_STATE_DIM) {
       trajectory_planning_msgs::trajectory_access::setDeltaFront(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], i);
       trajectory_planning_msgs::trajectory_access::setDeltaRear(*trajectory, xtraj_[i * *nlp_dims_->nx + 7], i);
-      trajectory_planning_msgs::trajectory_access::setBeta(*trajectory, xtraj_[i * *nlp_dims_->nx + 3], xtraj_[i * *nlp_dims_->nx + 4],
+      trajectory_planning_msgs::trajectory_access::setBeta(*trajectory, xtraj_[i * *nlp_dims_->nx + 6], xtraj_[i * *nlp_dims_->nx + 7],
         distance_front_axle_, distance_rear_axle_, i);
     }
   }
