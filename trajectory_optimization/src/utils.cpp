@@ -247,7 +247,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   }
 }
 
-std::vector<double> TrajectoryOptimizationNode::projectVectorAonB(const perception_msgs::gm::Vector3& a, const perception_msgs::gm::Vector3& b) {
+std::vector<double> TrajectoryOptimizationNode::projectVectorAonB(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& b) {
   double b_magnitude_squared = b.x * b.x + b.y * b.y;
   if (b_magnitude_squared < std::numeric_limits<double>::epsilon()) {
     return {0.0, 0.0};

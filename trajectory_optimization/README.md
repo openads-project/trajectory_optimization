@@ -31,7 +31,6 @@ This package provides a ROS 2 node for solving the OCPs defined [here](../acados
 | `optimization_horizon` | `double` | Optimization Horizon in seconds. Default: `1.0` |
 | `verbose` | `bool` | Print solver statistics. Default: `false` |
 | `debug_visualization` | `bool` | Publish debug visualization markers (e.g. obstacle circles). Default: `false` |
-| `wheelbase` | `double` | Wheelbase of the vehicle [m] (should be aligned with the OCP). Default: `2.711` |
 | `cost_weights` | `std::vector<double>` | Cost function weights. Default: all elements `1.0` |
 | `dynamic_weight` | `double` | Dynamic weight alpha. Default: `1.0` |
 | `thw` | `double` | Time headway to front vehicle. Default: `2.0` |

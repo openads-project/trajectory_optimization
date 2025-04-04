@@ -17,16 +17,13 @@
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.2                # maximum y-offset before bi-level stabilization hits [m]
     bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
-    bi_level_dDeltaFront: 5.0       # maximum ackermann delta difference before bi-level stabilization hits [degree]
+    bi_level_dDelta_front: 5.0      # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
     model_name: 'passat_cc'           # name of the acados model
     model_type: 'Ackermann'           # type of the acados model ('Ackermann' or 'RWS')
     optimization_horizon: 5.0         # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
-
-    #### vehicle specific parameters
-    wheelbase: 2.711                  # wheelbase [m] (also used as build parameter in OCP)
 
     #### cost weights
     cost_weights:

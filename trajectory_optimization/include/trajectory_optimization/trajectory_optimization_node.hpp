@@ -69,9 +69,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y, const bool wrap_angle = false);
-  std::vector<double> projectVectorAonB(const perception_msgs::gm::Vector3 &a, const perception_msgs::gm::Vector3 &b);
+  std::vector<double> projectVectorAonB(const geometry_msgs::msg::Vector3 &a, const geometry_msgs::msg::Vector3 &b);
   double computeMagnitude(const std::vector<double> &a);
-       
+
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
   void referenceTrajectoryCallback(const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg);
@@ -130,7 +130,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
-  double wheelbase_ = 2.711;
   double distance_front_axle_ = 0.0;
   double distance_rear_axle_ = 0.0;
   double standstill_threshold_ = 0.45;
@@ -144,8 +143,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double bi_level_dA_ = 2.0;
   double bi_level_dY_ = 0.1;
   double bi_level_dYaw_ = 5.0;
-  double bi_level_dDeltaFront_ = 90.0;
-  double bi_level_dDeltaRear_ = 0.0;
+  double bi_level_dDelta_front_ = 90.0;
+  double bi_level_dDelta_rear_  = 0.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
