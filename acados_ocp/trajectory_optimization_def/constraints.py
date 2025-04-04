@@ -95,8 +95,8 @@ def set_constraints(ocp: AcadosOcp, config):
             "anti-phase": ocp.model.x[STATE_INDEX_DELTA_F] + ocp.model.x[STATE_INDEX_DELTA_R]
         }
         if config["steering_mode_constraint"] in steering_mode_constraints:
-            ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, steering_mode_constraints[config["steering_mode"]])
-            ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, steering_mode_constraints[config["steering_mode"]])
+            ocp.model.con_h_expr = vertcat(ocp.model.con_h_expr, steering_mode_constraints[config["steering_mode_constraint"]])
+            ocp.model.con_h_expr_e = vertcat(ocp.model.con_h_expr_e, steering_mode_constraints[config["steering_mode_constraint"]])
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [0.0]))
         elif config["steering_mode_constraint"] != "none":
