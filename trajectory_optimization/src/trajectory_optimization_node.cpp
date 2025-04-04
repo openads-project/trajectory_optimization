@@ -54,9 +54,9 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const rclcpp::NodeOptions
                                 "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta_front_", bi_level_dDelta_front_,
+  this->declareAndLoadParameter("bi_level_dDelta_front", bi_level_dDelta_front_,
                                 "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta_rear_", bi_level_dDelta_rear_,
+  this->declareAndLoadParameter("bi_level_dDelta_rear", bi_level_dDelta_rear_,
                                 "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
   this->declareAndLoadParameter("distance_front_axle", distance_front_axle_, "Distance from center of gravity to front axle [m]");
