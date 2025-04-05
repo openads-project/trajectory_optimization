@@ -1,6 +1,6 @@
 #pragma once
 
-#include "trajectory_optimization_base_node.hpp"
+#include <trajectory_optimization/trajectory_optimization_base_node.hpp>
 
 namespace trajectory_optimization {
 
