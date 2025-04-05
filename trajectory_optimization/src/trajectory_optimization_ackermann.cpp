@@ -12,7 +12,8 @@ namespace trajectory_optimization
 TrajectoryOptimizationAckermannNode::TrajectoryOptimizationAckermannNode(const rclcpp::NodeOptions &options)
     : TrajectoryOptimizationNode("TrajectoryOptimizationAckermannNode",options)
 {
-    RCLCPP_INFO(this->get_logger(), "TrajectoryOptimizationNode initialized.");
+    // initialize trajectory type
+    setTrajectoryType(latest_valid_trajectory_);
 }
 
 TrajectoryOptimizationAckermannNode::~TrajectoryOptimizationAckermannNode() = default;
@@ -99,7 +100,8 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getHighLevelX0(const pe
     x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
     x_init[4] = 0.0;  //x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
     x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-
+    
+    RCLCPP_DEBUG(this->get_logger(), "x_init[3]: %f, x_init[4]: %f, x_init[6]: %f", x_init[3], x_init[4], x_init[6]);
     return x_init;
 }
 

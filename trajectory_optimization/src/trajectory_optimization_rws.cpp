@@ -10,7 +10,8 @@ namespace trajectory_optimization
 TrajectoryOptimizationRWSNode::TrajectoryOptimizationRWSNode(const rclcpp::NodeOptions &options)
     : TrajectoryOptimizationNode("TrajectoryOptimizationRWSNode", options)
 {
-
+    // initialize trajectory type
+    setTrajectoryType(latest_valid_trajectory_);
 }
 
 TrajectoryOptimizationRWSNode::~TrajectoryOptimizationRWSNode() = default;

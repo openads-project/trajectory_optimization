@@ -191,9 +191,7 @@ void TrajectoryOptimizationNode::setup() {
       reference_trajectory_, trajectory_planning_msgs::msg::REFERENCE::TYPE_ID, n_shots_ + 1);
   reference_trajectory_.header.frame_id = vehicle_frame_id_;
 
-  // init latest trajectory
-  setTrajectoryType(latest_valid_trajectory_);
-  
+
   setupSolver();
 }
 
