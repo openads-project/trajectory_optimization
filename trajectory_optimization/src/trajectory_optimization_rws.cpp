@@ -1,5 +1,5 @@
 
-#include "trajectory_optimization/tractory_optimization_rws.hpp"
+#include "trajectory_optimization/trajectory_optimization_rws.hpp"
 
 #include <rclcpp_components/register_node_macro.hpp>
 
