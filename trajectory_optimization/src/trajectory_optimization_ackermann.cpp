@@ -22,7 +22,7 @@ void TrajectoryOptimizationAckermannNode::setTrajectoryType(trajectory_planning_
     initializeTrajectoryDriveable(trajectory);
 }
 
-std::vector<double> TrajectoryOptimizationNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
+std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     // transform latest trajectory to current base_link frame
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
     try {
