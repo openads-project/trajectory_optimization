@@ -25,7 +25,9 @@ set(TARGET_NAME trajectory_optimization_node_component)
 
 add_library(${TARGET_NAME} SHARED 
   src/callbacks.cpp
-  src/trajectory_optimization_node.cpp
+  src/trajectory_optimization_base_node.cpp
+  src/trajectory_optimization_ackermann.cpp
+  src/trajectory_optimization_rws.cpp
   src/utils.cpp
 )
 
@@ -34,8 +36,13 @@ target_link_libraries(${TARGET_NAME}
 )
 
 rclcpp_components_register_node(${TARGET_NAME}
-  PLUGIN "trajectory_optimization::TrajectoryOptimizationNode"
-  EXECUTABLE trajectory_optimization_node
+  PLUGIN "trajectory_optimization::TrajectoryOptimizationAckermannNode"
+  EXECUTABLE trajectory_optimization_ackermann_node
+)
+
+rclcpp_components_register_node(${TARGET_NAME}
+  PLUGIN "trajectory_optimization::TrajectoryOptimizationRWSNode"
+  EXECUTABLE trajectory_optimization_rws_node
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC

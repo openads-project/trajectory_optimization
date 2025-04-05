@@ -32,11 +32,11 @@ template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
 
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
-  explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions &options);
+  explicit TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions &options);
 
   ~TrajectoryOptimizationNode();
 
- private:
+ protected:
   // input topics
   const std::string kEgoDataTopic = "~/ego_data";
   const std::string kObjectListTopic = "~/object_list";
@@ -64,8 +64,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void printSolution(int status);
   void trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
 
-  std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
-  std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y, const bool wrap_angle = false);
@@ -92,6 +90,24 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                                                        const int n_objects);
   std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double> &obstacles);
+
+  // Inline functions for each type of initialization
+  inline void initializeTrajectoryDriveable(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+    trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+        trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  }
+  inline void initializeTrajectoryDriveableRWS(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+    trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+        trajectory, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
+  }
+
+  // virtual functions for each type of trajectory
+  virtual void setTrajectoryType(trajectory_planning_msgs::msg::Trajectory& trajectory) = 0;
+  virtual std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) = 0;
+  virtual std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) = 0;
+  virtual void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) = 0;
+  virtual void printStateInfo(const std::vector<double>& state) = 0;
+
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -136,7 +152,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
   bool init_as_ref_ = false;
-  std::string model_type_ = "Ackermann";
 
   // bi-level thresholds
   double bi_level_dV_ = 5.0;

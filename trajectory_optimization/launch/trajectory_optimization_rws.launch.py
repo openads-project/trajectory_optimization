@@ -11,9 +11,9 @@ def generate_launch_description():
 
 
     params_arg = DeclareLaunchArgument('params', default_value=PathJoinSubstitution([
-        get_package_share_directory("trajectory_optimization"), "config", "params.yml"])
+        get_package_share_directory("trajectory_optimization"), "config", "params_rws.yml"])
     )
-    node_name_arg = DeclareLaunchArgument('node_name', default_value='trajectory_optimization')
+    node_name_arg = DeclareLaunchArgument('node_name', default_value='trajectory_optimization_rws_node')
     namespace_arg = DeclareLaunchArgument('namespace', default_value='')
 
     drivable_space_topic_arg = DeclareLaunchArgument('drivable_space_topic', default_value='~/drivable_space')
@@ -43,7 +43,7 @@ def generate_launch_description():
         SetParameter(name='use_sim_time', value=LaunchConfiguration('use_sim_time')),
         Node(
             package="trajectory_optimization",
-            executable="trajectory_optimization_node",
+            executable="trajectory_optimization_rws_node",
             name=LaunchConfiguration('node_name'),
             namespace=LaunchConfiguration('namespace'),
             output="screen",
