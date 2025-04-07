@@ -5,10 +5,10 @@
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]/ defines how often the optimization problem is solved
-    init_as_ref: False             # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
+    init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
-    high_level_stabilization: True  # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
-    use_prediction: False           # use obstacle predictions for optimization (True) or only static obstacles (False)
+    high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
 
@@ -16,9 +16,9 @@
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.5                # maximum y-offset before bi-level stabilization hits [m]
-    bi_level_dYaw: 5.0              # maximum yaw difference before bi-level stabilization hits [degree]
-    bi_level_dDelta_front: 10.0       # maximum front steering difference before bi-level stabilization hits [degree]
-    bi_level_dDelta_rear: 10.0        # maximum rear steering difference before bi-level stabilization hits [degree]
+    bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
+    bi_level_dDelta_front: 5.0       # maximum front steering difference before bi-level stabilization hits [degree]
+    bi_level_dDelta_rear: 5.0        # maximum rear steering difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
     model_name: 'omni_shuttle'        # name of the acados model
@@ -37,7 +37,7 @@
       - 0.0  # x (2)
       - 0.0  # y (3)
       - 3.0  # v_t (4)
-      - 0.0  # obstacles (5)
+      - 10.0  # obstacles (5)
       - 0.1 # a_n (6)
       - 0.5  # a_t_pos (7)
       - 0.5 # a_t_neg (8)
