@@ -247,17 +247,4 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   }
 }
 
-std::vector<double> TrajectoryOptimizationNode::projectVectorAonB(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& b) {
-  double b_magnitude_squared = b.x * b.x + b.y * b.y;
-  if (b_magnitude_squared < std::numeric_limits<double>::epsilon()) {
-    return {0.0, 0.0};
-  }
-  double scale = (a.x * b.x + a.y * b.y) / b_magnitude_squared;
-  return {scale * b.x, scale * b.y};
-}
-
-double TrajectoryOptimizationNode::computeMagnitude(const std::vector<double>& a) {
-  return std::sqrt(a[0] * a[0] + a[1] * a[1]);
-}
-
 }  // namespace trajectory_optimization

@@ -23,6 +23,9 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
     // convert to trajectory msg
     void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
 
+    // project acceleration vector on velocity vector
+    double projectVectorAonV(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& v);
+
     // print state info
     double computeVehicleslipAngle(const double& delta_front, const double& delta_rear);
     void printStateInfo(const std::vector<double>& state) override;

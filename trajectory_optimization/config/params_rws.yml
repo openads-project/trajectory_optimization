@@ -26,8 +26,6 @@
     n_shots: 50                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
     #### vehicle specific parameters
-    wheelbase: 3.4                   # wheelbase [m] (also used as build parameter in OCP)
-    track_width: 1.78                # track width [m]
     distance_front_axle: 1.7         # distance from center of gravity to front axle [m]
     distance_rear_axle: 1.7          # distance from center of gravity to rear axle [m]
 
@@ -39,7 +37,7 @@
       - 0.0  # x (2)
       - 0.0  # y (3)
       - 3.0  # v_t (4)
-      - 0.0  # obstacles (5)            //TODO: no weighting for this costs yet
+      - 0.0  # obstacles (5)
       - 0.1 # a_n (6)
       - 0.5  # a_t_pos (7)
       - 0.5 # a_t_neg (8)
@@ -48,7 +46,7 @@
       - 0.05 # j_t_neg (11)
       - 0.1  # alpha_f/alpha_r (12)
       - 1.0  # endYaw (13)
-    dynamic_weight: 1.0    # x<1 -> zukünftige Zustände sind weniger wichtig
+    dynamic_weight: 1.0
 
     # other cost params
     thw: 2.0                    # time headway [s]

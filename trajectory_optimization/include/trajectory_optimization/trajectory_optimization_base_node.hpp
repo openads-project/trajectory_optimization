@@ -67,8 +67,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y, const bool wrap_angle = false);
-  std::vector<double> projectVectorAonB(const geometry_msgs::msg::Vector3 &a, const geometry_msgs::msg::Vector3 &b);
-  double computeMagnitude(const std::vector<double> &a);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);

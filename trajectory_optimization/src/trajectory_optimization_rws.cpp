@@ -54,8 +54,8 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
     if (!linearInterpolation(TIME, V, des_time, v_tgt))
         v_tgt = perception_msgs::object_access::getVelocityMagnitude(ego_data);
     if (!linearInterpolation(TIME, A, des_time, a_tgt))
-        a_tgt = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data),
-                                                   perception_msgs::object_access::getVelocity(ego_data)));
+        a_tgt = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
+                                  perception_msgs::object_access::getVelocity(ego_data));
     if (!linearInterpolation(TIME, DELTA_FRONT, des_time, delta_front_tgt))
         delta_front_tgt = perception_msgs::object_access::getSteeringAngleFront(ego_data);
     if (!linearInterpolation(TIME, DELTA_REAR, des_time, delta_rear_tgt))
@@ -66,8 +66,8 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
   
     // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
     // longitudinal reinits
-    double a_path = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data),
-                                                         perception_msgs::object_access::getVelocity(ego_data)));
+    double a_path = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
+                                      perception_msgs::object_access::getVelocity(ego_data));
     if (fabs(v_tgt - perception_msgs::object_access::getVelocityMagnitude(ego_data)) > bi_level_dV_ ||
         fabs(a_tgt - a_path) > bi_level_dA_) {
         v_tgt = perception_msgs::object_access::getVelocityMagnitude(ego_data);
@@ -102,8 +102,8 @@ std::vector<double> TrajectoryOptimizationRWSNode::getHighLevelX0(const percepti
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
 
     x_init[3] = perception_msgs::object_access::getVelocityMagnitude(ego_data);
-    x_init[4] = computeMagnitude(projectVectorAonB(perception_msgs::object_access::getAcceleration(ego_data),
-                                   perception_msgs::object_access::getVelocity(ego_data)));
+    x_init[4] = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
+                                   perception_msgs::object_access::getVelocity(ego_data));
     x_init[6] = perception_msgs::object_access::getSteeringAngleFront(ego_data);
     x_init[7] = perception_msgs::object_access::getSteeringAngleRear(ego_data);
 
@@ -125,11 +125,19 @@ void TrajectoryOptimizationRWSNode::convertToTrajectoryMsg(trajectory_planning_m
     }
 }
 
-
 double TrajectoryOptimizationRWSNode::computeVehicleslipAngle(const double& delta_front, const double& delta_rear) {
     double wheel_base = distance_front_axle_ + distance_rear_axle_;
     double slip_angle = atan(distance_rear_axle_ / wheel_base * tan(delta_front) + distance_front_axle_ / wheel_base * tan(delta_rear));
     return slip_angle;
+}
+
+double TrajectoryOptimizationRWSNode::projectVectorAonV(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& v) {
+    double v_magnitude_squared = v.x * v.x + v.y * v.y;
+    if (v_magnitude_squared < std::numeric_limits<double>::epsilon()) {
+      return 0.0;
+    }
+    double scale = (a.x * v.x + a.y * v.y) / v_magnitude_squared;
+    return scale * std::sqrt(v_magnitude_squared);
 }
 
 void TrajectoryOptimizationRWSNode::printStateInfo(const std::vector<double>& state) {
