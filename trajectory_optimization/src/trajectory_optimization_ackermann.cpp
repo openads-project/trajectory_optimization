@@ -110,7 +110,7 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
 std::vector<double> TrajectoryOptimizationAckermannNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
     x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
-    x_init[4] = 0.0;  //x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
+    x_init[4] = perception_msgs::object_access::getAccLon(ego_data);
     x_init[6] = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
     return x_init;
