@@ -14,8 +14,6 @@
 
 namespace trajectory_optimization {
 
-
-  
 typedef std::variant<passat_cc_solver_capsule*, auto_shuttle_solver_capsule*, omni_shuttle_solver_capsule*> ocp_model_capsule_t;
 
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {

@@ -12,9 +12,8 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
 
   private:
 
-
-    // set trajectory type
-    void setTrajectoryType(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
+    // init trajectory with correct type
+    void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
 
     // stabilization strageties
     std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) override;
@@ -27,9 +26,15 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
     double projectVectorAonV(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& v);
 
     // print state info
-    double computeVehicleslipAngle(const double& delta_front, const double& delta_rear);
-    void printStateInfo(const std::vector<double>& state) override;
-    
+    double computeVehicleSlipAngle(const double& delta_front, const double& delta_rear);
+
+    // parameters
+    double distance_front_axle_ = 1.7;
+    double distance_rear_axle_ = 1.7;
+
+    // model specific bi-level thresholds
+    double bi_level_dDelta_front_ = 5.0;
+    double bi_level_dDelta_rear_ = 5.0;
 };
 
 

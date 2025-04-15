@@ -10,15 +10,19 @@ namespace trajectory_optimization
 TrajectoryOptimizationRWSNode::TrajectoryOptimizationRWSNode(const rclcpp::NodeOptions &options)
     : TrajectoryOptimizationNode("TrajectoryOptimizationRWSNode", options)
 {
-    // initialize trajectory type
-    setTrajectoryType(latest_valid_trajectory_);
+    this->declareAndLoadParameter("distance_front_axle", distance_front_axle_, "Distance from center of gravity to front axle [m]");
+    this->declareAndLoadParameter("distance_rear_axle", distance_rear_axle_, "Distance from center of gravity to rear axle [m]");
+    this->declareAndLoadParameter("bi_level_dDelta_front", bi_level_dDelta_front_,
+        "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
+    this->declareAndLoadParameter("bi_level_dDelta_rear", bi_level_dDelta_rear_,
+        "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
 }
 
 TrajectoryOptimizationRWSNode::~TrajectoryOptimizationRWSNode() = default;
 
-void TrajectoryOptimizationRWSNode::setTrajectoryType(trajectory_planning_msgs::msg::Trajectory& trajectory) {
-    // DRIVEABLERWS trajectory type
-    initializeTrajectoryDriveableRWS(trajectory);
+void TrajectoryOptimizationRWSNode::initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+    trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+        trajectory, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
 }
 
 std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
@@ -125,7 +129,7 @@ void TrajectoryOptimizationRWSNode::convertToTrajectoryMsg(trajectory_planning_m
     }
 }
 
-double TrajectoryOptimizationRWSNode::computeVehicleslipAngle(const double& delta_front, const double& delta_rear) {
+double TrajectoryOptimizationRWSNode::computeVehicleSlipAngle(const double& delta_front, const double& delta_rear) {
     double wheel_base = distance_front_axle_ + distance_rear_axle_;
     double slip_angle = atan(distance_rear_axle_ / wheel_base * tan(delta_front) + distance_front_axle_ / wheel_base * tan(delta_rear));
     return slip_angle;
@@ -139,11 +143,5 @@ double TrajectoryOptimizationRWSNode::projectVectorAonV(const geometry_msgs::msg
     double scale = (a.x * v.x + a.y * v.y) / v_magnitude_squared;
     return scale * std::sqrt(v_magnitude_squared);
 }
-
-void TrajectoryOptimizationRWSNode::printStateInfo(const std::vector<double>& state) {
-    RCLCPP_DEBUG(this->get_logger(), "State: x: %f, y: %f, s: %f v: %f, a: %f, theta: %f, delta_front: %f, delta_rear: %f , beta: %f", state[0],
-               state[1], state[2], state[3], state[4], state[5], state[6], state[7] , computeVehicleslipAngle(state[6], state[7]));
-}
-
 
 } // namespace trajectory_optimization

@@ -50,13 +50,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta_front", bi_level_dDelta_front_,
-                                "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta_rear", bi_level_dDelta_rear_,
-                                "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
   this->declareAndLoadParameter("init_as_ref", init_as_ref_, "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
-  this->declareAndLoadParameter("distance_front_axle", distance_front_axle_, "Distance from center of gravity to front axle [m]");
-  this->declareAndLoadParameter("distance_rear_axle", distance_rear_axle_, "Distance from center of gravity to rear axle [m]");
   this->setup();
 }
 
@@ -191,6 +185,10 @@ void TrajectoryOptimizationNode::setup() {
       reference_trajectory_, trajectory_planning_msgs::msg::REFERENCE::TYPE_ID, n_shots_ + 1);
   reference_trajectory_.header.frame_id = vehicle_frame_id_;
 
+  // init latest trajectory (doesn't matter which type, only used for standstill detection)
+  trajectory_planning_msgs::trajectory_access::initializeTrajectory(
+      latest_valid_trajectory_, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
+  latest_valid_trajectory_.header.frame_id = trajectory_frame_id_;
 
   setupSolver();
 }
@@ -287,8 +285,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   // init trajectory message and set header
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
-  setTrajectoryType(*trajectory);  
-  
+  initializeTrajectory(*trajectory);
+
   trajectory->header.frame_id = vehicle_frame_id_;
   trajectory->header.stamp = ego_data_.header.stamp;  // use latest ego_data stamp as trajectory stamp
 
@@ -315,8 +313,14 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
   }
-  printStateInfo(x_init);
-  
+
+  // debug print of initial state
+  std::stringstream ss;
+  ss << "Initial state: ";
+  for (size_t i = 0; i < x_init.size(); ++i)
+    ss << "x[" << i << "]: " << x_init[i] << (i != x_init.size() - 1 ? ", " : "");
+  RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
+
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
 

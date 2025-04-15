@@ -12,9 +12,9 @@ class TrajectoryOptimizationAckermannNode : public TrajectoryOptimizationNode {
 
   private:
 
-    // set trajectory type
-    void setTrajectoryType(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
-    
+    // init trajectory with correct type
+    void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
+
     // stabilization strageties
     std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) override;
     std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) override;
@@ -22,10 +22,9 @@ class TrajectoryOptimizationAckermannNode : public TrajectoryOptimizationNode {
     // convert to trajectory msg
     void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
 
-    // print state info
-    void printStateInfo(const std::vector<double>& state) override;
-
-
+    // parameters
+    // model specific bi-level thresholds
+    double bi_level_dDelta_ = 5.0;
 };
 
 

@@ -17,8 +17,8 @@
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.5                # maximum y-offset before bi-level stabilization hits [m]
     bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
-    bi_level_dDelta_front: 5.0       # maximum front steering difference before bi-level stabilization hits [degree]
-    bi_level_dDelta_rear: 5.0        # maximum rear steering difference before bi-level stabilization hits [degree]
+    bi_level_dDelta_front: 5.0      # maximum front steering difference before bi-level stabilization hits [degree]
+    bi_level_dDelta_rear: 5.0       # maximum rear steering difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
     model_name: 'omni_shuttle'        # name of the acados model
@@ -29,7 +29,6 @@
     distance_front_axle: 1.7         # distance from center of gravity to front axle [m]
     distance_rear_axle: 1.7          # distance from center of gravity to rear axle [m]
 
-    
     #### cost weights
     cost_weights:
       - 5.0  # dlat (0)
@@ -37,16 +36,16 @@
       - 0.0  # x (2)
       - 0.0  # y (3)
       - 3.0  # v_t (4)
-      - 10.0  # obstacles (5)
-      - 0.1 # a_n (6)
+      - 10.0 # obstacles (5)
+      - 0.1  # a_n (6)
       - 0.5  # a_t_pos (7)
-      - 0.5 # a_t_neg (8)
-      - 0.05  # j_n (9)
+      - 0.5  # a_t_neg (8)
+      - 0.05 # j_n (9)
       - 0.1  # j_t_pos (10)
       - 0.05 # j_t_neg (11)
       - 0.1  # alpha_f/alpha_r (12)
       - 1.0  # endYaw (13)
-    dynamic_weight: 1.0
+    dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
     thw: 2.0                    # time headway [s]
