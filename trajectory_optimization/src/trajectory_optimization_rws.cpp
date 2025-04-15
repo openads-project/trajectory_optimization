@@ -25,6 +25,17 @@ void TrajectoryOptimizationRWSNode::initializeTrajectory(trajectory_planning_msg
         trajectory, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
 }
 
+/**
+ * @brief Calculates and returns the initial state vector for the ocp using bi-level stabilization.
+ *
+ * This function uses bi-level stabilization for initializing the optimization problem.
+ * In general the initial state is interpolated from the latest trajectory (-> low-level stabilization).
+ * But if the difference between the interpolated state and the ego state is too large, the ego state is used instead (-> high-level stabilization).
+ * This combination of low- and high-level stabilization is called bi-level stabilization.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     // transform latest trajectory to current base_link frame
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
@@ -102,6 +113,15 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
     return x_init;
 }
 
+/**
+ * @brief Returns the initial state vector for the ocp using higl-level stabilization.
+ *
+ * This function uses high-level stabilization for initializing the optimization problem.
+ * -> initial state = current state of the ego vehicle.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationRWSNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
 

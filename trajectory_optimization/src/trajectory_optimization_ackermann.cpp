@@ -22,6 +22,17 @@ void TrajectoryOptimizationAckermannNode::initializeTrajectory(trajectory_planni
         trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID, n_shots_ + 1);
 }
 
+/**
+ * @brief Calculates and returns the initial state vector for the ocp using bi-level stabilization.
+ *
+ * This function uses bi-level stabilization for initializing the optimization problem.
+ * In general the initial state is interpolated from the latest trajectory (-> low-level stabilization).
+ * But if the difference between the interpolated state and the ego state is too large, the ego state is used instead (-> high-level stabilization).
+ * This combination of low- and high-level stabilization is called bi-level stabilization.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     // transform latest trajectory to current base_link frame
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
@@ -35,34 +46,31 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
     }
 
     // fill vectors with state values from the transformed trajectory
-    std::vector<double> TIME, V, Y, A, THETA, DELTA_ACK;
+    std::vector<double> TIME, V, Y, A, THETA, DELTA;
     for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_trajectory); i++) {
       TIME.push_back(trajectory_planning_msgs::trajectory_access::getT(tf_trajectory, i));
       Y.push_back(trajectory_planning_msgs::trajectory_access::getY(tf_trajectory, i));
       V.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_trajectory, i));
       A.push_back(trajectory_planning_msgs::trajectory_access::getA(tf_trajectory, i));
       THETA.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_trajectory, i));
-      DELTA_ACK.push_back(trajectory_planning_msgs::trajectory_access::getDeltaAck(tf_trajectory, i));
+      DELTA.push_back(trajectory_planning_msgs::trajectory_access::getDeltaAck(tf_trajectory, i));
     }
 
     // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
-    double v_tgt, y_tgt, a_tgt, theta_tgt, delta_ack_tgt;
+    double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
     double des_time =
         (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(tf_trajectory.header.stamp)).seconds();
     if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
+    if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
+    if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
     if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
-    if (!linearInterpolation(TIME, V, des_time, v_tgt))
-        v_tgt = perception_msgs::object_access::getVelLon(ego_data);
-    if (!linearInterpolation(TIME, A, des_time, a_tgt))
-        a_tgt = perception_msgs::object_access::getAccLon(ego_data);
-    if (!linearInterpolation(TIME, DELTA_ACK, des_time, delta_ack_tgt))
-        delta_ack_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+    if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
+        delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
 
-    RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_ack_tgt: %f", y_tgt, v_tgt, a_tgt,
-                 theta_tgt, delta_ack_tgt);
+    RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", y_tgt, v_tgt, a_tgt,
+                 theta_tgt, delta_tgt);
 
     // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
-
     // longitudinal reinits
     if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ ||
         fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
@@ -73,9 +81,9 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
     if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
         y_tgt = 0.0;
         theta_tgt = 0.0;
-        delta_ack_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-    } else if (fabs(delta_ack_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_ * M_PI / 180.0) {
-        delta_ack_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+        delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+    } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_ * M_PI / 180.0) {
+        delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
     }
 
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -85,12 +93,20 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
     x_init[3] = v_tgt;
     x_init[4] = a_tgt;
     x_init[5] = theta_tgt;
-    x_init[6] = delta_ack_tgt;
+    x_init[6] = delta_tgt;
 
     return x_init;
 }
 
-
+/**
+ * @brief Returns the initial state vector for the ocp using higl-level stabilization.
+ *
+ * This function uses high-level stabilization for initializing the optimization problem.
+ * -> initial state = current state of the ego vehicle.
+ *
+ * @param ego_data EgoData message.
+ * @return Initial state for the optimization problem.
+ */
 std::vector<double> TrajectoryOptimizationAckermannNode::getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) {
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
     x_init[3] = perception_msgs::object_access::getVelLon(ego_data);
