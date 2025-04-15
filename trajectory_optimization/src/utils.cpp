@@ -1,7 +1,7 @@
 #include <cmath>
 #include <limits>
 
-#include <trajectory_optimization/trajectory_optimization_base_node.hpp>
+#include <trajectory_optimization/trajectory_optimization_node.hpp>
 
 #include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 

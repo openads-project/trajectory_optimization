@@ -3,7 +3,7 @@
 #include <functional>
 #include <thread>
 
-#include <trajectory_optimization/trajectory_optimization_base_node.hpp>
+#include <trajectory_optimization/trajectory_optimization_node.hpp>
 
 /**
  * @brief Namespace for trajectory_optimization package

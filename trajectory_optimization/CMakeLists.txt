@@ -25,7 +25,7 @@ set(TARGET_NAME trajectory_optimization_node_component)
 
 add_library(${TARGET_NAME} SHARED 
   src/callbacks.cpp
-  src/trajectory_optimization_base_node.cpp
+  src/trajectory_optimization_node.cpp
   src/trajectory_optimization_ackermann.cpp
   src/trajectory_optimization_rws.cpp
   src/utils.cpp
