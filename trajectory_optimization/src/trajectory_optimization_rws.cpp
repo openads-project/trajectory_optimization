@@ -48,7 +48,7 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
       RCLCPP_WARN(this->get_logger(), "Transformation is not available. Init high-level instead. Ex: %s", ex.what());
       return getHighLevelX0(ego_data);
     }
-  
+
     // fill vectors with state values from the transformed trajectory
     std::vector<double> TIME, V, Y, A, THETA, DELTA_FRONT, DELTA_REAR;
     for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_trajectory); i++) {
@@ -60,7 +60,7 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
       DELTA_FRONT.push_back(trajectory_planning_msgs::trajectory_access::getDeltaFront(tf_trajectory, i));
       DELTA_REAR.push_back(trajectory_planning_msgs::trajectory_access::getDeltaRear(tf_trajectory, i));
     }
-  
+
     // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
     double v_tgt, y_tgt, a_tgt, theta_tgt, delta_front_tgt, delta_rear_tgt;
     double des_time =
@@ -79,7 +79,7 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
 
     RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_front_tgt: %f, delta_rear_tgt: %f",
                  y_tgt, v_tgt, a_tgt, theta_tgt, delta_front_tgt, delta_rear_tgt);
-  
+
     // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
     // longitudinal reinits
     double a_path = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
@@ -100,7 +100,7 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
     } else if (fabs(delta_rear_tgt - perception_msgs::object_access::getSteeringAngleRear(ego_data)) > bi_level_dDelta_rear_ * M_PI / 180.0) {
         delta_rear_tgt = perception_msgs::object_access::getSteeringAngleRear(ego_data);
     }
-    
+
     std::vector<double> x_init(*nlp_dims_->nx, 0.0);
     x_init[0] = 0.0;
     x_init[1] = y_tgt;
