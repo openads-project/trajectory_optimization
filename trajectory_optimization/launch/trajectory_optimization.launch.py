@@ -4,16 +4,27 @@ import os
 from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node, SetParameter
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 
-def generate_launch_description():
+def generate_launch_description_with_resolved_launch_args(launch_context):
 
+    # get the driving mode from the launch context
+    driving_mode = LaunchConfiguration('driving_mode').perform(launch_context)
 
+    if driving_mode == "ackermann":
+        executable_name = "trajectory_optimization_ackermann_node"
+    elif driving_mode == "rws":
+        executable_name = "trajectory_optimization_rws_node"
+    else:
+        raise ValueError(f"Invalid driving mode: {driving_mode}")
+
+    # define other launch arguments / remappings / nodes
     params_arg = DeclareLaunchArgument('params', default_value=PathJoinSubstitution([
-        get_package_share_directory("trajectory_optimization"), "config", "params_rws.yml"])
+        get_package_share_directory("trajectory_optimization"), "config", "params.yml"])
     )
-    node_name_arg = DeclareLaunchArgument('node_name', default_value='trajectory_optimization_rws_node')
+
+    node_name_arg = DeclareLaunchArgument('node_name', default_value=executable_name)
     namespace_arg = DeclareLaunchArgument('namespace', default_value='')
 
     drivable_space_topic_arg = DeclareLaunchArgument('drivable_space_topic', default_value='~/drivable_space')
@@ -27,8 +38,7 @@ def generate_launch_description():
 
     use_sim_time_arg = DeclareLaunchArgument('use_sim_time', default_value='False')
 
-
-    return LaunchDescription([
+    return [
         params_arg,
         node_name_arg,
         namespace_arg,
@@ -43,7 +53,7 @@ def generate_launch_description():
         SetParameter(name='use_sim_time', value=LaunchConfiguration('use_sim_time')),
         Node(
             package="trajectory_optimization",
-            executable="trajectory_optimization_rws_node",
+            executable=executable_name,
             name=LaunchConfiguration('node_name'),
             namespace=LaunchConfiguration('namespace'),
             output="screen",
@@ -59,4 +69,11 @@ def generate_launch_description():
                 ("~/visualization/object_circles", LaunchConfiguration('object_circles_topic'))
             ]
         )
+    ]
+
+def generate_launch_description():
+
+    return LaunchDescription([
+        DeclareLaunchArgument('driving_mode', default_value='ackermann'),
+        OpaqueFunction(function=generate_launch_description_with_resolved_launch_args)
     ])

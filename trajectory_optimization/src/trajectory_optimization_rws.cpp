@@ -1,3 +1,4 @@
+#include <limits>
 
 #include <trajectory_optimization/trajectory_optimization_rws.hpp>
 

@@ -1,5 +1,4 @@
 #include <cmath>
-#include <limits>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
