@@ -1,10 +1,10 @@
 /**:
   ros__parameters:
     ### ROS node parameters
-    vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame) //TODO: is base_link in gravity center?
+    vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame)
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
-    optimization_frequency: 10.0    # frequency of the optimization loop [Hz]/ defines how often the optimization problem is solved
+    optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
     init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
@@ -12,7 +12,7 @@
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
 
-    #### thresholds for bi-level stabilization TODO: adapt the bi-level values
+    #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.5                # maximum y-offset before bi-level stabilization hits [m]
