@@ -1,7 +1,8 @@
 # clone acados repo and build it
 git clone --recurse-submodules https://github.com/acados/acados.git /opt/acados
 cd /opt/acados
-git checkout faf2f79b73b58365d81b9e0c73e81b658076803b
+git checkout v0.4.5
+git submodule update --init --recursive
 mkdir -p /opt/acados/build
 cd /opt/acados/build
 cmake -DCMAKE_BUILD_TYPE=Release .. # -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_QORE=ON -DACADOS_WITH_OOQP=ON -DACADOS_WITH_QPDUNES=ON -DACADOS_WITH_OSQP=ON -DACADOS_WITH_OPENMP=ON
@@ -9,10 +10,6 @@ make install -j8
 
 # install acados python interface
 pip install -e /opt/acados/interfaces/acados_template
-
-# Install CasADi version nightly-se8 for global parameters support in OCP. Acados defaults to v3.6.7, which lacks this functionality.
-curl -L -o casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl https://github.com/casadi/casadi/releases/download/nightly-se8/casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
-pip install casadi-3.6.7.dev+se8-cp312-none-manylinux2014_x86_64.whl
 
 # install t_renderer
 rm -f /opt/acados/bin/t_renderer

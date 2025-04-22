@@ -78,7 +78,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const perception_msgs::msg::ObjectList &object_list,
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
-                       
+
   void setOcpGlobalParameters(const std::vector<double> &cost_weights);
 
   void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,

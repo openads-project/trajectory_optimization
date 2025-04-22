@@ -133,15 +133,12 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
       }
     }
 
-    // check if any global parameters have changed
-    if (param.get_name() == "cost_weights") {cost_weights_ = param.get_value<std::vector<double>>();} 
-    else if (param.get_name() == "thw") {thw_ = param.get_value<double>();} 
-    else if (param.get_name() == "d_min_obstacle_long") {d_min_obstacle_long_ = param.get_value<double>();} 
-    else if (param.get_name() == "d_min_obstacle_lat") {d_min_obstacle_lat_ = param.get_value<double>();}
-    // update ocp global parameters
-    this->setOcpGlobalParameters(cost_weights_);
+    // update ocp global parameters if any global parameters have changed
+    if (param.get_name() == "cost_weights" || param.get_name() == "thw" ||
+        param.get_name() == "d_min_obstacle_long" || param.get_name() == "d_min_obstacle_lat") {
+      this->setOcpGlobalParameters(cost_weights_);
+    }
   }
-  
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
@@ -433,15 +430,17 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
     std::vector<double> global_params;
     // cost weights
-    global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end()); 
+    global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end());
     // other cost params
     global_params.push_back(thw_);
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
-    // get size of global_params (must be equivalent to np_global = 16)
-    int n = global_params.size();
 
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), n);  
+    if (global_params.size() != nlp_dims_->np_global) {
+      RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%d) does not match expected size (%d).", n, nlp_dims_->np_global);
+      return;
+    }
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
@@ -459,10 +458,8 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
-                                                         &floating_dynamic_weight, n);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
-
 
     // ref path
     idx += n;
@@ -550,7 +547,6 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
-
   }
 }
 

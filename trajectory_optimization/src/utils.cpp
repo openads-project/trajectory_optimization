@@ -218,7 +218,6 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   // 5: Solver created (ACADOS_READY)
   // 6: Problem unbounded (ACADOS_UNBOUNDED)
   // 7: Solver timeout (ACADOS_TIMEOUT)
-
   if (status == ACADOS_SUCCESS) {
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
   } else if (status == ACADOS_MAXITER) {
