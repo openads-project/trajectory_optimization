@@ -436,8 +436,8 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
 
-    if (global_params.size() != nlp_dims_->np_global) {
-      RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%d) does not match expected size (%d).", n, nlp_dims_->np_global);
+    if (global_params.size() != (size_t)nlp_dims_->np_global) {
+      RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(), nlp_dims_->np_global);
       return;
     }
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
