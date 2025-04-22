@@ -6,4 +6,4 @@ variables:
   RMW_IMPLEMENTATION: rmw_zenoh_cpp
   TARGET: dev,run
   PLATFORM: amd64
-  COMMAND: ros2 launch trajectory_optimization trajectory_optimization_node.launch.py
+  COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py

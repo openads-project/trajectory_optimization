@@ -26,17 +26,17 @@
 
 namespace trajectory_optimization {
 
-template <typename C> struct is_vector : std::false_type {};    
-template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};    
+template <typename C> struct is_vector : std::false_type {};
+template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};
 template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
 
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
-  explicit TrajectoryOptimizationNode(const rclcpp::NodeOptions &options);
+  explicit TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions &options);
 
   ~TrajectoryOptimizationNode();
 
- private:
+ protected:
   // input topics
   const std::string kEgoDataTopic = "~/ego_data";
   const std::string kObjectListTopic = "~/object_list";
@@ -64,8 +64,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void printSolution(int status);
   void trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
 
-  std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData &ego_data);
-  std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData &ego_data);
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
                            double &output_y, const bool wrap_angle = false);
@@ -91,6 +89,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                                                        const int n_objects);
   std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double> &obstacles);
+
+  // virtual functions need to be implemented in derived classes
+  virtual void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) = 0;
+  virtual std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) = 0;
+  virtual std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) = 0;
+  virtual void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) = 0;
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
@@ -129,18 +133,16 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
-  double wheelbase_ = 2.711;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
   bool init_as_ref_ = false;
 
-  // bi-level thresholds
+  // common bi-level thresholds
   double bi_level_dV_ = 5.0;
   double bi_level_dA_ = 2.0;
   double bi_level_dY_ = 0.1;
   double bi_level_dYaw_ = 5.0;
-  double bi_level_dDelta_ = 90.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
@@ -149,7 +151,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> viz_circles_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
   double d_min_obstacle_long_ = 5.0;
@@ -157,7 +159,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {13, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_cost_weights_shape_ = {14, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 

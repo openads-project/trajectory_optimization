@@ -1,9 +1,9 @@
 repositories:
   planning_interfaces:
         type: git
-        url: https://gitlab.ika.rwth-aachen.de/fb-fi/definitions/planning_interfaces.git
+        url: https://github.com/ika-rwth-aachen/planning_interfaces.git
         version: main
   perception_interfaces:
         type: git
-        url: https://gitlab.ika.rwth-aachen.de/fb-fi/definitions/perception_interfaces.git
+        url: https://github.com/ika-rwth-aachen/perception_interfaces.git
         version: main
