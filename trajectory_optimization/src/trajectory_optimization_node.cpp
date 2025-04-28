@@ -29,6 +29,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
+  this->declareAndLoadParameter("run_as_callback", run_as_callback_, "Run as callback (true) or timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
@@ -176,11 +177,14 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
-  /*
   // create timer for planning cycle
-  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
-                                            std::bind(&TrajectoryOptimizationNode::planningCycle, this));
-  */
+  if (run_as_callback_) {
+    RCLCPP_INFO(this->get_logger(), "Running as callback");
+    planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
+                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Running as timer");
+  }
 
   // init reference trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(

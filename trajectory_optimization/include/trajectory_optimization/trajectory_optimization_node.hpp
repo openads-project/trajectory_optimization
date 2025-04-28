@@ -105,7 +105,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
 
-  // rclcpp::TimerBase::SharedPtr planning_timer_;
+  rclcpp::TimerBase::SharedPtr planning_timer_;
 
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
@@ -136,6 +136,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool high_level_stabilization_ = false;
   bool use_prediction_ = false;
   bool init_as_ref_ = false;
+  bool run_as_callback_ = false;
 
   // common bi-level thresholds
   double bi_level_dV_ = 5.0;
