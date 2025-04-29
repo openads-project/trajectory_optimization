@@ -19,6 +19,12 @@ P_REF_PATH_INDEX_X = 1
 P_REF_PATH_INDEX_Y = 2
 P_REF_PATH_INDEX_V = 3
 
+# reference point indices
+P_REF_POINT_INDEX_X = 0
+P_REF_POINT_INDEX_Y = 1
+P_REF_POINT_INDEX_V = 2
+
+
 # obstacle indices
 P_OBSTACLES_INDEX_X = 0
 P_OBSTACLES_INDEX_Y = 1

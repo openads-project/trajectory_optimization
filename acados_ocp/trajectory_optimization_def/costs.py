@@ -17,9 +17,10 @@ def set_costs(ocp: AcadosOcp, config):
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
     n_params_dynamic_weight = 1
     n_params_ref_path = np.prod(config["p_ref_path_shape"])
+    n_params_ref_point = np.prod(config["p_ref_point_shape"])
     n_params_obstacles = np.prod(config["p_obstacle_circles_shape"])
     n_params_cost_params = 3
-    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_obstacles + n_params_cost_params
+    n_params = n_params_cost_weights + n_params_dynamic_weight + n_params_ref_path + n_params_ref_point + n_params_obstacles + n_params_cost_params
     ocp.parameter_values = np.zeros(n_params)
 
     # get parameters
@@ -27,6 +28,7 @@ def set_costs(ocp: AcadosOcp, config):
     p_cost_weights = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_weights)]
     p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + n_params_dynamic_weight)]
     p_ref_path = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_path)]
+    p_ref_point = ocp.model.p[idx_params:(idx_params := idx_params + n_params_ref_point)]
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + n_params_obstacles)]
     p_cost_params = ocp.model.p[idx_params:(idx_params := idx_params + n_params_cost_params)]
     assert idx_params == n_params
@@ -55,7 +57,8 @@ def set_costs(ocp: AcadosOcp, config):
     ########## external cost function ##########
 
     # calculate cost terms
-    ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
+    ref_path_costs = calc_interpolated_ref_path_cost(ocp, config, p_ref_path)
+    ref_point_costs = calc_abs_ref_point_cost(ocp, config, p_ref_point)
     obstacles_costs = calc_obstacles_cost(ocp, config, p_obstacles, p_thw, d_min_obstacle_long, d_min_obstacle_lat)
     a_costs = calc_acceleration_cost(ocp, config)
     control_costs = calc_control_cost(ocp, config)
@@ -63,9 +66,11 @@ def set_costs(ocp: AcadosOcp, config):
     #### define costs at intermediate nodes
     # reference path costs
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_path_costs["x"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_path_costs["y"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t * ref_path_costs["v_t"]
+
+    # reference point costs
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_point_costs["x"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_point_costs["y"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t * ref_point_costs["v_t"]
     # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * obstacles_costs
     # acceleration costs
@@ -89,7 +94,7 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["psi"]
 
 
-def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
+def calc_interpolated_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
 
     # ca.find reference point (min distance) on reference path
     ref_path_state_dim = config["p_ref_path_shape"][1]
@@ -163,8 +168,24 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, p_ref_path: ca.MX) -> dict:
     # psi deviation term
     psi_term = ca.power(wrap_angle(ocp.model.x[STATE_INDEX_PSI] - psi_ref_inter), 2) / ca.power(config["c_psi"], 2)
 
-    cost_terms = {"dlat": dlat_term, "psi": psi_term, "x": x_term, "y": y_term, "v_t": v_term}
+    cost_terms = {"dlat": dlat_term, "psi": psi_term}
     return cost_terms
+
+def calc_abs_ref_point_cost(ocp: AcadosOcp, config: dict, p_ref_point: ca.MX) -> dict:
+    x_ref = p_ref_point[P_REF_POINT_INDEX_X]
+    y_ref = p_ref_point[P_REF_POINT_INDEX_Y]
+    v_ref = p_ref_point[P_REF_POINT_INDEX_V]
+
+    # x deviation term
+    x_term = ca.power((ocp.model.x[STATE_INDEX_X] - x_ref), 2) / ca.power(config["c_x"], 2)
+    # y deviation term
+    y_term = ca.power((ocp.model.x[STATE_INDEX_Y] - y_ref), 2) / ca.power(config["c_y"], 2)
+    # v deviation term
+    v_term = ca.power((ocp.model.x[STATE_INDEX_V_T] - v_ref), 2) / ca.power(config["c_v"], 2)
+
+    cost_terms = {"x": x_term, "y": y_term, "v_t": v_term}
+    return cost_terms
+
 
 def calc_obstacles_cost(ocp: AcadosOcp, config: dict, p_obstacles: ca.MX, p_thw: ca.MX, d_min_obstacle_long: ca.MX, d_min_obstacle_lat: ca.MX) -> ca.MX:
 

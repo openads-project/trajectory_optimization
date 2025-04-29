@@ -1,8 +1,8 @@
 ### general parameters defining the ocp
 model_name: 'passat_cc'           # name of the acados model (also used in ROS node)
 model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
-optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
-n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+optimization_horizon: 4.0         # optimization horizon [s] (also used in ROS node)
+n_shots: 8                        # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 2.711                  # wheelbase [m]
@@ -25,6 +25,7 @@ c_lat: 0.5            # distance to scale the lateral deviation costs [m]
 c_psi: 1.0            # distance to scale the yaw deviation costs [rad] -> not used cost function
 c_x: 1.0              # distance to scale the x deviation costs [m]
 c_y: 1.0              # distance to scale the y deviaton costs [m]
+c_v: 1.0              # distance to scale the velocity costs [m/s]
 c_a_t: 3.0            # distance to scale the tangential acceleration costs [m/s²]
 c_a_n: 3.0            # distance to scale the nominal acceleration costs [m/s²]
 c_j_t: 3.0            # distance to scale the tangential jerk costs [m/s³]
@@ -43,4 +44,5 @@ slack_weights:                              # [v, a_lon, a_squared], see constra
 # [cost_weights, dyn_weight (1), ref_path, obstacles, additional_cost_params (3)]
 p_cost_weights_shape: [14, 1] # nWeights x weightDim  (also used in ROS node)
 p_ref_path_shape: [51, 4]     # nStates x stateDim  (also used in ROS node)
+p_ref_point_shape: [1, 3]       # nStates x stateDim  (x, y, v)
 p_obstacle_circles_shape: [30, 3]    # nObstacleCircles x [x, y, radius]  (also used in ROS node)

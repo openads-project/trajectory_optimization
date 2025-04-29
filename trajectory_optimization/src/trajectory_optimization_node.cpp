@@ -180,10 +180,10 @@ void TrajectoryOptimizationNode::setup() {
   // create timer for planning cycle
   if (run_as_callback_) {
     RCLCPP_INFO(this->get_logger(), "Running as callback");
-    planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
-                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
   } else {
     RCLCPP_INFO(this->get_logger(), "Running as timer");
+    planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
+                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
   }
 
   // init reference trajectory
@@ -283,6 +283,7 @@ void TrajectoryOptimizationNode::resetSolver() {
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
+  RCLCPP_INFO(this->get_logger(), "Planning cycle started");
   if (debug_viz_) viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
@@ -478,6 +479,17 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     }
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
 
+    // ref point
+    idx += n;
+    n = p_ref_point_shape_[0] * p_ref_point_shape_[1];
+    std::vector<int> idx_ref_point(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
+    // get x, y, v from reference trajectory
+    std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(ref, i),
+                                     trajectory_planning_msgs::trajectory_access::getY(ref, i),
+                                     trajectory_planning_msgs::trajectory_access::getV(ref, i)};
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
