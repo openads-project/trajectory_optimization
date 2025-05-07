@@ -228,6 +228,9 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   RCLCPP_INFO(get_logger(),
             "Optimization took \033[1m%f ms.\033[0m (SQP iter: \033[1m%2d\033[0m; KKT: \033[1m%e\033[0m)",
             elapsed_time * 1000, sqp_iter, kkt_norm_inf);
+  std_msgs::msg::Float64 inference_time_msg;
+  inference_time_msg.data = elapsed_time * 1000;
+  inference_time_pub_->publish(inference_time_msg);
   
   // print cost value and residuals
   double cost_value, nlp_res;
