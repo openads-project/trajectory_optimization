@@ -177,7 +177,7 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
-  inference_time_pub_ = this->create_publisher<std_msgs::msg::Float64>(kInferenceTimeTopic, 1);
+  inference_time_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(kInferenceTimeTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", inference_time_pub_->get_topic_name());
 
   // create timer for planning cycle

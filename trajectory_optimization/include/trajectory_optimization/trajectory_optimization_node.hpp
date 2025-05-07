@@ -2,7 +2,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // definitions
@@ -47,7 +47,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
   const std::string kObjectCirclesTopic = "~/visualization/object_circles";
-  const std::string kInferenceTimeTopic = "~/trajectory_optimization/inference_time";
+  const std::string kInferenceTimeTopic = "~/inference_time";
 
   template <typename T>
   void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
@@ -106,7 +106,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
-  rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr inference_time_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr inference_time_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
