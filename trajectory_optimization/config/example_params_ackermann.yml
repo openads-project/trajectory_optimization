@@ -22,8 +22,8 @@
 
     ### general parameters defining the ocp
     model_name: 'passat_cc'           # name of the acados model
-    optimization_horizon: 4.0         # optimization horizon [s] (also used as build parameter in OCP)
-    n_shots: 8                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
+    optimization_horizon: 8.0         # optimization horizon [s] (also used as build parameter in OCP)
+    n_shots: 16                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
     #### cost weights
     cost_weights:
