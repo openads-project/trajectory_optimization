@@ -41,6 +41,6 @@ slack_weights:                              # [v, a_lon, a_squared], see constra
 
 ### parameter vector structure
 # [cost_weights, dyn_weight (1), ref_path, obstacles, additional_cost_params (3)]
-p_cost_weights_shape: [14, 1] # nWeights x weightDim  (also used in ROS node)
+p_cost_weights_shape: [15, 1] # nWeights x weightDim  (also used in ROS node)
 p_ref_path_shape: [51, 4]     # nStates x stateDim  (also used in ROS node)
 p_obstacle_circles_shape: [30, 3]    # nObstacleCircles x [x, y, radius]  (also used in ROS node)
