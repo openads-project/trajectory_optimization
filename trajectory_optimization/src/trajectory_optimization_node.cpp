@@ -484,7 +484,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
 
     // ref point
     idx += n;
-    n = p_ref_point_shape_[0] * p_ref_point_shape_[1];
+    n = 3;
     std::vector<int> idx_ref_point(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
@@ -493,6 +493,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
                                      trajectory_planning_msgs::trajectory_access::getY(ref, i),
                                      trajectory_planning_msgs::trajectory_access::getV(ref, i)};
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
+    
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];

@@ -33,7 +33,6 @@ c_lat: 0.5            # distance to scale the lateral deviation costs [m]
 c_psi: 0.3            # distance to scale the yaw deviation costs [rad]
 c_x: 1.0              # distance to scale the x deviation costs [m]
 c_y: 1.0              # distance to scale the y deviaton costs [m]
-c_v: 1.0              # distance to scale the velocity costs [m/s]
 c_a_t: 3.0            # distance to scale the tangential acceleration costs [m/s²]
 c_a_n: 3.0            # distance to scale the nominal acceleration costs [m/s²]
 c_j_t: 3.0         # distance to scale the tangential jerk costs [m/s³]
@@ -52,5 +51,4 @@ slack_weights:                              # see constraints.py in acados_ocp
 # [cost_weights (), dyn_weight (1), ref_path (4), obstacles (), additional_cost_params (3)]
 p_cost_weights_shape: [14, 1]         # nWeights x weightDim  (also used in ROS node)
 p_ref_path_shape: [51, 4]             # nStates x stateDim  (also used in ROS node) -> why 51? 50 shooting intervals + 1 initial state
-p_ref_point_shape: [1, 3]       # nStates x stateDim  (x, y, v)
 p_obstacle_circles_shape: [30, 3]     # nObstacleCircles x [x, y, radius]  (also used in ROS node) -> why 30? Fixed total number of obstacles
