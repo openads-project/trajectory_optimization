@@ -2,7 +2,6 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/float64_multi_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // definitions
@@ -47,7 +46,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
   const std::string kObjectCirclesTopic = "~/visualization/object_circles";
-  const std::string kInferenceTimeTopic = "~/inference_time";
 
   template <typename T>
   void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
@@ -106,7 +104,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
-  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr inference_time_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
@@ -164,7 +161,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // attention: changes here must also be done in the OCP!
   std::vector<int64_t> p_cost_weights_shape_ = {14, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
-  std::vector<int64_t> p_ref_point_shape_ = {1, 3};           // nStates x [x, y, v]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
   // ocp variables

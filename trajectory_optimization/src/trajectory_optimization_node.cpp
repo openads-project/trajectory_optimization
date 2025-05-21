@@ -177,14 +177,11 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
-  inference_time_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(kInferenceTimeTopic, 1);
-  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", inference_time_pub_->get_topic_name());
-
   // create timer for planning cycle
   if (run_as_callback_) {
-    RCLCPP_INFO(this->get_logger(), "Running as callback");
+    RCLCPP_INFO(this->get_logger(), "OCP runs on trajectory callback");
   } else {
-    RCLCPP_INFO(this->get_logger(), "Running as timer");
+    RCLCPP_INFO(this->get_logger(), "OCP runs continuously with frequency %f Hz", optimization_freq_);
     planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
                                              std::bind(&TrajectoryOptimizationNode::planningCycle, this));
   }
@@ -286,7 +283,6 @@ void TrajectoryOptimizationNode::resetSolver() {
  *
  */
 void TrajectoryOptimizationNode::planningCycle() {
-  RCLCPP_INFO(this->get_logger(), "Planning cycle started");
   if (debug_viz_) viz_circles_.clear();
   if (!received_ego_data_) {
     RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
@@ -493,7 +489,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
                                      trajectory_planning_msgs::trajectory_access::getY(ref, i),
                                      trajectory_planning_msgs::trajectory_access::getV(ref, i)};
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
-    
+
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
