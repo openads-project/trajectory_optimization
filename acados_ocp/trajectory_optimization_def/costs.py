@@ -68,8 +68,6 @@ def set_costs(ocp: AcadosOcp, config):
     # reference path costs
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_interpolated * ref_path_costs["v_t_interpolated"]
-
-
     # reference point costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x * ref_point_costs["x"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y * ref_point_costs["y"]
