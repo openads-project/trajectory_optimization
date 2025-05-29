@@ -1,7 +1,9 @@
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <thread>
+#include <vector>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
@@ -368,6 +370,25 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // transform trajectory to output frame
   trajectory2outputFrame(*trajectory);
+
+  const auto& latest_timestamp = ego_data_.header.stamp;
+  rclcpp::Time ros_time(latest_timestamp);
+  double timestamp_ns = static_cast<double>(ros_time.nanoseconds());
+
+  // save trajectory to txt file
+  std::ofstream file("/docker-ros/ws/vis_data/drivable_trajectory_output_" + std::to_string(timestamp_ns) + ".txt", std::ios::app);
+  if (file.is_open()) {
+    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(*trajectory); ++i) {
+      double x = trajectory_planning_msgs::trajectory_access::getX(*trajectory, i);
+      double y = trajectory_planning_msgs::trajectory_access::getY(*trajectory, i);
+      double v = trajectory_planning_msgs::trajectory_access::getV(*trajectory, i);
+
+      file << x << ", " << y << ", " << v << "\n";
+    }
+    file.close();
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "Failed to open trajectory output file.");
+  }
 
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
