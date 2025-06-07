@@ -24,6 +24,10 @@ execute_process(
 )
 
 execute_process(
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/karl_params.yml"
+)
+
+execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/auto_shuttle_params.yml"
 )
 
