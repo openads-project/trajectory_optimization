@@ -159,7 +159,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {14, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_cost_weights_shape_ = {15, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
