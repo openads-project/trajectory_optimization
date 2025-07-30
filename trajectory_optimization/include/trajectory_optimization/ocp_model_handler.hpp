@@ -8,17 +8,20 @@
 #include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 
 // models
-#include <acados_ocp/acados_solver_auto_shuttle.h>
 #include <acados_ocp/acados_solver_passat_cc.h>
+#include <acados_ocp/acados_solver_karl.h>
+#include <acados_ocp/acados_solver_auto_shuttle.h>
 #include <acados_ocp/acados_solver_omni_shuttle.h>
 
 namespace trajectory_optimization {
 
-typedef std::variant<passat_cc_solver_capsule*, auto_shuttle_solver_capsule*, omni_shuttle_solver_capsule*> ocp_model_capsule_t;
+typedef std::variant<passat_cc_solver_capsule*, karl_solver_capsule*, auto_shuttle_solver_capsule*, omni_shuttle_solver_capsule*> ocp_model_capsule_t;
 
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "passat_cc") {
     return passat_cc_acados_create_capsule();
+  } else if (model_name == "karl") {
+    return karl_acados_create_capsule();
   } else if (model_name == "auto_shuttle") {
     return auto_shuttle_acados_create_capsule();
   } else if (model_name == "omni_shuttle") {
@@ -31,6 +34,8 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
 #define ACADOS_DISPATCH(function_name, ...)                                                              \
   if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {                                      \
     return passat_cc_##function_name(std::get<passat_cc_solver_capsule*>(capsule), ##__VA_ARGS__);       \
+  } else if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                    \
+    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);                 \
   } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {                            \
     return auto_shuttle_##function_name(std::get<auto_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
   } else if (std::holds_alternative<omni_shuttle_solver_capsule*>(capsule)) {                            \
