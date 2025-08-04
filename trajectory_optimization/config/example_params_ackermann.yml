@@ -5,19 +5,19 @@
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
-    init_as_ref: True              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
+    init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
-    high_level_stabilization: True # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
-    run_as_callback: True          # run as callback (True) of reference trajectory subscriber or not (False)
+    run_as_callback: False          # run as callback (True) of reference trajectory subscriber or not (False)
 
     #### thresholds for bi-level stabilization
-    bi_level_dV: 2.0                # maximum v difference before bi-level stabilization hits [m/s]
+    bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]
     bi_level_dY: 0.2                # maximum y-offset before bi-level stabilization hits [m]
-    bi_level_dYaw: 5.0              # maximum yaw difference before bi-level stabilization hits [degree]
+    bi_level_dYaw: 6.0              # maximum yaw difference before bi-level stabilization hits [degree]
     bi_level_dDelta: 5.0            # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
@@ -29,17 +29,17 @@
     cost_weights:
       - 0.3  # dlat (0)
       - 0.0  # psi (1)
-      - 0.2  # x (2)
-      - 0.2  # y (3)
-      - 0.5 # v_interpolated (4)
-      - 0.5  # v (5)
+      - 0.15 # v_inter (2)
+      - 0.0  # x_point (3)
+      - 0.0  # y_point (4)
+      - 0.0  # v_point (5)
       - 1.0  # obstacles (6)
-      - 0.05  # a_lat (7)
-      - 0.01  # a_lon_pos (8)
-      - 0.01 # a_lon_neg (9)
+      - 0.2  # a_lat (7)
+      - 0.2  # a_lon_pos (8)
+      - 0.05 # a_lon_neg (9)
       - 0.1  # j_lat (10)
-      - 0.01  # j_lon_pos (11)
-      - 0.01 # j_lon_neg (12)
+      - 0.1  # j_lon_pos (11)
+      - 0.05 # j_lon_neg (12)
       - 0.03 # alpha (13)
       - 1.0  # endYaw (14)
     dynamic_weight: 1.0         # base for exponential weight
