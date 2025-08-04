@@ -29,7 +29,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
-  this->declareAndLoadParameter("run_as_callback", run_as_callback_, "Run as callback (true) or timer (false)");
+  this->declareAndLoadParameter("run_as_callback", run_as_callback_, "Run OCP once for each received reference trajectory (true) or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
@@ -133,6 +133,17 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         std::get<1>(auto_reconfigurable_param)(param);
       }
     }
+    // handle special cases
+    if (param.get_name() == "run_as_callback") {
+      if (run_as_callback_ && !planning_timer_) {
+        planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
+        std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+        RCLCPP_WARN(this->get_logger(), "OCP runs now periodically with frequency %f Hz", optimization_freq_);
+      } else if (!run_as_callback_ && planning_timer_) {
+        planning_timer_->cancel();
+        RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
+      }
+    }
   }
 
   // mark parameter change successful
@@ -179,7 +190,7 @@ void TrajectoryOptimizationNode::setup() {
 
   // create timer for planning cycle
   if (run_as_callback_) {
-    RCLCPP_INFO(this->get_logger(), "OCP runs on trajectory callback");
+    RCLCPP_INFO(this->get_logger(), "OCP runs on reference trajectory callback");
   } else {
     RCLCPP_INFO(this->get_logger(), "OCP runs continuously with frequency %f Hz", optimization_freq_);
     planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
