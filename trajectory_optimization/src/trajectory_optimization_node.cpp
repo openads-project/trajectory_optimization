@@ -135,11 +135,11 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
     }
     // handle special cases
     if (param.get_name() == "run_as_callback") {
-      if (run_as_callback_ && !planning_timer_) {
+      if (!run_as_callback_ && !planning_timer_) {
         planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
         std::bind(&TrajectoryOptimizationNode::planningCycle, this));
         RCLCPP_WARN(this->get_logger(), "OCP runs now periodically with frequency %f Hz", optimization_freq_);
-      } else if (!run_as_callback_ && planning_timer_) {
+      } else if (run_as_callback_ && planning_timer_) {
         planning_timer_->cancel();
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
