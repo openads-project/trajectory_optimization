@@ -141,6 +141,7 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         RCLCPP_WARN(this->get_logger(), "OCP runs now periodically with frequency %f Hz", optimization_freq_);
       } else if (run_as_callback_ && planning_timer_) {
         planning_timer_->cancel();
+        planning_timer_.reset();
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
     }
