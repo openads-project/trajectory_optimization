@@ -29,6 +29,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
+  this->declareAndLoadParameter("run_as_callback", run_as_callback_, "Run OCP once for each received reference trajectory (true) or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
@@ -132,6 +133,18 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         std::get<1>(auto_reconfigurable_param)(param);
       }
     }
+    // handle special cases
+    if (param.get_name() == "run_as_callback") {
+      if (!run_as_callback_ && !planning_timer_) {
+        planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
+        std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+        RCLCPP_WARN(this->get_logger(), "OCP runs now periodically with frequency %f Hz", optimization_freq_);
+      } else if (run_as_callback_ && planning_timer_) {
+        planning_timer_->cancel();
+        planning_timer_.reset();
+        RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
+      }
+    }
   }
 
   // mark parameter change successful
@@ -177,8 +190,13 @@ void TrajectoryOptimizationNode::setup() {
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
 
   // create timer for planning cycle
-  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
-                                            std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+  if (run_as_callback_) {
+    RCLCPP_INFO(this->get_logger(), "OCP runs on reference trajectory callback");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "OCP runs continuously with frequency %f Hz", optimization_freq_);
+    planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1 / optimization_freq_),
+                                             std::bind(&TrajectoryOptimizationNode::planningCycle, this));
+  }
 
   // init reference trajectory
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
@@ -471,6 +489,18 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
       std::copy(ref.states.begin(), ref.states.end(), ref_path.begin());
     }
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
+
+    // ref point
+    idx += n;
+    n = 3;
+    std::vector<int> idx_ref_point(n);
+    // fill vector with values from idx to idx + n
+    std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
+    // get x, y, v from reference trajectory
+    std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(ref, i),
+                                     trajectory_planning_msgs::trajectory_access::getY(ref, i),
+                                     trajectory_planning_msgs::trajectory_access::getV(ref, i)};
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
 
     // obstacles
     idx += n;

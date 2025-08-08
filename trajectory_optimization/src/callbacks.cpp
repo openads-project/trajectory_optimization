@@ -32,6 +32,9 @@ void TrajectoryOptimizationNode::referenceTrajectoryCallback(
     const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received reference trajectory");
   reference_trajectory_ = *msg;
+  if (run_as_callback_) {
+    planningCycle();
+  }
 }
 
 /**
