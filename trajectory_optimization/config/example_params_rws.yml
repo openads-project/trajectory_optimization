@@ -11,6 +11,7 @@
     use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
+    run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
@@ -33,18 +34,19 @@
     cost_weights:
       - 5.0  # dlat (0)
       - 1.0  # psi (1)
-      - 0.0  # x (2)
-      - 0.0  # y (3)
-      - 3.0  # v_t (4)
-      - 10.0 # obstacles (5)
-      - 0.1  # a_n (6)
-      - 0.5  # a_t_pos (7)
-      - 0.5  # a_t_neg (8)
-      - 0.05 # j_n (9)
-      - 0.1  # j_t_pos (10)
-      - 0.05 # j_t_neg (11)
-      - 0.1  # alpha_f/alpha_r (12)
-      - 1.0  # endYaw (13)
+      - 3.0  # v_inter (2)
+      - 0.0  # x_point (3)
+      - 0.0  # y_point (4)
+      - 0.0  # v_point (5)
+      - 10.0 # obstacles (6)
+      - 0.1  # a_n (7)
+      - 0.5  # a_t_pos (8)
+      - 0.5  # a_t_neg (9)
+      - 0.05 # j_n (10)
+      - 0.1  # j_t_pos (11)
+      - 0.05 # j_t_neg (12)
+      - 0.1  # alpha_f/alpha_r (13)
+      - 1.0  # endYaw (14)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params

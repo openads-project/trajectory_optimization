@@ -1,28 +1,28 @@
 ### general parameters defining the ocp
-model_name: 'auto_shuttle'        # name of the acados model (also used in ROS node)
+model_name: 'karl'                # name of the acados model (also used in ROS node)
 model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
-optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
-n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+optimization_horizon: 8.0         # optimization horizon [s] (also used in ROS node)
+n_shots: 16                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
-wheelbase: 3.4                    # wheelbase [m]
-length: 4.97                      # length [m]
-width: 2.12                       # width [m]
-offset2geocenter: [0.0, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-n_ego_circles: 3                  # number of circles to discretize ego-vehicle geometry
+wheelbase: 3.124                  # wheelbase [m]
+length: 5.173                     # length [m]
+width: 2.252                      # width [m]
+offset2geocenter: [1.4895, 0.0]   # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
+n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
 
 ### constraints
-delta_max: 1.53589 # 88°          # max. absolute steering angle [rad]
+delta_max: 0.610865               # max. absolute steering angle [rad] (35° ; max. angle of karl -> 38.7°)
 v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
-v_max: 7.0                        # upper boundary constraint for longitudinal velocity [m/s]
-acceleration_max: 8.0             # max. absolute acceleration [m/s²]
+v_max: 17.0                       # upper boundary constraint for longitudinal velocity [m/s]
+acceleration_max: 6.0             # max. absolute acceleration [m/s²]
 acceleration_t_max: 3.5           # max. absolute tangential acceleration [m/s²]
-alpha_max: 1.5                    # max. absolute steering rate [rad/s]
-jerk_max: 4.0                     # max. absolute tangential jerk [m/s²]
+alpha_max: 0.349066               # max. absolute steering rate [rad/s] (20°/s -> mean steering ratio: 20°/s * 15 = 300°/s; max steering wheel angle rate)
+jerk_max: 3.0                     # max. absolute tangential jerk [m/s²]
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
-c_psi: 1.0            # distance to scale the yaw deviation costs [rad] -> not used in cost function
+c_psi: 1.0            # distance to scale the yaw deviation costs [rad] -> not used cost function
 c_x: 1.0              # distance to scale the x deviation costs [m]
 c_y: 1.0              # distance to scale the y deviaton costs [m]
 c_a_t: 3.0            # distance to scale the tangential acceleration costs [m/s²]

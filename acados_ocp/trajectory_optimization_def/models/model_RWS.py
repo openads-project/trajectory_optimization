@@ -77,8 +77,9 @@ def set_model(ocp, config):
     # parameters
     p_dynamic_weight = MX.sym('dynamic_weight', 1) # (1 x 1)
     p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (t, x, y, v)) -> t will be replaced with the heading "theta"
+    p_ref_point = MX.sym('ref_point', 3) # (x, y, v)
     p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacle_circles_shape'])) # (nObstacleCircles x (x, y, radius))
-    params = vertcat(p_dynamic_weight, p_ref_path, p_obstacles)
+    params = vertcat(p_dynamic_weight, p_ref_path, p_ref_point, p_obstacles)
     model.p = params
 
     # global parameters
