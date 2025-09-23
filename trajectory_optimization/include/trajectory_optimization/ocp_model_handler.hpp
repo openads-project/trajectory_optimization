@@ -10,36 +10,41 @@
 // models
 #include <acados_ocp/acados_solver_passat_cc.h>
 #include <acados_ocp/acados_solver_karl.h>
-#include <acados_ocp/acados_solver_auto_shuttle.h>
-#include <acados_ocp/acados_solver_omni_shuttle.h>
+#include <acados_ocp/acados_solver_shuttle.h>
+#include <acados_ocp/acados_solver_shuttle_ackermann.h>
+#include <acados_ocp/acados_solver_taxi.h>
 
 namespace trajectory_optimization {
 
-typedef std::variant<passat_cc_solver_capsule*, karl_solver_capsule*, auto_shuttle_solver_capsule*, omni_shuttle_solver_capsule*> ocp_model_capsule_t;
+typedef std::variant<passat_cc_solver_capsule*, karl_solver_capsule*, shuttle_solver_capsule*, shuttle_ackermann_solver_capsule*, taxi_solver_capsule*> ocp_model_capsule_t;
 
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "passat_cc") {
     return passat_cc_acados_create_capsule();
   } else if (model_name == "karl") {
     return karl_acados_create_capsule();
-  } else if (model_name == "auto_shuttle") {
-    return auto_shuttle_acados_create_capsule();
-  } else if (model_name == "omni_shuttle") {
-    return omni_shuttle_acados_create_capsule();
+  } else if (model_name == "shuttle") {
+    return shuttle_acados_create_capsule();
+  } else if (model_name == "shuttle_ackermann") {
+    return shuttle_ackermann_acados_create_capsule();
+  } else if (model_name == "taxi") {
+    return taxi_acados_create_capsule();
   } else {
     throw std::invalid_argument("Invalid model name: " + model_name);
   }
 }
 
 #define ACADOS_DISPATCH(function_name, ...)                                                              \
-  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {                                      \
-    return passat_cc_##function_name(std::get<passat_cc_solver_capsule*>(capsule), ##__VA_ARGS__);       \
-  } else if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                    \
-    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);                 \
-  } else if (std::holds_alternative<auto_shuttle_solver_capsule*>(capsule)) {                            \
-    return auto_shuttle_##function_name(std::get<auto_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
-  } else if (std::holds_alternative<omni_shuttle_solver_capsule*>(capsule)) {                            \
-    return omni_shuttle_##function_name(std::get<omni_shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  if (std::holds_alternative<passat_cc_solver_capsule*>(capsule)) {                                           \
+    return passat_cc_##function_name(std::get<passat_cc_solver_capsule*>(capsule), ##__VA_ARGS__);            \
+  } else if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                         \
+    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);                      \
+  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                                      \
+    return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__);           \
+  } else if (std::holds_alternative<shuttle_ackermann_solver_capsule*>(capsule)) {                            \
+    return shuttle_ackermann_##function_name(std::get<shuttle_ackermann_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  } else if (std::holds_alternative<taxi_solver_capsule*>(capsule)) {                                         \
+    return taxi_##function_name(std::get<taxi_solver_capsule*>(capsule), ##__VA_ARGS__);              \
   } else {                                                                                               \
     throw std::invalid_argument("Invalid capsule type.");                                                \
   }

@@ -76,6 +76,6 @@ ros2 launch trajectory_optimization trajectory_optimization_node.launch.py
 
 ### Usage of different models
 
-The [ocp_model_handler.hpp](./include/trajectory_optimization/ocp_model_handler.hpp) contains wrapper functions to handle different OCP models / parameterizations within this node (i.e. `passat_cc` and `auto_shuttle`). The `model_name` parameter can be used to switch between these models. In case of adding a new model, following steps are necessary:
+The [ocp_model_handler.hpp](./include/trajectory_optimization/ocp_model_handler.hpp) contains wrapper functions to handle different OCP models / parameterizations within this node (i.e. `karl` and `shuttle`). The `model_name` parameter can be used to switch between these models. In case of adding a new model, following steps are necessary:
 1. Add the new model / parameterization in the `acados_ocp` package, as described [here](../acados_ocp/README.md).
 2. Add the new model / parameterization in the [ocp_model_handler.hpp](./include/trajectory_optimization/ocp_model_handler.hpp#L28-L35) and extend the wrapper functions accordingly.
