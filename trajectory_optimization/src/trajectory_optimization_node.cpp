@@ -125,8 +125,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
  * @param parameters parameters
  * @return parameter change result
  */
-rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
-    const std::vector<rclcpp::Parameter>& parameters) {
+rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
@@ -145,8 +144,6 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
     }
-  }
-
     // update ocp global parameters if any global parameters have changed
     if (param.get_name() == "cost_weights" || param.get_name() == "thw" ||
         param.get_name() == "d_min_obstacle_long" || param.get_name() == "d_min_obstacle_lat") {
@@ -253,10 +250,10 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init.data());
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", x_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "u", u_init.data());
   }
-  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init.data());
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", x_init.data());
 
   xtraj_ = new double[*nlp_dims_->nx * (n_shots_ + 1)];
   utraj_ = new double[*nlp_dims_->nu * n_shots_];
@@ -348,8 +345,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     ss << "x[" << i << "]: " << x_init[i] << (i != x_init.size() - 1 ? ", " : "");
   RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
 
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", x_init.data());
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
@@ -436,7 +433,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
       initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, idx);
       initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, idx);
       initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, idx);
-      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess.data());
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", initial_guess.data());
     }
   }
 
