@@ -48,13 +48,17 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   const std::string kObjectCirclesTopic = "~/visualization/object_circles";
 
   template <typename T>
-  void declareAndLoadParameter(const std::string &name, T &member_param, const std::string &description,
-                               const bool add_to_auto_reconfigurable_params = true, const bool is_required = false,
-                               const bool read_only = false, const std::optional<T> &from_value = std::nullopt,
-                               const std::optional<T> &to_value = std::nullopt,
-                               const std::optional<T> &step_value = std::nullopt,
+  void declareAndLoadParameter(const std::string &name,
+                               T &param,
+                               const std::string &description,
+                               const bool add_to_auto_reconfigurable_params = true,
+                               const bool is_required = false,
+                               const bool read_only = false,
+                               const std::optional<double> &from_value = std::nullopt,
+                               const std::optional<double> &to_value = std::nullopt,
+                               const std::optional<double> &step_value = std::nullopt,
                                const std::string &additional_constraints = "");
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   void setup();
   void resetSolver();
