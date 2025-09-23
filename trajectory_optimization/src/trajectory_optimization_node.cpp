@@ -444,6 +444,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 }
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
+    const auto start_time = std::chrono::steady_clock::now();
     std::vector<double> global_params;
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end());
@@ -457,11 +458,15 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
       return;
     }
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
+    const auto elapsed_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
                                                   const perception_msgs::msg::ObjectList& object_list) {
+  const auto start_time = std::chrono::steady_clock::now();
   // loop over shooting intervals
   double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
@@ -516,7 +521,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
-    std::vector<double> circles; // [x1, y1, r1, x2, y2, r2, ...]
+    std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
@@ -576,6 +581,9 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
   }
+  const auto elapsed_ms =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+  RCLCPP_DEBUG(this->get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
 }
 
 }  // namespace trajectory_optimization
