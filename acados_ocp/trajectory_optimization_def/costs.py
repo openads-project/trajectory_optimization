@@ -69,7 +69,6 @@ def set_costs(ocp: AcadosOcp, config):
 
     # calculate cost terms
     ref_path_costs = calc_ref_path_cost(ocp, config, p_ref_path)
-    ref_point_costs = calc_ref_point_cost(ocp, config, p_ref_point)
     obstacles_costs = calc_obstacles_cost(ocp, config, p_obstacles, p_thw, d_min_obstacle_long, d_min_obstacle_lat)
     a_costs = calc_acceleration_cost(ocp, config)
     control_costs = calc_control_cost(ocp, config)
@@ -79,9 +78,11 @@ def set_costs(ocp: AcadosOcp, config):
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_inter * ref_path_costs["v_t_inter"]
     # reference point costs
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x_point * ref_point_costs["x"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y_point * ref_point_costs["y"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_point * ref_point_costs["v_t"]
+    if config["calc_point_costs"]:
+        ref_point_costs = calc_ref_point_cost(ocp, config, p_ref_point)
+        ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_x_point * ref_point_costs["x"]
+        ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_y_point * ref_point_costs["y"]
+        ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_point * ref_point_costs["v_t"]
     # obstacle costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_obstacles * obstacles_costs
     # acceleration costs

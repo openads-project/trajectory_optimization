@@ -21,18 +21,19 @@
     bi_level_dDelta: 5.0            # maximum ackermann delta difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
-    model_name: 'karl'           # name of the acados model
-    optimization_horizon: 8.0         # optimization horizon [s] (also used as build parameter in OCP)
-    n_shots: 16                       # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
+    model_name: 'karl'              # name of the acados model
+    optimization_horizon: 8.0       # optimization horizon [s] (also used as build parameter in OCP)
+    n_shots: 16                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
+    calc_point_costs: False         # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used as build parameter in OCP)
 
     #### cost weights
     cost_weights:
       - 0.3  # dlat (0)
-      - 0.0  # psi (1)
+      - 0.0  # psi (1)      (considered if RWS model is used)
       - 0.15 # v_inter (2)
-      - 0.0  # x_point (3)
-      - 0.0  # y_point (4)
-      - 0.0  # v_point (5)
+      - 0.0  # x_point (3)  (considered if calc_point_costs is True)
+      - 0.0  # y_point (4)  (considered if calc_point_costs is True)
+      - 0.0  # v_point (5)  (considered if calc_point_costs is True)
       - 1.0  # obstacles (6)
       - 0.2  # a_lat (7)
       - 0.2  # a_lon_pos (8)

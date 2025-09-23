@@ -131,9 +131,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
-  std::string model_name_ = "passat_cc";
+  std::string model_name_ = "karl";
   double optimization_freq_ = 10.0;
   int n_shots_ = 50;
+  bool calc_point_costs_ = false;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;

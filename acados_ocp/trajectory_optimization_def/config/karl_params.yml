@@ -3,6 +3,7 @@ model_name: 'karl'                # name of the acados model (also used in ROS n
 model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
 optimization_horizon: 8.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 16                       # number of shooting intervals in optimization horizon (also used in ROS node)
+calc_point_costs: False           # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 3.124                  # wheelbase [m]

@@ -26,6 +26,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [passat_cc, auto_shuttle]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
+  this->declareAndLoadParameter("calc_point_costs", calc_point_costs_, "OCP tries to follow a reference points, minimizing x, y and velocity errors");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
@@ -529,14 +530,16 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     // ref point
     idx += n;
     n = 3;
-    std::vector<int> idx_ref_point(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
-    // get x, y, v from reference trajectory
-    std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(ref, i),
-                                     trajectory_planning_msgs::trajectory_access::getY(ref, i),
-                                     trajectory_planning_msgs::trajectory_access::getV(ref, i)};
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
+    if (calc_point_costs_) {
+      std::vector<int> idx_ref_point(n);
+      // fill vector with values from idx to idx + n
+      std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
+      // get x, y, v from reference trajectory
+      std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(ref, i),
+                                      trajectory_planning_msgs::trajectory_access::getY(ref, i),
+                                      trajectory_planning_msgs::trajectory_access::getV(ref, i)};
+      trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
+    }
 
     // obstacles
     idx += n;

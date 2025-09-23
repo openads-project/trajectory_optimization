@@ -1,8 +1,9 @@
 ### general parameters defining the ocp
-model_name: 'shuttle_ackermann'  # name of the acados model (also used in ROS node)
-model_type: 'Ackermann'               # model type on which the acados model is based on (Ackermann or RWS)
-optimization_horizon: 5.0             # optimization horizon [s] (also used in ROS node)
-n_shots: 50                           # number of shooting intervals in optimization horizon (also used in ROS node)
+model_name: 'shuttle_ackermann'   # name of the acados model (also used in ROS node)
+model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
+optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
+n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+calc_point_costs: False           # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 3.4                    # wheelbase [m]
