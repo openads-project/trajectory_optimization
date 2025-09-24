@@ -14,7 +14,7 @@ n_ego_circles: 5                  # number of circles to discretize ego-vehicle 
 
 ### constraints
 delta_max: 0.610865               # max. absolute steering angle [rad] (35° ; max. angle of karl -> 38.7°)
-v_min: 0.0                        # lower boundary constraint for longitudinal velocity [m/s]
+v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
 v_max: 17.0                       # upper boundary constraint for longitudinal velocity [m/s]
 acceleration_max: 6.0             # max. absolute acceleration [m/s²]
 acceleration_t_max: 3.5           # max. absolute tangential acceleration [m/s²]

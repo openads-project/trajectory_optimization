@@ -30,7 +30,7 @@ def set_opts(ocp, config):
     opts.globalization = 'FIXED_STEP'           # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0              # default. 1 could help to solve the problem if 0 fails, but will be slower
     opts.line_search_use_sufficient_descent = 0 # default. 1 could help to solve the problem if 0 fails, but will be slower
-    opts.levenberg_marquardt = 0.05             # default. Larger values could help to solve the problem if 0 fails, but will be slower
+    opts.levenberg_marquardt = 0.03             # default. Larger values could help to solve the problem if 0 fails, but will be slower
 
 
     # set prediction horizon in s
