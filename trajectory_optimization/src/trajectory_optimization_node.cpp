@@ -43,6 +43,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "threshold, publish standstill trajectory");
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
+  this->declareAndLoadParameter("add_x_init_to_ref", add_x_init_to_ref_,
+                                "add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle");
   this->declareAndLoadParameter("use_prediction", use_prediction_, "use obstacle predictions for optimization (True) or only static obstacles (False)");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
@@ -362,7 +364,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
-  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
+  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_, x_init)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
@@ -417,7 +419,8 @@ void TrajectoryOptimizationNode::planningCycle() {
 bool TrajectoryOptimizationNode::updateOcpInputs(
     const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list,
     const route_planning_msgs::msg::Route& route,
-    const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+    const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+    const std::vector<double>& x_init) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;
@@ -425,6 +428,11 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
     tf_reference_trajectory =
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
+    if (add_x_init_to_ref_ && trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, 0) > 0.0) {
+      RCLCPP_INFO(this->get_logger(), "Adding x_init to beginning of reference trajectory");
+      std::vector<double> x_0_ref = {0.0, x_init[0], x_init[1], x_init[3]};
+      tf_reference_trajectory.states.insert(tf_reference_trajectory.states.begin(), x_0_ref.begin(), x_0_ref.end());
+    }
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));

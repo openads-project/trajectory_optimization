@@ -81,7 +81,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
                        const perception_msgs::msg::ObjectList &object_list,
                        const route_planning_msgs::msg::Route &route,
-                       const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
+                       const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
+                       const std::vector<double> &x_init);
 
   void setOcpGlobalParameters(const std::vector<double> &cost_weights,
                               const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
@@ -141,6 +142,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
+  bool add_x_init_to_ref_ = false;
   bool use_prediction_ = false;
   bool init_as_ref_ = false;
   bool run_as_callback_ = false;
