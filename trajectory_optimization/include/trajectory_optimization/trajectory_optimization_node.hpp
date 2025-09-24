@@ -79,8 +79,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const route_planning_msgs::msg::Route &route,
                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
 
-  void setOcpParameters(std::vector<double> &cost_weights,
-                        const perception_msgs::msg::EgoData &ego_data,
+  void setOcpGlobalParameters(const std::vector<double> &cost_weights);
+
+  void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,
                         const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
                         const perception_msgs::msg::ObjectList &object_list);
 
@@ -151,7 +152,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> viz_circles_;
 
   // cost weights
-  std::vector<double> cost_weights_ = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  std::vector<double> cost_weights_ = std::vector<double>(15, 1.0);
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
   double d_min_obstacle_long_ = 5.0;

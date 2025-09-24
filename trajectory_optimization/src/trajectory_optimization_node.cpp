@@ -125,8 +125,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(
  * @param parameters parameters
  * @return parameter change result
  */
-rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
-    const std::vector<rclcpp::Parameter>& parameters) {
+rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
@@ -145,8 +144,12 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
     }
+    // update ocp global parameters if any global parameters have changed
+    if (param.get_name() == "cost_weights" || param.get_name() == "thw" ||
+        param.get_name() == "d_min_obstacle_long" || param.get_name() == "d_min_obstacle_lat") {
+      this->setOcpGlobalParameters(cost_weights_);
+    }
   }
-
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
@@ -242,12 +245,15 @@ void TrajectoryOptimizationNode::setupSolver() {
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   std::vector<double> u_init(*nlp_dims_->nu, 0.0);
 
+  // set ocp global parameters and precompute dependencies
+  this->setOcpGlobalParameters(cost_weights_);
+
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", x_init.data());
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "u", u_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", x_init.data());
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "u", u_init.data());
   }
-  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, n_shots_, "x", x_init.data());
+  ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", x_init.data());
 
   xtraj_ = new double[*nlp_dims_->nx * (n_shots_ + 1)];
   utraj_ = new double[*nlp_dims_->nu * n_shots_];
@@ -339,8 +345,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     ss << "x[" << i << "]: " << x_init[i] << (i != x_init.size() - 1 ? ", " : "");
   RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
 
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "lbx", x_init.data());
-  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, 0, "ubx", x_init.data());
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", x_init.data());
+  ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
@@ -427,43 +433,53 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
       initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, idx);
       initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, idx);
       initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, idx);
-      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, i, "x", initial_guess.data());
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", initial_guess.data());
     }
   }
 
   // update ocp parameters
-  this->setOcpParameters(cost_weights_, ego_data, tf_reference_trajectory, tf_object_list);
+  this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
 
   return true;
 }
 
-void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weights,
-                                                  const perception_msgs::msg::EgoData& ego_data,
+void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
+    const auto start_time = std::chrono::steady_clock::now();
+    std::vector<double> global_params;
+    // cost weights
+    global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end());
+    // other cost params
+    global_params.push_back(thw_);
+    global_params.push_back(d_min_obstacle_long_);
+    global_params.push_back(d_min_obstacle_lat_);
+
+    if (global_params.size() != (size_t)nlp_dims_->np_global) {
+      RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(), nlp_dims_->np_global);
+      return;
+    }
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
+    const auto elapsed_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
+}
+
+void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
                                                   const perception_msgs::msg::ObjectList& object_list) {
+  const auto start_time = std::chrono::steady_clock::now();
   // loop over shooting intervals
   double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
     int idx, n;
 
-    // cost weights
-    idx = 0;
-    n = p_cost_weights_shape_[0] * p_cost_weights_shape_[1];
-    std::vector<int> idx_cost_weights(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_cost_weights.begin(), idx_cost_weights.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_weights.data(),
-                                                    cost_weights.data(), n);
-
     // dynamic weight
-    idx += n;
+    idx = 0;
     n = 1;
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(),
-                                                    &floating_dynamic_weight, n);
+    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
     // ref path
@@ -505,7 +521,7 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
-    std::vector<double> circles; // [x1, y1, r1, x2, y2, r2, ...]
+    std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt, y_tgt, yaw_tgt;
@@ -564,17 +580,10 @@ void TrajectoryOptimizationNode::setOcpParameters(std::vector<double>& cost_weig
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
-
-    // Other cost params
-    idx += n;
-    n = 3;
-    std::vector<double> other_cost_params = {thw_, d_min_obstacle_long_, d_min_obstacle_lat_};
-    std::vector<int> idx_cost_params(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_cost_params.begin(), idx_cost_params.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_cost_params.data(), other_cost_params.data(), n);
-
   }
+  const auto elapsed_ms =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+  RCLCPP_DEBUG(this->get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
 }
 
 }  // namespace trajectory_optimization
