@@ -22,7 +22,7 @@
     bi_level_dDelta_rear: 5.0       # maximum rear steering difference before bi-level stabilization hits [degree]
 
     ### general parameters defining the ocp
-    model_name: 'omni_shuttle'      # name of the acados model
+    model_name: 'shuttle'           # name of the acados model
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
     calc_point_costs: False         # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used as build parameter in OCP)
