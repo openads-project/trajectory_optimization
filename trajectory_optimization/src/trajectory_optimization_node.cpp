@@ -165,11 +165,6 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
     }
-    // update ocp global parameters if any global parameters have changed
-    if (param.get_name() == "cost_weights" || param.get_name() == "thw" ||
-        param.get_name() == "d_min_obstacle_long" || param.get_name() == "d_min_obstacle_lat") {
-      this->setOcpGlobalParameters(cost_weights_);
-    }
   }
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
@@ -265,9 +260,6 @@ void TrajectoryOptimizationNode::setupSolver() {
   // initialization of state and control values; set all to zero
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   std::vector<double> u_init(*nlp_dims_->nu, 0.0);
-
-  // set ocp global parameters and precompute dependencies
-  this->setOcpGlobalParameters(cost_weights_);
 
   // initialize solution
   for (int i = 0; i < n_shots_; ++i) {
@@ -459,28 +451,52 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   }
 
   // update ocp parameters
-  this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
+  try {
+    this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory);
+    this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
+    return false;
+  }
 
   return true;
 }
 
-void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights) {
+void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights,
+                                                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
     const auto start_time = std::chrono::steady_clock::now();
     std::vector<double> global_params;
+
     // cost weights
     global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end());
+
     // other cost params
     global_params.push_back(thw_);
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
 
+    // reference path
+    int n_ref_states = p_ref_path_shape_[0] * p_ref_path_shape_[1];
+    // replace all t values with theta since we don't need t in the ocp
+    trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
+    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++j) {
+      trajectory_planning_msgs::trajectory_access::setT(
+          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, j), j);
+    }
+    if (ref.states.size() >= static_cast<size_t>(n_ref_states)) {
+      global_params.insert(global_params.end(), ref.states.begin(), ref.states.begin() + n_ref_states);
+    } else {
+      // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
+      global_params.insert(global_params.end(), ref.states.begin(), ref.states.end());
+      global_params.insert(global_params.end(), n_ref_states - ref.states.size(), std::numeric_limits<double>::infinity());
+    }
+
     if (global_params.size() != (size_t)nlp_dims_->np_global) {
       RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(), nlp_dims_->np_global);
-      return;
+      throw std::runtime_error("Size of global parameters does not match expected size.");
     }
     trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
-    const auto elapsed_ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
     RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
 
@@ -503,30 +519,6 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
-    // ref path
-    idx += n;
-    n = p_ref_path_shape_[0] * p_ref_path_shape_[1];
-    std::vector<int> idx_ref_path(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_ref_path.begin(), idx_ref_path.end(), idx);
-
-    // replace all t values with theta since we don't need t in the ocp
-    trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
-    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++j) {
-      trajectory_planning_msgs::trajectory_access::setT(
-          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, j), j);
-    }
-
-    // fill ref_path vector with values from ref
-    std::vector<double> ref_path(n, std::numeric_limits<double>::infinity());
-    if (ref.states.size() >= (size_t)n) {
-      std::copy(ref.states.begin(), ref.states.begin() + n, ref_path.begin());
-    } else {
-      // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
-      std::copy(ref.states.begin(), ref.states.end(), ref_path.begin());
-    }
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_path.data(), ref_path.data(), n);
-
     // ref point
     idx += n;
     n = 3;
@@ -535,9 +527,9 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       // fill vector with values from idx to idx + n
       std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
       // get x, y, v from reference trajectory
-      std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(ref, i),
-                                      trajectory_planning_msgs::trajectory_access::getY(ref, i),
-                                      trajectory_planning_msgs::trajectory_access::getV(ref, i)};
+      std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i),
+                                      trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i),
+                                      trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i)};
       trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
     }
 
