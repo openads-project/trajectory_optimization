@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -12,6 +13,7 @@
 
 // access functions
 #include <perception_msgs_utils/object_access.hpp>
+#include <route_planning_msgs_utils/route_access.hpp>
 #include <trajectory_planning_msgs_utils/trajectory_access.hpp>
 
 // tf2
@@ -19,6 +21,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_perception_msgs/tf2_perception_msgs.hpp>
+#include <tf2_route_planning_msgs/tf2_route_planning_msgs.hpp>
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
 // acados
@@ -45,7 +48,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
-  const std::string kObjectCirclesTopic = "~/visualization/object_circles";
+  const std::string kObjectMarkerTopic = "~/visualization/object_circles";
+  const std::string kBoundaryMarkerTopic = "~/visualization/boundaries";
 
   template <typename T>
   void declareAndLoadParameter(const std::string &name,
@@ -85,16 +89,21 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                        const std::vector<double> &x_init);
 
   void setOcpGlobalParameters(const std::vector<double> &cost_weights,
-                              const trajectory_planning_msgs::msg::Trajectory &reference_trajectory);
+                              const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
+                              const route_planning_msgs::msg::Route &route);
 
   void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,
                         const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
                         const perception_msgs::msg::ObjectList &object_list);
 
-  void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list,
-                                                       const int n_objects);
+  std::vector<std::pair<double, double>> normalBoundaryDistance(const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
+                                                                const route_planning_msgs::msg::Route &route);
+  void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list, const int n_objects);
   std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double> &obstacles);
+  void vizBoundaryPoints(const std::vector<Eigen::Vector2d> &left_boundary_points,
+                         const std::vector<Eigen::Vector2d> &right_boundary_points,
+                         bool is_intersection = false);
 
   // virtual functions need to be implemented in derived classes
   virtual void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) = 0;
@@ -111,6 +120,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
 
@@ -165,11 +175,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double thw_ = 2.0;
   double d_min_obstacle_long_ = 5.0;
   double d_min_obstacle_lat_ = 0.5;
+  double d_min_boundary_lat_ = 0.0;
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
   std::vector<int64_t> p_cost_weights_shape_ = {15, 1};       // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 4};           // nStates x stateDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 6};           // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
   // ocp variables

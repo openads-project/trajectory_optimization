@@ -38,6 +38,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Minimum distance to keep to obstacle in longitudinal direction [m]");
   this->declareAndLoadParameter("d_min_obstacle_lat", d_min_obstacle_lat_,
                                 "Minimum distance to keep to obstacle in lateral direction [m]");
+  this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
+                                "Minimum distance to keep to boundary in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
                                 "Threshold for standstill detection [m/s]. If all state velocities are below this "
                                 "threshold, publish standstill trajectory");
@@ -208,7 +210,10 @@ void TrajectoryOptimizationNode::setup() {
   // set up publisher for output topics
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
-  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectCirclesTopic, 1);
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectMarkerTopic, 1);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
+  boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundaryMarkerTopic, 1);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", boundary_pub_->get_topic_name());
 
   // create timer for planning cycle
   if (run_as_callback_) {
@@ -424,7 +429,9 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;
+  route_planning_msgs::msg::Route tf_route;
   try {
+    // reference trajectory
     tf_reference_trajectory =
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
@@ -433,6 +440,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
       std::vector<double> x_0_ref = {0.0, x_init[0], x_init[1], x_init[3]};
       tf_reference_trajectory.states.insert(tf_reference_trajectory.states.begin(), x_0_ref.begin(), x_0_ref.end());
     }
+    // object list
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                               fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
@@ -440,6 +448,13 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
       tf_object_list = object_list;
     }
     keepNClosestObjects(tf_object_list, p_obstacle_circles_shape_[0]);
+    // route
+    if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
+      tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
+                                        fixed_over_time_frame_id_, tf2::durationFromSec(0.1));
+    } else {
+      tf_route = route;
+    }
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
     return false;
@@ -460,7 +475,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 
   // update ocp parameters
   try {
-    this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory);
+    this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory, tf_route);
     this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
@@ -471,7 +486,8 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
 }
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights,
-                                                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+                                                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                                                        const route_planning_msgs::msg::Route& route) {
     const auto start_time = std::chrono::steady_clock::now();
     std::vector<double> global_params;
 
@@ -482,21 +498,27 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
     global_params.push_back(thw_);
     global_params.push_back(d_min_obstacle_long_);
     global_params.push_back(d_min_obstacle_lat_);
+    global_params.push_back(d_min_boundary_lat_);
 
-    // reference path
+    // reference path (including boundaries)
     int n_ref_states = p_ref_path_shape_[0] * p_ref_path_shape_[1];
-    // replace all t values with theta since we don't need t in the ocp
-    trajectory_planning_msgs::msg::Trajectory ref = reference_trajectory;
-    for (int j = 0; j < trajectory_planning_msgs::trajectory_access::getSamplePointSize(ref); ++j) {
-      trajectory_planning_msgs::trajectory_access::setT(
-          ref, trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, j), j);
+    std::vector<std::pair<double, double>> boundary_distances = normalBoundaryDistance(reference_trajectory, route);
+    // fill ref vector for ocp -> psi, x, y, v, d_bound_left, d_bound_right
+    std::vector<double> ref;
+    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++i) {
+      ref.push_back(trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i));
+      ref.push_back(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i));
+      ref.push_back(trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i));
+      ref.push_back(trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i));
+      ref.push_back(boundary_distances[i].first);   // left boundary distance
+      ref.push_back(boundary_distances[i].second);  // right boundary distance
     }
-    if (ref.states.size() >= static_cast<size_t>(n_ref_states)) {
-      global_params.insert(global_params.end(), ref.states.begin(), ref.states.begin() + n_ref_states);
+    if (ref.size() >= static_cast<size_t>(n_ref_states)) {
+      global_params.insert(global_params.end(), ref.begin(), ref.begin() + n_ref_states);
     } else {
       // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
-      global_params.insert(global_params.end(), ref.states.begin(), ref.states.end());
-      global_params.insert(global_params.end(), n_ref_states - ref.states.size(), std::numeric_limits<double>::infinity());
+      global_params.insert(global_params.end(), ref.begin(), ref.end());
+      global_params.insert(global_params.end(), n_ref_states - ref.size(), std::numeric_limits<double>::infinity());
     }
 
     if (global_params.size() != (size_t)nlp_dims_->np_global) {
