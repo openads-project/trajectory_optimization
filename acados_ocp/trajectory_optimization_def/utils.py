@@ -15,12 +15,12 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     """
     ref_path_state_dim = config["p_ref_path_shape"][1]
     # p_ref_path shuold be sortet like this: (psi1, x1, y1, v1, psi2, x2, y2, v2, ...)
-    psi_ref_path = p_ref_path[P_REF_PATH_INDEX_PSI::ref_path_state_dim] # every 4th element starting from index 0
-    x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim] # every 4th element starting from index 1
-    y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 4th element starting from index 2
-    v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 4th element starting from index 3
-    d_left_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_LEFT::ref_path_state_dim] # every 4th element starting from index 4
-    d_right_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_RIGHT::ref_path_state_dim] # every 4th element starting from index 5
+    psi_ref_path = p_ref_path[P_REF_PATH_INDEX_PSI::ref_path_state_dim] # every 6th element starting from index 0
+    x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim] # every 6th element starting from index 1
+    y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 6th element starting from index 2
+    v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 6th element starting from index 3
+    d_left_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_LEFT::ref_path_state_dim] # every 6th element starting from index 4
+    d_right_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_RIGHT::ref_path_state_dim] # every 6th element starting from index 5
 
     n_ref_path_points = config["p_ref_path_shape"][0]
     # initialize closest distances to path sample with a large value

@@ -244,7 +244,7 @@ def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
     # RWS
     L_f = config["distance_cg_front_axle"]
     L_r = config["distance_cg_rear_axle"]
-    beta = ca.atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]))
+    beta = ca.atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
     return beta
 
 def compute_alpha_r_cost_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
