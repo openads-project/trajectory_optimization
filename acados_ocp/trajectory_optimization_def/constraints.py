@@ -112,45 +112,42 @@ def set_constraints(ocp: AcadosOcp, config):
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
     assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_ref_point_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 
-    MAX_OBSTACLE_DISTANCE = 1e6  # large value to "disable" obstacle constraint (could not use inf, because of numerical issues)
+    MAX_OBSTACLE_CONSTRAINT = 1e9  # large value to "disable" obstacle constraints without pushing JSON to inf
+    beta = compute_side_slip_angle(ocp, config)
+    v_t = ocp.model.x[STATE_INDEX_V_T]
+    psi = ocp.model.x[STATE_INDEX_PSI]
+    cos_psi = ca.cos(psi)
+    sin_psi = ca.sin(psi)
+
+    dyn_long_buffer = ca.fabs(p_thw * v_t * ca.cos(beta))
+    dyn_lat_buffer = ca.fabs(p_thw * v_t * ca.sin(beta))
+    ego_circle_radius = ego_approximation["radius"]
+
     for i in range(config["p_obstacle_circles_shape"][0]):
         x_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_X]
         y_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_Y]
         r_circle = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_RADIUS]
 
-        # initialize closest distances to object with a large value
-        closest_distance = MAX_OBSTACLE_DISTANCE
-        dLong = MAX_OBSTACLE_DISTANCE
-        dLat = MAX_OBSTACLE_DISTANCE
+        combined_radius = ego_circle_radius + r_circle
+        d_long_min = ca.fmax(d_min_obstacle_long, dyn_long_buffer) + combined_radius
+        d_lat_min = ca.fmax(d_min_obstacle_lat, dyn_lat_buffer) + combined_radius
 
-        # find the ego-circle that gives the closest distance to the object-circle and store dLat and dLon
+        # avoid division by values close to zero when the buffers are very small
+        d_long_min = ca.fmax(d_long_min, 1e-3)
+        d_lat_min = ca.fmax(d_lat_min, 1e-3)
+
         for j in range(config["n_ego_circles"]):
             dx = x_center - ego_approximation["x"][j]
             dy = y_center - ego_approximation["y"][j]
-            # determine dLong and dLat wrt. idx_min
-            gamma = ca.atan2(dy, dx)
-            alpha = wrap_angle(gamma - ocp.model.x[STATE_INDEX_PSI])
-            c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
-            # update the minimum dLong and dLat value if c < closest_distance
-            dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
-            dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
-            closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
-        # define minimum lateral and longitudinal distance to object circles
-        beta = compute_side_slip_angle(ocp, config)
+            d_long_rel = dx * cos_psi + dy * sin_psi
+            d_lat_rel = -dx * sin_psi + dy * cos_psi
 
-        x = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta)) # TODO: verify if this is correct
-        y = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.sin(beta)) # TODO: verify if this is correct
-        dLatMin = ca.fmax(d_min_obstacle_lat, y) + ego_approximation["radius"] + r_circle
-        dLongMin = ca.fmax(d_min_obstacle_long, x) + ego_approximation["radius"] + r_circle
+            ellipse_constraint = ca.power(d_long_rel / d_long_min, 2) + ca.power(d_lat_rel / d_lat_min, 2) - 1.0
 
-        # constraint for minimum distance to object circle dLat > dLatMin, dLong > dLongMin
-        lat_object_constraint = ca.fabs(dLat) - dLatMin
-        long_object_constraint = ca.fabs(dLong) - dLongMin
-
-        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, lat_object_constraint, long_object_constraint)
-        cons.lh = np.concatenate((cons.lh, [0.0, 0.0]))
-        cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_DISTANCE, MAX_OBSTACLE_DISTANCE]))
+            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, ellipse_constraint)
+            cons.lh = np.concatenate((cons.lh, [0.0]))
+            cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_CONSTRAINT]))
 
     ### a_abs_squared, psi_dot, steering_mode_constraint ###
     # Ackermann: psi_dot = v / l * tan(delta_f)
