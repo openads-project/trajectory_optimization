@@ -1,6 +1,6 @@
 from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
-from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry
+from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry, wrap_angle
 from constants import *
 import numpy as np
 
@@ -64,6 +64,9 @@ def set_constraints(ocp: AcadosOcp, config):
     p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_params_shape"]))]
     p_ref_path = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_ref_path_shape"]))]
     assert idx_global_params == np.prod(config["p_cost_weights_shape"]) + np.prod(config["p_cost_params_shape"]) + np.prod(config["p_ref_path_shape"])
+    p_thw = p_cost_params[0]
+    d_min_obstacle_long = p_cost_params[1]
+    d_min_obstacle_lat = p_cost_params[2]
     d_min_boundary_lat = p_cost_params[3]
 
     # approximate the ego-vehicle with circles
@@ -100,6 +103,54 @@ def set_constraints(ocp: AcadosOcp, config):
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, boundary_constraint_left, boundary_constraint_right)
         cons.lh = np.concatenate((cons.lh, [-MAX_OFFSET_BOUNDARY, 0.0]))  # large negagtive number to "disable" left boundary constraint for right offset
         cons.uh = np.concatenate((cons.uh, [0.0, MAX_OFFSET_BOUNDARY]))   # large positive number to "disable" right boundary constraint for left offset
+
+    ### obstacle avoidance ###
+    # get obstacles from parameters
+    idx_params = 0
+    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))]
+    p_ref_point = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_ref_point_shape"]))]
+    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
+    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_ref_point_shape"]) + np.prod(config["p_obstacle_circles_shape"])
+
+    MAX_OBSTACLE_DISTANCE = 1e6  # large value to "disable" obstacle constraint (could not use inf, because of numerical issues)
+    for i in range(config["p_obstacle_circles_shape"][0]):
+        x_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_X]
+        y_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_Y]
+        r_circle = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_RADIUS]
+
+        # initialize closest distances to object with a large value
+        closest_distance = MAX_OBSTACLE_DISTANCE
+        dLong = MAX_OBSTACLE_DISTANCE
+        dLat = MAX_OBSTACLE_DISTANCE
+
+        # find the ego-circle that gives the closest distance to the object-circle and store dLat and dLon
+        for j in range(config["n_ego_circles"]):
+            dx = x_center - ego_approximation["x"][j]
+            dy = y_center - ego_approximation["y"][j]
+            # determine dLong and dLat wrt. idx_min
+            gamma = ca.atan2(dy, dx)
+            alpha = wrap_angle(gamma - ocp.model.x[STATE_INDEX_PSI])
+            c = ca.sqrt(ca.power(dx, 2) + ca.power(dy, 2))
+            # update the minimum dLong and dLat value if c < closest_distance
+            dLong = ca.if_else(c < closest_distance, c * ca.cos(alpha), dLong)
+            dLat = ca.if_else(c < closest_distance, c * ca.sin(alpha), dLat)
+            closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
+
+        # define minimum lateral and longitudinal distance to object circles
+        beta = compute_side_slip_angle(ocp, config)
+
+        x = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta)) # TODO: verify if this is correct
+        y = ca.fabs(p_thw * ocp.model.x[STATE_INDEX_V_T] * ca.sin(beta)) # TODO: verify if this is correct
+        dLatMin = ca.fmax(d_min_obstacle_lat, y) + ego_approximation["radius"] + r_circle
+        dLongMin = ca.fmax(d_min_obstacle_long, x) + ego_approximation["radius"] + r_circle
+
+        # constraint for minimum distance to object circle dLat > dLatMin, dLong > dLongMin
+        lat_object_constraint = ca.fabs(dLat) - dLatMin
+        long_object_constraint = ca.fabs(dLong) - dLongMin
+
+        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, lat_object_constraint, long_object_constraint)
+        cons.lh = np.concatenate((cons.lh, [0.0, 0.0]))
+        cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_DISTANCE, MAX_OBSTACLE_DISTANCE]))
 
     ### a_abs_squared, psi_dot, steering_mode_constraint ###
     # Ackermann: psi_dot = v / l * tan(delta_f)
@@ -170,3 +221,19 @@ def set_constraints(ocp: AcadosOcp, config):
         ocp.cost.zu = np.array(config["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
 
     ocp.constraints = cons
+
+def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
+    """
+    Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector)
+    Ackermann:
+    beta = 0.0
+    RWS:
+    beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
+    """
+    if config["model_type"] == "Ackermann":
+        return 0.0
+    # RWS
+    L_f = config["distance_cg_front_axle"]
+    L_r = config["distance_cg_rear_axle"]
+    beta = ca.atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
+    return beta
