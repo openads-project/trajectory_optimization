@@ -186,8 +186,19 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
     std::vector<Eigen::Vector2d> right_boundary_intersections;
   };
 
+  const double NO_BOUNDARY_DISTANCE = 1e6; // should be smaller than MAX_BOUNDARY_CONSTRAINT from ocp
+
   Boundaries boundaries;
   std::vector<route_planning_msgs::msg::RouteElement> remaining_route = route_planning_msgs::route_access::getRemainingRouteElements(route, true);
+
+  if (remaining_route.size() < 1) {
+    RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
+    for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++i) {
+      boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE); 
+    }
+    return boundaries.min_normal_distances;
+  }
+
   for (const auto& route_element : remaining_route) {
     if (route_element.is_enriched) {
       route_planning_msgs::msg::LaneElement suggested_lane = route_planning_msgs::route_access::getSuggestedLaneElement(route_element);
@@ -250,7 +261,8 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
       RCLCPP_DEBUG(this->get_logger(), "Minimum left boundary distance: %.2f m", left_intersection.first);
       RCLCPP_DEBUG(this->get_logger(), "Minimum right boundary distance: %.2f m", right_intersection.first);
     } else {
-      throw std::runtime_error("No boundary intersection found for trajectory point " + std::to_string(i));
+      boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE);
+      RCLCPP_WARN(get_logger(), "No boundary intersection found for trajectory point %d. Do not constrain boundaries at this point.", i);
     }
   }
   if (debug_viz_) {
