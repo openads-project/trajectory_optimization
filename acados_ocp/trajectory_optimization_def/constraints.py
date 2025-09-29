@@ -56,6 +56,11 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.lh = np.array([])  # initialize empty lower bounds for nonlinear constraints
     cons.uh = np.array([])  # initialize empty upper bounds for nonlinear constraints
 
+    # approximate the ego-vehicle with circles
+    ego_approximation = approximate_ego_geometry(ocp, config)
+    ego_radius = ego_approximation["radius"]
+    n_ego_circles = config["n_ego_circles"]
+
     ### route boundaries ###
 
     # get ref path with boundaries from global parameters
@@ -69,9 +74,6 @@ def set_constraints(ocp: AcadosOcp, config):
     d_min_obstacle_lat = p_cost_params[2]
     d_min_boundary_lat = p_cost_params[3]
 
-    # approximate the ego-vehicle with circles
-    ego_approximation = approximate_ego_geometry(ocp, config)
-
     # calc normal vector from interpolated reference point to the current position
     ref_inter = determine_spacially_matched_ref_path_point(config, p_ref_path, ocp.model.x[STATE_INDEX_X], ocp.model.x[STATE_INDEX_Y])
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
@@ -83,26 +85,25 @@ def set_constraints(ocp: AcadosOcp, config):
     d_normal = ca.dot(ref_diff, normal_vec)
 
     # calc offset to boundaries for each ego circle
-    MAX_OFFSET_BOUNDARY = 1e6  # large value to "disable" boundary constraint to one side (could not use inf, because of numerical issues)
-    for i in range(config["n_ego_circles"]):
+    MAX_BOUNDARY_CONSTRAINT = 1e9
+    # limit the requested extra clearance to what the current lane geometry allows
+    left_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - ego_radius, 0.0))
+    right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - ego_radius, 0.0))
+    for i in range(n_ego_circles):
 
         # circle offset from current position
         circle_offset = ca.vertcat(ego_approximation["x_offset"][i], ego_approximation["y_offset"][i])
-        
+
         # distance to reference from each ego circle center
         d_circle_center_ref_path = d_normal + ca.dot(circle_offset, normal_vec)
 
-        # constraints for left and right road boundary
-        # left boundary: countouring_error - d_left_boundary + (r + d_min_boundary_lat) < 0
-        # right boundary: countouring_error + d_right_boundary - (r + d_min_boundary_lat) > 0
-        # assumption: d_left_boundary + d_right_boundary >= 2 * (r + d_min_boundary_lat)
-        assumption_check = (ref_inter["d_left_boundary"] + ref_inter["d_right_boundary"] < 2 * (ego_approximation["radius"] + d_min_boundary_lat))
-        boundary_constraint_left = ca.if_else(assumption_check, -MAX_OFFSET_BOUNDARY-1, d_circle_center_ref_path - ref_inter["d_left_boundary"] + ego_approximation["radius"] + d_min_boundary_lat)
-        boundary_constraint_right = ca.if_else(assumption_check, MAX_OFFSET_BOUNDARY+1, d_circle_center_ref_path + ref_inter["d_right_boundary"] - ego_approximation["radius"] - d_min_boundary_lat)
+        # boundary constraint: circl_center_to_ref + ego_radius + margin < d_boundary (note: offset to right is negative!)
+        left_constraint = d_circle_center_ref_path + ego_radius + left_margin_required - ref_inter["d_left_boundary"]
+        right_constraint = -d_circle_center_ref_path + ego_radius + right_margin_required - ref_inter["d_right_boundary"]
 
-        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, boundary_constraint_left, boundary_constraint_right)
-        cons.lh = np.concatenate((cons.lh, [-MAX_OFFSET_BOUNDARY, 0.0]))  # large negagtive number to "disable" left boundary constraint for right offset
-        cons.uh = np.concatenate((cons.uh, [0.0, MAX_OFFSET_BOUNDARY]))   # large positive number to "disable" right boundary constraint for left offset
+        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
+        cons.lh = np.concatenate((cons.lh, [-MAX_BOUNDARY_CONSTRAINT, -MAX_BOUNDARY_CONSTRAINT]))
+        cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
     ### obstacle avoidance ###
     # get obstacles from parameters
@@ -121,14 +122,13 @@ def set_constraints(ocp: AcadosOcp, config):
 
     dyn_long_buffer = ca.fabs(p_thw * v_t * ca.cos(beta))
     dyn_lat_buffer = ca.fabs(p_thw * v_t * ca.sin(beta))
-    ego_circle_radius = ego_approximation["radius"]
 
     for i in range(config["p_obstacle_circles_shape"][0]):
         x_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_X]
         y_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_Y]
         r_circle = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_RADIUS]
 
-        combined_radius = ego_circle_radius + r_circle
+        combined_radius = ego_radius + r_circle
         d_long_min = ca.fmax(d_min_obstacle_long, dyn_long_buffer) + combined_radius
         d_lat_min = ca.fmax(d_min_obstacle_lat, dyn_lat_buffer) + combined_radius
 
@@ -136,7 +136,7 @@ def set_constraints(ocp: AcadosOcp, config):
         d_long_min = ca.fmax(d_long_min, 1e-3)
         d_lat_min = ca.fmax(d_lat_min, 1e-3)
 
-        for j in range(config["n_ego_circles"]):
+        for j in range(n_ego_circles):
             dx = x_center - ego_approximation["x"][j]
             dy = y_center - ego_approximation["y"][j]
 
@@ -205,7 +205,7 @@ def set_constraints(ocp: AcadosOcp, config):
     if config["enable_slack"]:
 
         # Add slack only to route bounds (nonlinear constraints (idxsh))
-        cons.idxsh = np.arange(0, config["n_ego_circles"] * 2)  # Index of nonlinear constraints with slack: left and right boundary for each ego circle
+        cons.idxsh = np.arange(0, n_ego_circles * 2)  # Index of nonlinear constraints with slack: left and right boundary for each ego circle
 
         # Add slack to state bounds (idxsbx)
         # cons.idxsbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T])              # Index of state constraints: v_t, a_t -> disabled
