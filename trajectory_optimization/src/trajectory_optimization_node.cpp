@@ -23,7 +23,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, "Frame ID of output trajectory");
   this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
-  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [passat_cc, auto_shuttle]");
+  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("calc_point_costs", calc_point_costs_, "OCP tries to follow a reference points, minimizing x, y and velocity errors");

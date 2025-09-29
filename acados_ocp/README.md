@@ -9,6 +9,6 @@ ROS 2 wrapper package for simple generation and usage of acados:
 
 - currently implemented is a single track model with `x = [x, y, s, v, a_lon, psi, delta]` and `u = [j_lon, alpha]`. Also see [model.py](trajectory_optimization_def/model.py) for the model definition.
 - to use differente paramteriaztions of this model, the following steps are necessary:
-  1. add a new parameter file in `trajectory_optimization_def` like [passat_cc_params.yml](trajectory_optimization_def/passat_cc_params.yml).
+  1. add a new parameter file in `trajectory_optimization_def` like [karl_params.yml](trajectory_optimization_def/karl_params.yml).
   2. add the corresponding model generation lines in [codegeneration.cmake](codegeneration.cmake#L23-L26)
   3. afterwards all models are build automatically and can be used for example in the `trajectory_optimization` package.

@@ -20,10 +20,6 @@ set(GENERATOR generate_ocp.py)
 
 # Needs to be generated in different processes
 execute_process(
-  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/passat_cc_params.yml"
-)
-
-execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/karl_params.yml"
 )
 
