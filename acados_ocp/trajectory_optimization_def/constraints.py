@@ -65,7 +65,7 @@ def set_constraints(ocp: AcadosOcp, config):
 
     # get ref path with boundaries from global parameters
     idx_global_params = 0
-    p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_weights_shape"]))]
+    p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_weights_shape"]))] # not used in constraints
     p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_params_shape"]))]
     p_ref_path = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_ref_path_shape"]))]
     assert idx_global_params == np.prod(config["p_cost_weights_shape"]) + np.prod(config["p_cost_params_shape"]) + np.prod(config["p_ref_path_shape"])
@@ -108,7 +108,7 @@ def set_constraints(ocp: AcadosOcp, config):
     ### obstacle avoidance ###
     # get obstacles from parameters
     idx_params = 0
-    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))]
+    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))] # not used in constraints
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
     assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 

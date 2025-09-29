@@ -31,15 +31,14 @@
       - 0.3  # dlat (0)
       - 0.0  # psi (1)      (considered if RWS model is used)
       - 0.15 # v_inter (2)
-      - 0.0  # obstacles (3)
-      - 0.2  # a_lat (4)
-      - 0.2  # a_lon_pos (5)
-      - 0.05 # a_lon_neg (6)
-      - 0.1  # j_lat (7)
-      - 0.1  # j_lon_pos (8)
-      - 0.05 # j_lon_neg (9)
-      - 0.03 # alpha (10)
-      - 1.0  # endYaw (11)
+      - 0.2  # a_lat (3)
+      - 0.2  # a_lon_pos (4)
+      - 0.05 # a_lon_neg (5)
+      - 0.1  # j_lat (6)
+      - 0.1  # j_lon_pos (7)
+      - 0.05 # j_lon_neg (8)
+      - 0.03 # alpha (9)
+      - 1.0  # endYaw (10)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
