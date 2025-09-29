@@ -207,9 +207,20 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
 
   for (const auto& route_element : remaining_route) {
     if (route_element.is_enriched) {
-      route_planning_msgs::msg::LaneElement suggested_lane = route_planning_msgs::route_access::getSuggestedLaneElement(route_element);
-      boundaries.left_boundary_points.emplace_back(suggested_lane.left_boundary.point.x, suggested_lane.left_boundary.point.y);
-      boundaries.right_boundary_points.emplace_back(suggested_lane.right_boundary.point.x, suggested_lane.right_boundary.point.y);
+      if (consider_boundaries_ == CONSIDER_BOUNDARIES::SUGGESTED_LANE) {
+        route_planning_msgs::msg::LaneElement suggested_lane = route_planning_msgs::route_access::getSuggestedLaneElement(route_element);
+        boundaries.left_boundary_points.emplace_back(suggested_lane.left_boundary.point.x, suggested_lane.left_boundary.point.y);
+        boundaries.right_boundary_points.emplace_back(suggested_lane.right_boundary.point.x, suggested_lane.right_boundary.point.y);
+      } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::INCLUDING_ADJACENT) {
+        const auto& lane_elements = route_element.lane_elements;
+        if (!lane_elements.empty()) {
+          boundaries.left_boundary_points.emplace_back(lane_elements.front().left_boundary.point.x, lane_elements.front().left_boundary.point.y);
+          boundaries.right_boundary_points.emplace_back(lane_elements.back().right_boundary.point.x, lane_elements.back().right_boundary.point.y);
+        }
+      } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::DRIVABLE_SPACE) {
+        boundaries.left_boundary_points.emplace_back(route_element.left_boundary.x, route_element.left_boundary.y);
+        boundaries.right_boundary_points.emplace_back(route_element.right_boundary.x, route_element.right_boundary.y);
+      }
     }
   }
 
