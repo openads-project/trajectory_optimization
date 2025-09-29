@@ -93,7 +93,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                               const route_planning_msgs::msg::Route &route);
 
   void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,
-                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
                         const perception_msgs::msg::ObjectList &object_list);
 
   std::vector<std::pair<double, double>> normalBoundaryDistance(const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
@@ -146,7 +145,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string model_name_ = "karl";
   double optimization_freq_ = 10.0;
   int n_shots_ = 50;
-  bool calc_point_costs_ = false;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
@@ -179,7 +177,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {15, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};           // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 

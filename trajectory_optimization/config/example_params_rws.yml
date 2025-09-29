@@ -25,7 +25,6 @@
     model_name: 'shuttle'           # name of the acados model
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
-    calc_point_costs: False         # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used as build parameter in OCP)
 
     #### vehicle specific parameters
     distance_front_axle: 1.7         # distance from center of gravity to front axle [m]
@@ -36,18 +35,15 @@
       - 5.0  # dlat (0)
       - 1.0  # psi (1)      (considered if RWS model is used)
       - 3.0  # v_inter (2)
-      - 0.0  # x_point (3)  (considered if calc_point_costs is True)
-      - 0.0  # y_point (4)  (considered if calc_point_costs is True)
-      - 0.0  # v_point (5)  (considered if calc_point_costs is True)
-      - 10.0 # obstacles (6)
-      - 0.1  # a_n (7)
-      - 0.5  # a_t_pos (8)
-      - 0.5  # a_t_neg (9)
-      - 0.05 # j_n (10)
-      - 0.1  # j_t_pos (11)
-      - 0.05 # j_t_neg (12)
-      - 0.1  # alpha_f/alpha_r (13)
-      - 1.0  # endYaw (14)
+      - 10.0 # obstacles (3)
+      - 0.1  # a_n (4)
+      - 0.5  # a_t_pos (5)
+      - 0.5  # a_t_neg (6)
+      - 0.05 # j_n (7)
+      - 0.1  # j_t_pos (8)
+      - 0.05 # j_t_neg (9)
+      - 0.1  # alpha_f/alpha_r (10)
+      - 1.0  # endYaw (11)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params

@@ -1,6 +1,6 @@
 from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
-from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry, wrap_angle
+from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry
 from constants import *
 import numpy as np
 
@@ -109,9 +109,8 @@ def set_constraints(ocp: AcadosOcp, config):
     # get obstacles from parameters
     idx_params = 0
     p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))]
-    p_ref_point = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_ref_point_shape"]))]
     p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
-    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_ref_point_shape"]) + np.prod(config["p_obstacle_circles_shape"])
+    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 
     MAX_OBSTACLE_CONSTRAINT = 1e9  # large value to "disable" obstacle constraints without pushing JSON to inf
     beta = compute_side_slip_angle(ocp, config)
