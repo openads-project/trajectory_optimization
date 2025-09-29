@@ -23,6 +23,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, "Frame ID of output trajectory");
   this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
+  this->declareAndLoadParameter("ego_data_timeout", ego_data_timeout_,
+                                "Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.");
   this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
@@ -46,7 +48,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter("add_x_init_to_ref", add_x_init_to_ref_,
                                 "add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle");
-  this->declareAndLoadParameter("use_prediction", use_prediction_, "use obstacle predictions for optimization (True) or only static obstacles (False)");
+  this->declareAndLoadParameter("consider_objects", consider_objects_,
+                                "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
+  this->declareAndLoadParameter("consider_boundaries", consider_boundaries_,
+                                "consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -321,8 +326,8 @@ void TrajectoryOptimizationNode::resetSolver() {
  */
 void TrajectoryOptimizationNode::planningCycle() {
   if (debug_viz_) viz_circles_.clear();
-  if (!received_ego_data_) {
-    RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
+  if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
+    RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
     return;
   }
   // init trajectory message and set header
@@ -560,7 +565,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
-      if (use_prediction_ && object_list.objects[j].state_predictions.size() > 0) {
+      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && object_list.objects[j].state_predictions.size() > 0) {
         for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
