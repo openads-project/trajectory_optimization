@@ -364,6 +364,99 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
   }
   circles_pub_->publish(marker_array);
 }
+/**
+ * @brief Publishes visualization markers representing the ego vehicle as its represented in the OCP.
+ * 
+ * Enables debug view of the ego vehicle approximation to check collision with bounds or obstacles.
+ * Relevant parameters are hardcoded here (as they are defined in the OCP).
+ *
+ * @param x_trajectory The trajectory of the ego vehicle. As represented in the OCP.
+ * @param model_name The name of the acados model used in the OCP.
+ */
+void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const std::string& model_name) {
+  if (!ego_circles_pub_) return;
+
+  double ego_length, ego_width;
+  int n_ego_circles;
+  std::vector<double> ego_offset2geocenter;
+
+  // define vehicle geometry based on model name (should match the OCP definition)
+  if (model_name == "karl") {
+    ego_length = 5.173;
+    ego_width = 2.252;
+    ego_offset2geocenter = {1.4895, 0.0};
+    n_ego_circles = 5;
+  } else if (model_name == "shuttle" || model_name == "shuttle_ackermann") {
+    ego_length = 4.97;
+    ego_width = 2.12;
+    ego_offset2geocenter = {0.0, 0.0};
+    n_ego_circles = 3;
+  } else if (model_name == "taxi") {
+    ego_length = 4.37;
+    ego_width = 2.12;
+    ego_offset2geocenter = {0.0, 0.0};
+    n_ego_circles = 3;
+  } else {
+    RCLCPP_WARN(this->get_logger(), "Unknown model '%s'. Could not visualize ego circles.", model_name.c_str());
+    return;
+  }
+
+  visualization_msgs::msg::MarkerArray marker_array;
+
+  if (!x_trajectory || n_ego_circles <= 0) {
+    visualization_msgs::msg::Marker delete_marker;
+    delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    marker_array.markers.push_back(delete_marker);
+    ego_circles_pub_->publish(marker_array);
+    return;
+  }
+
+  const double offset_x = ego_offset2geocenter.size() > 0 ? ego_offset2geocenter[0] : 0.0;
+  const double offset_y = ego_offset2geocenter.size() > 1 ? ego_offset2geocenter[1] : 0.0;
+
+  const double radius = std::sqrt(std::pow(ego_length / (2.0 * n_ego_circles), 2) + std::pow(ego_width / 2.0, 2));
+  const int state_dim = *nlp_dims_->nx;
+
+  int marker_id = 0;
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const double* state = &x_trajectory[stage * state_dim];
+    const double base_x = state[0];
+    const double base_y = state[1];
+    const double psi = state[5];
+
+    const double ego_center_x = base_x + offset_x * std::cos(psi) - offset_y * std::sin(psi);
+    const double ego_center_y = base_y + offset_x * std::sin(psi) + offset_y * std::cos(psi);
+
+    for (int i = 0; i < n_ego_circles; ++i) {
+      const double lon_offset = -ego_length / 2.0 + (2 * i + 1) * ego_length / (2.0 * n_ego_circles);
+      const double x_offset = lon_offset * std::cos(psi);
+      const double y_offset = lon_offset * std::sin(psi);
+
+      visualization_msgs::msg::Marker marker;
+      marker.header.frame_id = vehicle_frame_id_;
+      marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+      marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+      marker.ns = "ego-circles";
+      marker.id = marker_id++;
+      marker.type = visualization_msgs::msg::Marker::CYLINDER;
+      marker.action = visualization_msgs::msg::Marker::ADD;
+      marker.pose.position.x = ego_center_x + x_offset;
+      marker.pose.position.y = ego_center_y + y_offset;
+      marker.pose.position.z = 0.0;
+      marker.pose.orientation.w = 1.0;
+      marker.scale.x = radius * 2.0;
+      marker.scale.y = radius * 2.0;
+      marker.scale.z = 0.05;
+      marker.color.a = 0.4;
+      marker.color.r = 0.0f;
+      marker.color.g = 0.6f;
+      marker.color.b = 1.0f;
+      marker_array.markers.push_back(marker);
+    }
+  }
+
+  ego_circles_pub_->publish(marker_array);
+}
 
 /**
  * @brief Prints the solution of the trajectory optimization problem.

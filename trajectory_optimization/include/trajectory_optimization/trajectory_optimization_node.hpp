@@ -63,6 +63,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
   const std::string kObjectMarkerTopic = "~/visualization/object_circles";
+  const std::string kEgoMarkerTopic = "~/visualization/ego_circles";
   const std::string kBoundaryMarkerTopic = "~/visualization/boundaries";
 
   template <typename T>
@@ -114,6 +115,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list, const int n_objects);
   std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double> &obstacles);
+  void vizEgoCircles(const double* x_trajectory, const std::string& model_name);
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d> &left_boundary_points,
                          const std::vector<Eigen::Vector2d> &right_boundary_points,
                          bool is_intersection = false);
@@ -133,6 +135,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_circles_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
