@@ -27,6 +27,8 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
         DeclareLaunchArgument("reference_trajectory_topic", default_value="~/reference_trajectory"),
         DeclareLaunchArgument("route_topic", default_value="~/route"),
         DeclareLaunchArgument("trajectory_topic", default_value="~/trajectory"),
+        DeclareLaunchArgument("boundary_marker_topic", default_value="~/visualization/boundaries"),
+        DeclareLaunchArgument("ego_circles_topic", default_value="~/visualization/ego_circles"),
         DeclareLaunchArgument("object_circles_topic", default_value="~/visualization/object_circles"),
     ]
     
