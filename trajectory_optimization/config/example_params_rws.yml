@@ -9,6 +9,7 @@
     init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    add_x_init_to_ref: False        # add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle
     consider_objects: 2             # consider objects in optimization: 0 = no, 1 = static (no prediction), 2 = dynamic (with prediction)
     consider_boundaries: 1          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
