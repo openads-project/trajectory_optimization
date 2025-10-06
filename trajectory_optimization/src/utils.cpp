@@ -176,6 +176,160 @@ std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(const doubl
   return circles;
 }
 
+std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundaryDistance(const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                                                                                          const route_planning_msgs::msg::Route& route) {
+  const double NO_BOUNDARY_DISTANCE = 1e6; // should be smaller than MAX_BOUNDARY_CONSTRAINT from ocp
+
+  struct Boundaries {
+    std::vector<std::pair<double, double>> min_normal_distances;
+    std::vector<Eigen::Vector2d> left_boundary_points;
+    std::vector<Eigen::Vector2d> right_boundary_points;
+    std::vector<Eigen::Vector2d> left_boundary_intersections;
+    std::vector<Eigen::Vector2d> right_boundary_intersections;
+  };
+
+  Boundaries boundaries;
+  const auto remaining_route = route_planning_msgs::route_access::getRemainingRouteElements(route, true);
+  const int ref_sample_size = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
+  boundaries.left_boundary_points.reserve(remaining_route.size());
+  boundaries.right_boundary_points.reserve(remaining_route.size());
+  boundaries.min_normal_distances.reserve(ref_sample_size);
+  boundaries.left_boundary_intersections.reserve(ref_sample_size);
+  boundaries.right_boundary_intersections.reserve(ref_sample_size);
+
+  if (remaining_route.size() < 1) {
+    RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
+    for (int i = 0; i < ref_sample_size; ++i) {
+      boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE);
+    }
+    return boundaries.min_normal_distances;
+  }
+
+  for (const auto& route_element : remaining_route) {
+    if (route_element.is_enriched) {
+      route_planning_msgs::msg::LaneElement suggested_lane = route_planning_msgs::route_access::getSuggestedLaneElement(route_element);
+      boundaries.left_boundary_points.emplace_back(suggested_lane.left_boundary.point.x, suggested_lane.left_boundary.point.y);
+      boundaries.right_boundary_points.emplace_back(suggested_lane.right_boundary.point.x, suggested_lane.right_boundary.point.y);
+    }
+  }
+
+  // Helper lambda to find intersection
+  auto findIntersection = [this](const Eigen::Vector2d& ref_pos,
+                                  double sin_yaw,
+                                  double cos_yaw,
+                                  const std::vector<Eigen::Vector2d>& boundary_points,
+                                  bool isLeft) -> std::pair<double, Eigen::Vector2d>
+    {
+      std::pair<double,Eigen::Vector2d> intersection_result = {
+        std::numeric_limits<double>::infinity(),
+        Eigen::Vector2d(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())
+      };
+      
+      const Eigen::Vector2d normal_dir = isLeft ? Eigen::Vector2d(-sin_yaw, cos_yaw)
+                                                : Eigen::Vector2d(sin_yaw, -cos_yaw);
+      const auto cross2d = [](const Eigen::Vector2d& u, const Eigen::Vector2d& v) {
+        return u.x() * v.y() - u.y() * v.x();
+      };
+
+      for (size_t i = 0; i + 1 < boundary_points.size(); ++i) {
+        const Eigen::Vector2d& a = boundary_points[i];
+        const Eigen::Vector2d& b = boundary_points[i + 1];
+        Eigen::Vector2d seg = b - a;
+        Eigen::Vector2d ap = ref_pos - a;
+
+        const double denom = cross2d(seg, normal_dir);
+        if (std::abs(denom) < 1e-9) {
+          continue;  // Lines are close to parallel; ignore this segment
+        }
+
+        const double s = cross2d(ap, normal_dir) / denom;
+        const double t = cross2d(ap, seg) / denom;
+
+        if (s >= 0.0 && s <= 1.0 && t >= 0.0) {
+          Eigen::Vector2d intersection = a + s * seg;
+          double euklidean_distance = (ref_pos - intersection).norm();
+          if (euklidean_distance < intersection_result.first) {
+            intersection_result.first = euklidean_distance;
+            intersection_result.second = intersection;
+          }
+        } 
+      }
+      return intersection_result;
+    };
+
+  // Loop over trajectory points and compute intersections
+  for (int i = 0; i < ref_sample_size; ++i) {
+    Eigen::Vector2d ref_pos(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i),
+                            trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i));
+    double yaw = trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i);
+    const double sin_yaw = std::sin(yaw);
+    const double cos_yaw = std::cos(yaw);
+
+    auto left_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, boundaries.left_boundary_points, true);
+    auto right_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, boundaries.right_boundary_points, false);
+    if ( left_intersection.first != std::numeric_limits<double>::infinity() && right_intersection.first != std::numeric_limits<double>::infinity()) {
+      boundaries.min_normal_distances.emplace_back(left_intersection.first, right_intersection.first);
+      boundaries.left_boundary_intersections.emplace_back(left_intersection.second);
+      boundaries.right_boundary_intersections.emplace_back(right_intersection.second);
+      RCLCPP_DEBUG(this->get_logger(), "Minimum left boundary distance: %.2f m", left_intersection.first);
+      RCLCPP_DEBUG(this->get_logger(), "Minimum right boundary distance: %.2f m", right_intersection.first);
+    } else {
+      boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE);
+      RCLCPP_WARN(get_logger(), "No boundary intersection found for trajectory point %d. Do not constrain boundaries at this point.", i);
+    }
+  }
+  if (debug_viz_) {
+    vizBoundaryPoints(boundaries.left_boundary_points, boundaries.right_boundary_points, false);
+    vizBoundaryPoints(boundaries.left_boundary_intersections, boundaries.right_boundary_intersections, true);
+  }
+
+  return boundaries.min_normal_distances;
+}
+
+void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
+                                                   const std::vector<Eigen::Vector2d>& right_boundary_points,
+                                                   bool is_intersection) {
+  visualization_msgs::msg::MarkerArray marker_array;
+  int id = 0;
+
+  auto createMarker = [&](int id, const std::string& ns, const Eigen::Vector2d& pos, float r, float g, float b) {
+    visualization_msgs::msg::Marker m;
+    m.header.frame_id = vehicle_frame_id_;
+    m.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    m.lifetime = rclcpp::Duration::from_seconds(0.5);
+    m.ns = ns;
+    m.id = id;
+    m.type = visualization_msgs::msg::Marker::SPHERE;
+    m.action = visualization_msgs::msg::Marker::ADD;
+    m.pose.position.x = pos.x();
+    m.pose.position.y = pos.y();
+    m.pose.position.z = 0.0;
+    m.scale.x = m.scale.y = m.scale.z = 0.4;
+    m.color.a = 1.0;
+    m.color.r = r;
+    m.color.g = g;
+    m.color.b = b;
+    return m;
+  };
+
+  auto addMarkers = [&](const std::vector<Eigen::Vector2d>& points, const std::string& ns, float r, float g, float b) {
+    for (const auto& point : points) {
+      marker_array.markers.push_back(createMarker(id++, ns, point, r, g, b));
+    }
+  };
+
+  if (is_intersection) {
+    addMarkers(left_boundary_points,  "left_intersection_points",  0.5f, 0.0f, 1.0f);
+    addMarkers(right_boundary_points, "right_intersection_points", 0.0f, 0.5f, 1.0f);
+  } else {
+    addMarkers(left_boundary_points,  "left_boundary_points",  0.0f, 1.0f, 0.0f);
+    addMarkers(right_boundary_points, "right_boundary_points", 1.0f, 0.0f, 0.0f);
+  }
+
+  boundary_pub_->publish(marker_array);
+}
+
+
 void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles) {
   visualization_msgs::msg::MarkerArray marker_array;
   int n_circles = obstacles.size() / p_obstacle_circles_shape_[1];

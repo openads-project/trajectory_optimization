@@ -20,7 +20,7 @@ def set_opts(ocp, config):
     opts.rti_log_residuals = 1
     opts.timeout_max_time = 100e-3              # default 0 => no timeout [s]
     opts.timeout_heuristic = "MAX_CALL"         # default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
-    opts.nlp_solver_max_iter = 35               # default 100. Bound to ensure real-time capability
+    opts.nlp_solver_max_iter = 100              # default 100. Bound to ensure real-time capability
     opts.tol = 1e-4                             # default 1e-6
     opts.qp_solver_iter_max = 50                # default 50
     opts.qp_solver_warm_start = 2               # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
@@ -30,7 +30,7 @@ def set_opts(ocp, config):
     opts.globalization = 'FIXED_STEP'           # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0              # default. 1 could help to solve the problem if 0 fails, but will be slower
     opts.line_search_use_sufficient_descent = 0 # default. 1 could help to solve the problem if 0 fails, but will be slower
-    opts.levenberg_marquardt = 0.05             # default. Larger values could help to solve the problem if 0 fails, but will be slower
+    opts.levenberg_marquardt = 0.03             # default. Larger values could help to solve the problem if 0 fails, but will be slower
 
 
     # set prediction horizon in s

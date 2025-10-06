@@ -1,8 +1,11 @@
 from acados_template import AcadosOcp, AcadosOcpSolver, builders
 import argparse
 import os
+import sys
 import yaml
 
+CURRENT_DIR_PATH = os.path.dirname(__file__)
+sys.path.append(os.path.join(CURRENT_DIR_PATH, "models"))
 import dims, constraints, costs, opts
 import model_Ackermann, model_RWS
 

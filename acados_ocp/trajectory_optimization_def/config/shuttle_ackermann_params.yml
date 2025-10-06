@@ -1,8 +1,9 @@
 ### general parameters defining the ocp
-model_name: 'shuttle_ackermann'  # name of the acados model (also used in ROS node)
-model_type: 'Ackermann'               # model type on which the acados model is based on (Ackermann or RWS)
-optimization_horizon: 5.0             # optimization horizon [s] (also used in ROS node)
-n_shots: 50                           # number of shooting intervals in optimization horizon (also used in ROS node)
+model_name: 'shuttle_ackermann'   # name of the acados model (also used in ROS node)
+model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
+optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
+n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+calc_point_costs: False           # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 3.4                    # wheelbase [m]
@@ -32,15 +33,21 @@ c_j_n: 3.0            # distance to scale the normal jerk costs [m/s³]
 c_alpha: 0.35         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
-enable_slack: False                         # activate slack weights for soft constraints
-slack_weights:                              # [v, a_lon, a_squared], see constraints.py in acados_ocp
-  linear_lower: [1000.0, 0.1, 0.1]          # Linear cost on lower bound slack variables
-  linear_upper: [0.1, 0.1, 0.1]             # Linear cost on upper bound slack variables
-  quadratic_lower: [1000.0, 1000.0, 1000.0] # Quadratic cost on lower bound slack variables
-  quadratic_upper: [1000.0, 1000.0, 1000.0] # Quadratic cost on upper bound slack variables
+enable_slack: False                         # activate slack weights for soft constraints (route boundaries)
+slack_weights:                              # [d_bounds_left_ego_circle_1, d_bounds_right_ego_circle_1, d_bounds_left_ego_circle_2, d_bounds_right_ego_circle_2, ...], see constraints.py in acados_ocp
+  linear_lower: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]   # 2 * n_ego_circles
+  linear_upper: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]   # 2 * n_ego_circles
+  quadratic_lower: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0] # 2 * n_ego_circles
+  quadratic_upper: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0] # 2 * n_ego_circles
 
-### parameter vector structure
-# [cost_weights, dyn_weight (1), ref_path, obstacles, additional_cost_params (3)]
-p_cost_weights_shape: [15, 1] # nWeights x weightDim  (also used in ROS node)
-p_ref_path_shape: [51, 4]     # nStates x stateDim  (also used in ROS node)
-p_obstacle_circles_shape: [30, 3]    # nObstacleCircles x [x, y, radius]  (also used in ROS node)
+### parameter vector structure (stage-wise parameters)
+# [dyn_weight (1), ref_point (3), obstacles]
+p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
+p_ref_point_shape: [1, 3]         # state x [x, y, v] (also used in ROS node)
+p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
+
+### global parameter vector structure (constant over the horizon)
+# [cost_weights (15), cost_params (4), ref_path]
+p_cost_weights_shape: [15, 1]     # nWeights x weightDim (also used in ROS node)
+p_cost_params_shape: [4, 1]       # [thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
+p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)
