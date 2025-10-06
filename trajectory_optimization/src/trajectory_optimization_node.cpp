@@ -23,10 +23,11 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("trajectory_frame_id", trajectory_frame_id_, "Frame ID of output trajectory");
   this->declareAndLoadParameter("fixed_over_time_frame_id", fixed_over_time_frame_id_,
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
-  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [passat_cc, auto_shuttle]");
+  this->declareAndLoadParameter("ego_data_timeout", ego_data_timeout_,
+                                "Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.");
+  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
-  this->declareAndLoadParameter("calc_point_costs", calc_point_costs_, "OCP tries to follow a reference points, minimizing x, y and velocity errors");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
@@ -47,7 +48,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter("add_x_init_to_ref", add_x_init_to_ref_,
                                 "add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle");
-  this->declareAndLoadParameter("use_prediction", use_prediction_, "use obstacle predictions for optimization (True) or only static obstacles (False)");
+  this->declareAndLoadParameter("consider_objects", consider_objects_,
+                                "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
+  this->declareAndLoadParameter("consider_boundaries", consider_boundaries_,
+                                "consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
   this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
@@ -212,6 +216,8 @@ void TrajectoryOptimizationNode::setup() {
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectMarkerTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
+  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kEgoMarkerTopic, 1);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", ego_circles_pub_->get_topic_name());
   boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundaryMarkerTopic, 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", boundary_pub_->get_topic_name());
 
@@ -322,8 +328,8 @@ void TrajectoryOptimizationNode::resetSolver() {
  */
 void TrajectoryOptimizationNode::planningCycle() {
   if (debug_viz_) viz_circles_.clear();
-  if (!received_ego_data_) {
-    RCLCPP_WARN(this->get_logger(), "No EgoData received. Skipping planning cycle.");
+  if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
+    RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
     return;
   }
   // init trajectory message and set header
@@ -384,7 +390,10 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
 
   printSolution(status);
-  if (debug_viz_) vizCircles(viz_circles_);
+  if (debug_viz_) {
+    vizCircles(viz_circles_);
+    vizEgoCircles(xtraj_, model_name_);
+  }
 
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
@@ -476,7 +485,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(
   // update ocp parameters
   try {
     this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory, tf_route);
-    this->setOcpParameters(ego_data, tf_reference_trajectory, tf_object_list);
+    this->setOcpParameters(ego_data, tf_object_list);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
     return false;
@@ -531,7 +540,6 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
-                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
                                                   const perception_msgs::msg::ObjectList& object_list) {
   const auto start_time = std::chrono::steady_clock::now();
   // loop over shooting intervals
@@ -549,20 +557,6 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
-    // ref point
-    idx += n;
-    n = 3;
-    if (calc_point_costs_) {
-      std::vector<int> idx_ref_point(n);
-      // fill vector with values from idx to idx + n
-      std::iota(idx_ref_point.begin(), idx_ref_point.end(), idx);
-      // get x, y, v from reference trajectory
-      std::vector<double> ref_point = {trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i),
-                                      trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i),
-                                      trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i)};
-      trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_ref_point.data(), ref_point.data(), n);
-    }
-
     // obstacles
     idx += n;
     n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
@@ -576,7 +570,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
-      if (use_prediction_ && object_list.objects[j].state_predictions.size() > 0) {
+      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && object_list.objects[j].state_predictions.size() > 0) {
         for (auto &predicted_state: object_list.objects[j].state_predictions[0].states) {
           TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));

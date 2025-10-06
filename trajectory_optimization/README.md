@@ -25,7 +25,7 @@ This package provides a ROS 2 node for solving the OCPs defined [here](../acados
 | `vehicle_frame_id` | `std::string` | Frame ID of local vehicle frame (the ocp is defined in this frame). Default: `base_link` |
 | `trajectory_frame_id` | `std::string` | Frame ID of output trajectory. Default: `base_link` |
 | `fixed_over_time_frame_id` | `std::string` | Frame ID of frame that is fixed over time for finding temporal transforms. Default: `map` |
-| `model_name` | `std::string` | Name of the model to be used for trajectory optimization [passat_cc, auto_shuttle]. Default: `passat_cc` |
+| `model_name` | `std::string` | Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]. Default: `karl` |
 | `optimization_frequency` | `double` | Optimization Frequency in Hz. Default: `10.0` |
 | `n_shots` | `int` | Number of shooting intervals in optimization horizon. Default: `50` |
 | `optimization_horizon` | `double` | Optimization Horizon in seconds. Default: `1.0` |

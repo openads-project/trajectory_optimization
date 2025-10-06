@@ -40,6 +40,20 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ~TrajectoryOptimizationNode();
 
  protected:
+
+  enum CONSIDER_BOUNDARIES {
+    NO_BOUNDS = 0,
+    SUGGESTED_LANE = 1,
+    INCLUDING_ADJACENT = 2,
+    DRIVABLE_SPACE = 3
+  };
+
+  enum CONSIDER_OBJECTS {
+    NO_OBJECTS = 0,
+    STATIC_OBJECTS = 1,
+    PREDICTED_OBJECTS = 2
+  };
+
   // input topics
   const std::string kEgoDataTopic = "~/ego_data";
   const std::string kObjectListTopic = "~/object_list";
@@ -49,6 +63,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   // output topics
   const std::string kTrajectoryTopic = "~/trajectory";
   const std::string kObjectMarkerTopic = "~/visualization/object_circles";
+  const std::string kEgoMarkerTopic = "~/visualization/ego_circles";
   const std::string kBoundaryMarkerTopic = "~/visualization/boundaries";
 
   template <typename T>
@@ -93,7 +108,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                               const route_planning_msgs::msg::Route &route);
 
   void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,
-                        const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
                         const perception_msgs::msg::ObjectList &object_list);
 
   std::vector<std::pair<double, double>> normalBoundaryDistance(const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
@@ -101,6 +115,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list, const int n_objects);
   std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double> &obstacles);
+  void vizEgoCircles(const double* x_trajectory, const std::string& model_name);
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d> &left_boundary_points,
                          const std::vector<Eigen::Vector2d> &right_boundary_points,
                          bool is_intersection = false);
@@ -120,6 +135,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_circles_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
@@ -133,10 +149,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
-  // received data flags
-  bool received_ego_data_ = false;
-  bool received_object_list_ = false;
-
   // parameters
   std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
       auto_reconfigurable_params_;
@@ -144,16 +156,17 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
   std::string model_name_ = "karl";
+  double ego_data_timeout_ = 1.0;
   double optimization_freq_ = 10.0;
   int n_shots_ = 50;
-  bool calc_point_costs_ = false;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool add_x_init_to_ref_ = false;
-  bool use_prediction_ = false;
+  uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
+  uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool init_as_ref_ = false;
   bool run_as_callback_ = false;
 
@@ -179,7 +192,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {15, 1};       // nWeights x weightDim
+  std::vector<int64_t> p_cost_weights_shape_ = {11, 1};       // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};           // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 

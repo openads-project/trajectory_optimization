@@ -4,12 +4,14 @@
     vehicle_frame_id: base_link     # Frame ID of local vehicle frame (the ocp is defined in this frame)
     trajectory_frame_id: base_link  # Frame ID of output trajectory
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
+    ego_data_timeout: 1.0           # Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
     init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     add_x_init_to_ref: False        # add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle
-    use_prediction: True            # use obstacle predictions for optimization (True) or only static obstacles (False)
+    consider_objects: 2             # consider objects in optimization: 0 = no, 1 = static (no prediction), 2 = dynamic (with prediction)
+    consider_boundaries: 1          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
@@ -23,27 +25,22 @@
 
     ### general parameters defining the ocp
     model_name: 'karl'              # name of the acados model
-    optimization_horizon: 8.0       # optimization horizon [s] (also used as build parameter in OCP)
-    n_shots: 16                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
-    calc_point_costs: False         # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used as build parameter in OCP)
+    optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
+    n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
     #### cost weights
     cost_weights:
       - 0.3  # dlat (0)
       - 0.0  # psi (1)      (considered if RWS model is used)
       - 0.15 # v_inter (2)
-      - 0.0  # x_point (3)  (considered if calc_point_costs is True)
-      - 0.0  # y_point (4)  (considered if calc_point_costs is True)
-      - 0.0  # v_point (5)  (considered if calc_point_costs is True)
-      - 1.0  # obstacles (6)
-      - 0.2  # a_lat (7)
-      - 0.2  # a_lon_pos (8)
-      - 0.05 # a_lon_neg (9)
-      - 0.1  # j_lat (10)
-      - 0.1  # j_lon_pos (11)
-      - 0.05 # j_lon_neg (12)
-      - 0.03 # alpha (13)
-      - 1.0  # endYaw (14)
+      - 0.2  # a_lat (3)
+      - 0.2  # a_lon_pos (4)
+      - 0.05 # a_lon_neg (5)
+      - 0.1  # j_lat (6)
+      - 0.1  # j_lon_pos (7)
+      - 0.05 # j_lon_neg (8)
+      - 0.03 # alpha (9)
+      - 1.0  # endYaw (10)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params

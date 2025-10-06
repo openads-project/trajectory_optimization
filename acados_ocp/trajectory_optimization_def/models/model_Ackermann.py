@@ -61,9 +61,8 @@ def set_model(ocp, config):
 
     # parameters
     p_dynamic_weight = MX.sym('dynamic_weight', np.prod(config['p_dynamic_weight_shape'])) # 1
-    p_ref_point = MX.sym('ref_point', np.prod(config['p_ref_point_shape'])) # (x, y, v) -> 3
     p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacle_circles_shape'])) # (nObstacleCircles x (x, y, radius))
-    params = vertcat(p_dynamic_weight, p_ref_point, p_obstacles)
+    params = vertcat(p_dynamic_weight, p_obstacles)
     model.p = params
 
     # global parameters

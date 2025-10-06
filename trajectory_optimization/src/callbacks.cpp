@@ -9,7 +9,6 @@ namespace trajectory_optimization {
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received ego data");
   ego_data_ = *msg;
-  received_ego_data_ = true;
 }
 
 /**
@@ -18,9 +17,13 @@ void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::Ego
  * @param[in] msg   input object list
  */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received object list");
-  object_list_ = *msg;
-  received_object_list_ = true;
+  if (consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS) {
+    RCLCPP_DEBUG(this->get_logger(), "Received object list");
+    object_list_ = *msg;
+  } else {
+    // reset object list to empty
+    object_list_ = perception_msgs::msg::ObjectList();
+  }
 }
 
 /**
@@ -43,7 +46,12 @@ void TrajectoryOptimizationNode::referenceTrajectoryCallback(
  * @param[in] msg   input route
  */
 void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
-  RCLCPP_DEBUG(this->get_logger(), "Received route");
-  route_ = *msg;
+  if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
+    RCLCPP_DEBUG(this->get_logger(), "Received route");
+    route_ = *msg;
+  } else {
+    // reset route to empty
+    route_ = route_planning_msgs::msg::Route();
+  }
 }
 }  // namespace trajectory_optimization

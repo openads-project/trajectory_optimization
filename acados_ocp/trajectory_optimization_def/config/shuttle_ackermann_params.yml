@@ -3,7 +3,6 @@ model_name: 'shuttle_ackermann'   # name of the acados model (also used in ROS n
 model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
 optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
-calc_point_costs: False           # OCP calculates costs to follow reference points, minimizing x, y and velocity errors (also used in ROS node)
 
 ### vehicle specific parameters
 wheelbase: 3.4                    # wheelbase [m]
@@ -41,13 +40,12 @@ slack_weights:                              # [d_bounds_left_ego_circle_1, d_bou
   quadratic_upper: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0] # 2 * n_ego_circles
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), ref_point (3), obstacles]
+# [dyn_weight (1), obstacles]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
-p_ref_point_shape: [1, 3]         # state x [x, y, v] (also used in ROS node)
 p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
 
 ### global parameter vector structure (constant over the horizon)
-# [cost_weights (15), cost_params (4), ref_path]
-p_cost_weights_shape: [15, 1]     # nWeights x weightDim (also used in ROS node)
+# [cost_weights (11), cost_params (4), ref_path]
+p_cost_weights_shape: [11, 1]     # nWeights x weightDim (also used in ROS node)
 p_cost_params_shape: [4, 1]       # [thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
 p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)
