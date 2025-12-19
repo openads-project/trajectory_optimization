@@ -3,8 +3,8 @@
 <package format="3">
 
   <name>demo_trajectory_pub</name>
-  <version>0.0.0</version>
-  <description>TODO</description>
+  <version>1.0.0</version>
+  <description>Publishes a configurable reference trajectory for testing purposes</description>
 
   <maintainer email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</maintainer>
 

@@ -3,8 +3,8 @@
 <package format="3">
 
   <name>trajectory_optimization</name>
-  <version>0.0.0</version>
-  <description>TODO</description>
+  <version>1.0.0</version>
+  <description>Generates a drivable trajectory following a reference trajectory</description>
 
   <maintainer email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</maintainer>
   <author email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</author>
