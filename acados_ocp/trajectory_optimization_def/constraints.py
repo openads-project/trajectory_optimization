@@ -11,8 +11,8 @@ def set_constraints(ocp: AcadosOcp, config):
     ########## static constraints on state ##########
     # set v_min < v < v_max [m/s]
     # set a_min < a < a_max [m/s^2]
-    # set delta_min < delta_f < delta_max [rad]
-    # RWS: set delta_min < delta_r < delta_max [rad]
+    # set -delta_max < delta_f < delta_max [rad]
+    # RWS: set -delta_max < delta_r < delta_max [rad]
 
     # constraints on initiall shooting node
     # initial state
@@ -22,7 +22,7 @@ def set_constraints(ocp: AcadosOcp, config):
         cons.x0 = np.concatenate((cons.x0, [0.0]))
 
     # constraints on intermediate shooting nodes
-    cons.lbx = np.array([config['v_min'], -config['acceleration_t_max'], -config['delta_max']])
+    cons.lbx = np.array([config['v_min'], config['acceleration_t_min'], -config['delta_max']])
     cons.ubx = np.array([config['v_max'], config['acceleration_t_max'], config['delta_max']])
     cons.idxbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
 
@@ -38,10 +38,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
 
     ########## static constraints on control ##########
-    # set -j_max < j < j_max [m/s^3]
+    # set j_min < j < j_max [m/s^3]
     # set -alpha_max < alpha_f < alpha_max [rad]
     # RWS: set -alpha_max < alpha_r < alpha_max [rad]
-    cons.lbu = np.array([-config["jerk_max"], -config["alpha_max"]])
+    cons.lbu = np.array([config["jerk_min"], -config["alpha_max"]])
     cons.ubu = np.array([config["jerk_max"], config["alpha_max"]])
     cons.idxbu = np.array([CONTROL_INDEX_J_T, CONTROL_INDEX_ALPHA_F])
 
@@ -172,10 +172,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
     # compute absolute acceleration
     a_abs_squared = ocp.model.x[STATE_INDEX_A_T]**2 + (a_n)**2
-    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, a_abs_squared)
+    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, a_n, a_abs_squared)
     a_max_squared = config['acceleration_max']**2
-    cons.lh = np.concatenate((cons.lh, [0.0]))
-    cons.uh = np.concatenate((cons.uh, [a_max_squared]))
+    cons.lh = np.concatenate((cons.lh, [-config['acceleration_n_max']], [0.0]))
+    cons.uh = np.concatenate((cons.uh, [config['acceleration_n_max']], [a_max_squared]))
 
     if config['model_type'] == 'RWS':
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, psi_dot)

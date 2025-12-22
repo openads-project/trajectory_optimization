@@ -16,12 +16,15 @@ n_ego_circles: 3                  # number of circles to discretize ego-vehicle 
 delta_max: 1.55 # 89°             # max. absolute steering angle [rad]
 beta_max: 0.349  # 20°            # max. absolute side slip angle [rad]
 alpha_max: 1.5                    # max. absolute steering rate of the wheels [rad/s]
-psi_dot_max: 0.5                  # ax. absolute turning rate of the vehicle [rad/s]
+psi_dot_max: 0.5                  # max. absolute turning rate of the vehicle [rad/s]
 v_min: 0.0                        # lower boundary constraint for longitudinal/lateral velocity [m/s]
 v_max: 7.0                        # upper boundary constraint for longitudinal/lateral velocity [m/s]
 acceleration_max: 8.0             # max. absolute acceleration [m/s²]
-acceleration_t_max: 3.5           # max. absolute tangential acceleration [m/s²]
-jerk_max: 4                       # max. absolute tangential jerk [m/s³]
+acceleration_t_min: -3.5          # max. negative tangential acceleration [m/s²]
+acceleration_t_max: 3.5           # max. positive tangential acceleration [m/s²]
+acceleration_n_max: 8.0           # max. absolute normal acceleration [m/s²]
+jerk_min: -4.0                    # max. negative tangential jerk [m/s²]
+jerk_max: 4.0                     # max. positive tangential jerk [m/s³]
 # constraint on front and rear steering angle
 # none (default): no constraint, ICR (instantaneous center of rotation) is free to move
 # anti-phase: ICR is restricted to the y-axis in the vehicles center of gravity frame -> achieves minimum turning radius

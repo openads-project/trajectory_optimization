@@ -7,18 +7,21 @@ n_shots: 50                       # number of shooting intervals in optimization
 ### vehicle specific parameters
 wheelbase: 3.124                  # wheelbase [m]
 length: 5.173                     # length [m]
-width: 2.252                      # width [m]
+width: 1.94                       # width [m]
 offset2geocenter: [1.4895, 0.0]   # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
 n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
 
 ### constraints
-delta_max: 0.610865               # max. absolute steering angle [rad] (35° ; max. angle of karl -> 38.7°)
+delta_max: 0.523598776            # max. absolute steering angle [rad] (30°)
 v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
 v_max: 17.0                       # upper boundary constraint for longitudinal velocity [m/s]
 acceleration_max: 6.0             # max. absolute acceleration [m/s²]
-acceleration_t_max: 3.5           # max. absolute tangential acceleration [m/s²]
-alpha_max: 0.349066               # max. absolute steering rate [rad/s] (20°/s -> mean steering ratio: 20°/s * 15 = 300°/s; max steering wheel angle rate)
-jerk_max: 3.0                     # max. absolute tangential jerk [m/s²]
+acceleration_t_min: -4.0          # max. negative tangential acceleration [m/s²]
+acceleration_t_max: 2.0           # max. positive tangential acceleration [m/s²]
+acceleration_n_max: 1.0           # max. absolute normal acceleration [m/s²]
+alpha_max: 0.523598776            # max. absolute steering rate [rad/s] (30°/s)
+jerk_min: -5.0                    # max. negative tangential jerk [m/s²]
+jerk_max: 2.0                     # max. positive tangential jerk [m/s²]
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
