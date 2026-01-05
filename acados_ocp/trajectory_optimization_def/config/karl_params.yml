@@ -35,12 +35,18 @@ c_j_n: 3.0            # distance to scale the normal jerk costs [m/s³]
 c_alpha: 0.35         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
-enable_slack: False                         # activate slack weights for soft constraints (route boundaries)
-slack_weights:                              # [d_bounds_left_ego_circle_1, d_bounds_right_ego_circle_1, d_bounds_left_ego_circle_2, d_bounds_right_ego_circle_2, ...], see constraints.py in acados_ocp
-  linear_lower: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]   # 2 * n_ego_circles
-  linear_upper: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]   # 2 * n_ego_circles
-  quadratic_lower: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0] # 2 * n_ego_circles
-  quadratic_upper: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0] # 2 * n_ego_circles
+enable_boundary_slack: True                # activate slack weights for soft constraints (route boundaries)
+boundary_slack_weights:                     # scalar or list (length 2 * n_ego_circles)
+  linear_lower: 10.0
+  linear_upper: 10.0
+  quadratic_lower: 100.0
+  quadratic_upper: 100.0
+enable_obstacle_slack: True                # activate slack weights for obstacle constraints
+obstacle_slack_weights:                     # scalar or list (length n_obstacles * n_ego_circles)
+  linear_lower: 50.0
+  linear_upper: 50.0
+  quadratic_lower: 500.0
+  quadratic_upper: 500.0
 
 ### parameter vector structure (stage-wise parameters)
 # [dyn_weight (1), obstacles]
