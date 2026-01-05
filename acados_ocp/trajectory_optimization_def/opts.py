@@ -5,7 +5,7 @@ def set_opts(ocp, config):
     opts = AcadosOcpOptions()
 
     # set options
-    opts.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
+    opts.qp_solver = "PARTIAL_CONDENSING_HPIPM"
     # PARTIAL_CONDENSING_HPIPM      default, works
     # FULL_CONDENSING_QPOASES       diverges
     # FULL_CONDENSING_HPIPM         works, looks very similar to default
@@ -20,18 +20,28 @@ def set_opts(ocp, config):
     opts.rti_log_residuals = 1
     opts.timeout_max_time = 100e-3              # default 0 => no timeout [s]
     opts.timeout_heuristic = "MAX_CALL"         # default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
-    opts.nlp_solver_max_iter = 100              # default 100. Bound to ensure real-time capability
+    opts.nlp_solver_max_iter = 200              # default 100
+    opts.nlp_solver_tol_stat = 1e-4
+    opts.nlp_solver_tol_eq = 1e-4
+    opts.nlp_solver_tol_ineq = 1e-4
+    opts.nlp_solver_tol_comp = 1e-4
     opts.tol = 1e-4                             # default 1e-6
-    opts.qp_solver_iter_max = 50                # default 50
+    opts.qp_solver_iter_max = 80                # default 50
     opts.qp_solver_warm_start = 2               # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
+    opts.qp_solver_tol_stat = 1e-4
+    opts.qp_solver_tol_eq = 1e-4
+    opts.qp_solver_tol_ineq = 1e-4
+    opts.qp_solver_tol_comp = 1e-4
     opts.qp_tol = 1e-4                          # default None
     opts.sim_method_num_stages = 4              # default 4 -> Use Runge Kutta 4
     opts.sim_method_num_steps = 2               # default 1. Not sure what this does, but 2 seems to make it slightly faster
-    opts.globalization = 'FIXED_STEP'           # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
-    opts.globalization_use_SOC = 0              # default. 1 could help to solve the problem if 0 fails, but will be slower
-    opts.line_search_use_sufficient_descent = 0 # default. 1 could help to solve the problem if 0 fails, but will be slower
-    opts.levenberg_marquardt = 0.03             # default. Larger values could help to solve the problem if 0 fails, but will be slower
-
+    opts.globalization = "MERIT_BACKTRACKING"   # default 'FIXED_STEP'. String in ('FIXED_STEP', 'MERIT_BACKTRACKING'). 'MERIT_BACKTRACKING' more robust than 'FIXED_STEP'
+    opts.globalization_use_SOC = 1              # default 0. 1 could help to solve the problem if 0 fails, but will be slower
+    opts.line_search_use_sufficient_descent = 1 # default 0. 1 could help to solve the problem if 0 fails, but will be slower
+    opts.globalization_line_search_use_sufficient_descent = 1
+    opts.levenberg_marquardt = 0.05             # default 0. Larger values improve robustness for nonlinear constraints, but will be slower
+    opts.nlp_solver_warm_start_first_qp = True
+    opts.nlp_solver_warm_start_first_qp_from_nlp = True
 
     # set prediction horizon in s
     opts.tf = config['optimization_horizon']
