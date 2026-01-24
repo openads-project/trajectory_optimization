@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <tracetools/tracetools.h>
 
 // definitions
 #include <perception_msgs/msg/ego_data.hpp>
