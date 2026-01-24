@@ -6,4 +6,5 @@ variables:
   RMW_IMPLEMENTATION: rmw_zenoh_cpp
   TARGET: dev,run
   PLATFORM: amd64
+  ENABLE_RECURSIVE_VCS_IMPORT: 'false'
   COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
