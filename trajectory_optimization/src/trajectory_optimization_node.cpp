@@ -241,6 +241,18 @@ void TrajectoryOptimizationNode::setup() {
   latest_valid_trajectory_.header.frame_id = trajectory_frame_id_;
 
   setupSolver();
+
+  // Annotate message links for tracing: Publish trajectory periodically, which depends an all subscribed topics.
+  std::vector<const void *> link_subs;
+  link_subs.push_back(static_cast<const void *>(ego_data_sub_->get_subscription_handle().get()));
+  link_subs.push_back(static_cast<const void *>(object_list_sub_->get_subscription_handle().get()));
+  link_subs.push_back(static_cast<const void *>(route_sub_->get_subscription_handle().get()));
+  link_subs.push_back(static_cast<const void *>(reference_trajectory_sub_->get_subscription_handle().get()));
+  std::vector<const void *> link_pubs;
+  link_pubs.push_back(static_cast<const void *>(trajectory_pub_->get_publisher_handle().get()));
+  RCLCPP_INFO(get_logger(), "Annotating message links for tracing with %zu subscriptions and %zu publications",
+               link_subs.size(), link_pubs.size());
+  TRACETOOLS_TRACEPOINT(message_link_periodic_async, link_subs.data(), link_subs.size(), link_pubs.data(), link_pubs.size());
 }
 
 void TrajectoryOptimizationNode::setupSolver() {
