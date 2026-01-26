@@ -29,6 +29,10 @@
 #include <tf2_route_planning_msgs/tf2_route_planning_msgs.hpp>
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
+// diagnostics
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
+
 // acados
 #include <trajectory_optimization/ocp_model_handler.hpp>
 
@@ -40,6 +44,16 @@ template <typename T, typename A>
 struct is_vector<std::vector<T, A>> : std::true_type {};
 template <typename C>
 inline constexpr bool is_vector_v = is_vector<C>::value;
+
+/**
+ * @brief Configuration parameters for topic diagnostics
+ */
+struct TopicDiagnosticConfig {
+  double min_frequency; // minimum acceptable frequency [Hz]
+  double max_frequency; // maximum acceptable frequency [Hz]
+  double min_acceptable_timestamp_delta; // minimum acceptable difference between message timestamp and receipt time [s]
+  double max_acceptable_timestamp_delta; // maximum acceptable difference between message timestamp and receipt time [s]
+};
 
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
@@ -427,6 +441,46 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
+
+  // diagnostics
+
+  /**
+   * @brief Function called by diagnostic updater to populate diagnostics status
+   */
+  void health(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+  /**
+   * @brief Sets the health information and triggers publishing by diagnostic updater
+   */
+  void setHealth(const unsigned char status, const std::string& msg, const std::map<std::string, std::string>& key_value_pairs = {});
+
+  /**
+   * @brief Diagnostic updater
+   */
+  diagnostic_updater::Updater diagnostic_updater_{this};
+
+  /**
+   * @brief Diagnostic status indicating node health
+   */
+  struct DiagnosticStatus {
+    unsigned char status = diagnostic_msgs::msg::DiagnosticStatus::STALE;
+    std::string message = "";
+    std::map<std::string, std::string> key_value_pairs = {};
+  } health_;
+
+  // input topic diagnostics
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> ego_data_diagnostic_;
+  TopicDiagnosticConfig ego_data_diagnostic_config_;
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> object_list_diagnostic_;
+  TopicDiagnosticConfig object_list_diagnostic_config_;
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> route_diagnostic_;
+  TopicDiagnosticConfig route_diagnostic_config_;
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> reference_trajectory_diagnostic_;
+  TopicDiagnosticConfig reference_trajectory_diagnostic_config_;
+
+  // output topic diagnostics
+  std::unique_ptr<diagnostic_updater::DiagnosedPublisher<trajectory_planning_msgs::msg::Trajectory>> trajectory_diagnosed_publisher_;
+  TopicDiagnosticConfig trajectory_diagnosed_publisher_config_;  
 };
 
 }  // namespace trajectory_optimization

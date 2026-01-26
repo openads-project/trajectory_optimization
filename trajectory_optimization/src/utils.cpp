@@ -426,14 +426,32 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   // 5: Solver created (ACADOS_READY)
   // 6: Problem unbounded (ACADOS_UNBOUNDED)
   // 7: Solver timeout (ACADOS_TIMEOUT)
-  if (status == ACADOS_SUCCESS) {
+  if (status == ACADOS_SUCCESS) { // 0
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
-  } else if (status == ACADOS_MAXITER) {
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::OK, "Optimization succeeded.");
+  } else if (status == ACADOS_NAN_DETECTED) { // 1
+    RCLCPP_WARN(get_logger(), "Optimization failed with status %d (NaN detected).", status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: NaN detected.");
+  } else if (status == ACADOS_MAXITER) { // 2
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
-  } else if (status == ACADOS_TIMEOUT) {
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Optimization warning: maximum iterations reached.");
+  } else if (status == ACADOS_MINSTEP) { // 3
+    RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (min step size).", status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization warning: minimum step size reached.");
+  } else if (status == ACADOS_QP_FAILURE) { // 4
+    RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (QP solver failure).", status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: QP solver failure.");
+  } else if (status == ACADOS_READY) { // 5
+    RCLCPP_INFO(get_logger(), "Optimization solver created with status %d.", status);
+  } else if (status == ACADOS_UNBOUNDED) { // 6
+    RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (problem unbounded).", status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: problem unbounded.");
+  } else if (status == ACADOS_TIMEOUT) { // 7
     RCLCPP_WARN(get_logger(), "\033[38;5;214mOptimization failed with status %d (timeout).\033[0m", status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Optimization warning: solver timeout.");
   } else {
     RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
+    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: unknown error.");
   }
 
   // print duration, KKT, and number of SQP iterations
@@ -460,6 +478,20 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.data(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
+}
+
+void TrajectoryOptimizationNode::health(diagnostic_updater::DiagnosticStatusWrapper& stat) {
+  stat.summary(health_.status, health_.message);
+  for (const auto& [key, value] : health_.key_value_pairs) {
+    stat.add(key, value);
+  }
+}
+
+void TrajectoryOptimizationNode::setHealth(const unsigned char status, const std::string& msg, const std::map<std::string, std::string>& key_value_pairs) {
+  health_.status = status;
+  health_.message = msg;
+  health_.key_value_pairs = key_value_pairs;
+  diagnostic_updater_.force_update();
 }
 
 }  // namespace trajectory_optimization
