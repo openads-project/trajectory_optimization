@@ -71,26 +71,26 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
       "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
 
   // diagnostic parameters
-  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_frequency", ego_data_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_frequency", ego_data_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_acceptable_timestamp_delta", ego_data_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_acceptable_timestamp_delta", ego_data_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_frequency", object_list_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_frequency", object_list_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_acceptable_timestamp_delta", object_list_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_acceptable_timestamp_delta", object_list_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_frequency", route_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_frequency", route_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_acceptable_timestamp_delta", route_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_acceptable_timestamp_delta", route_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_frequency", reference_trajectory_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_frequency", reference_trajectory_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_acceptable_timestamp_delta", reference_trajectory_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_acceptable_timestamp_delta", reference_trajectory_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_frequency", trajectory_diagnosed_publisher_config_.min_frequency, "Minimum frequency for outgoing messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_frequency", trajectory_diagnosed_publisher_config_.max_frequency, "Maximum frequency for outgoing messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_acceptable_timestamp_delta", trajectory_diagnosed_publisher_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for outgoing messages", true, true, false);
-  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_acceptable_timestamp_delta", trajectory_diagnosed_publisher_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for outgoing messages", true, true, false);
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_frequency", ego_data_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_frequency", ego_data_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_acceptable_timestamp_delta", ego_data_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_acceptable_timestamp_delta", ego_data_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_frequency", object_list_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_frequency", object_list_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_acceptable_timestamp_delta", object_list_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_acceptable_timestamp_delta", object_list_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_frequency", route_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_frequency", route_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_acceptable_timestamp_delta", route_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_acceptable_timestamp_delta", route_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_frequency", reference_trajectory_diagnostic_config_.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_frequency", reference_trajectory_diagnostic_config_.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_acceptable_timestamp_delta", reference_trajectory_diagnostic_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_acceptable_timestamp_delta", reference_trajectory_diagnostic_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_frequency", trajectory_diagnosed_publisher_config_.min_frequency, "Minimum frequency for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_frequency", trajectory_diagnosed_publisher_config_.max_frequency, "Maximum frequency for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_acceptable_timestamp_delta", trajectory_diagnosed_publisher_config_.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_acceptable_timestamp_delta", trajectory_diagnosed_publisher_config_.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for outgoing messages");
 
   this->setup();
 }

@@ -49,10 +49,10 @@ inline constexpr bool is_vector_v = is_vector<C>::value;
  * @brief Configuration parameters for topic diagnostics
  */
 struct TopicDiagnosticConfig {
-  double min_frequency; // minimum acceptable frequency [Hz]
-  double max_frequency; // maximum acceptable frequency [Hz]
-  double min_acceptable_timestamp_delta; // minimum acceptable difference between message timestamp and receipt time [s]
-  double max_acceptable_timestamp_delta; // maximum acceptable difference between message timestamp and receipt time [s]
+  double min_frequency = 1.0; // minimum acceptable frequency [Hz]
+  double max_frequency = 100.0; // maximum acceptable frequency [Hz]
+  double min_acceptable_timestamp_delta = -1.0; // minimum acceptable difference between message timestamp and receipt time [s]
+  double max_acceptable_timestamp_delta = 1.0; // maximum acceptable difference between message timestamp and receipt time [s]
 };
 
 class TrajectoryOptimizationNode : public rclcpp::Node {
