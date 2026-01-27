@@ -4,6 +4,14 @@ from utils import stable_tan, determine_spacially_matched_ref_path_point, approx
 from constants import *
 import numpy as np
 
+def _expand_slack_weights(values, count, name):
+    arr = np.asarray(values, dtype=float).reshape(-1)
+    if arr.size == 1:
+        return np.full(count, float(arr[0]))
+    if arr.size != count:
+        raise ValueError(f"Slack weight '{name}' has length {arr.size}, expected {count}.")
+    return arr
+
 def set_constraints(ocp: AcadosOcp, config):
 
     cons = AcadosOcpConstraints()
@@ -11,8 +19,8 @@ def set_constraints(ocp: AcadosOcp, config):
     ########## static constraints on state ##########
     # set v_min < v < v_max [m/s]
     # set a_min < a < a_max [m/s^2]
-    # set delta_min < delta_f < delta_max [rad]
-    # RWS: set delta_min < delta_r < delta_max [rad]
+    # set -delta_max < delta_f < delta_max [rad]
+    # RWS: set -delta_max < delta_r < delta_max [rad]
 
     # constraints on initiall shooting node
     # initial state
@@ -22,7 +30,7 @@ def set_constraints(ocp: AcadosOcp, config):
         cons.x0 = np.concatenate((cons.x0, [0.0]))
 
     # constraints on intermediate shooting nodes
-    cons.lbx = np.array([config['v_min'], -config['acceleration_t_max'], -config['delta_max']])
+    cons.lbx = np.array([config['v_min'], config['acceleration_t_min'], -config['delta_max']])
     cons.ubx = np.array([config['v_max'], config['acceleration_t_max'], config['delta_max']])
     cons.idxbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
 
@@ -38,10 +46,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
 
     ########## static constraints on control ##########
-    # set -j_max < j < j_max [m/s^3]
+    # set j_min < j < j_max [m/s^3]
     # set -alpha_max < alpha_f < alpha_max [rad]
     # RWS: set -alpha_max < alpha_r < alpha_max [rad]
-    cons.lbu = np.array([-config["jerk_max"], -config["alpha_max"]])
+    cons.lbu = np.array([config["jerk_min"], -config["alpha_max"]])
     cons.ubu = np.array([config["jerk_max"], config["alpha_max"]])
     cons.idxbu = np.array([CONTROL_INDEX_J_T, CONTROL_INDEX_ALPHA_F])
 
@@ -172,10 +180,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
     # compute absolute acceleration
     a_abs_squared = ocp.model.x[STATE_INDEX_A_T]**2 + (a_n)**2
-    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, a_abs_squared)
+    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, a_n, a_abs_squared)
     a_max_squared = config['acceleration_max']**2
-    cons.lh = np.concatenate((cons.lh, [0.0]))
-    cons.uh = np.concatenate((cons.uh, [a_max_squared]))
+    cons.lh = np.concatenate((cons.lh, [-config['acceleration_n_max']], [0.0]))
+    cons.uh = np.concatenate((cons.uh, [config['acceleration_n_max']], [a_max_squared]))
 
     if config['model_type'] == 'RWS':
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, psi_dot)
@@ -201,20 +209,62 @@ def set_constraints(ocp: AcadosOcp, config):
 
     ########## soft constraints ##########
 
-    if config["enable_slack"]:
+    slack_indices = []
+    slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}
+    boundary_constraints = n_ego_circles * 2
+    obstacle_constraints = config["p_obstacle_circles_shape"][0] * n_ego_circles
 
-        # Add slack only to route bounds (nonlinear constraints (idxsh))
-        cons.idxsh = np.arange(0, n_ego_circles * 2)  # Index of nonlinear constraints with slack: left and right boundary for each ego circle
+    if config["enable_boundary_slack"]:
+        slack_indices.extend(range(0, boundary_constraints))
+        boundary_weights = config["boundary_slack_weights"]
+        slack_weights["zl"].append(_expand_slack_weights(boundary_weights["linear_lower"], boundary_constraints, "boundary_slack_weights.linear_lower"))
+        slack_weights["zu"].append(_expand_slack_weights(boundary_weights["linear_upper"], boundary_constraints, "boundary_slack_weights.linear_upper"))
+        slack_weights["Zl"].append(_expand_slack_weights(boundary_weights["quadratic_lower"], boundary_constraints, "boundary_slack_weights.quadratic_lower"))
+        slack_weights["Zu"].append(_expand_slack_weights(boundary_weights["quadratic_upper"], boundary_constraints, "boundary_slack_weights.quadratic_upper"))
 
-        # Add slack to state bounds (idxsbx)
-        # cons.idxsbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T])              # Index of state constraints: v_t, a_t -> disabled
+    if config["enable_obstacle_slack"]:
+        slack_indices.extend(range(boundary_constraints, boundary_constraints + obstacle_constraints))
+        obstacle_weights = config["obstacle_slack_weights"]
+        slack_weights["zl"].append(_expand_slack_weights(
+            obstacle_weights["linear_lower"],
+            obstacle_constraints,
+            "obstacle_slack_weights.linear_lower"
+        ))
+        slack_weights["zu"].append(_expand_slack_weights(
+            obstacle_weights["linear_upper"],
+            obstacle_constraints,
+            "obstacle_slack_weights.linear_upper"
+        ))
+        slack_weights["Zl"].append(_expand_slack_weights(
+            obstacle_weights["quadratic_lower"],
+            obstacle_constraints,
+            "obstacle_slack_weights.quadratic_lower"
+        ))
+        slack_weights["Zu"].append(_expand_slack_weights(
+            obstacle_weights["quadratic_upper"],
+            obstacle_constraints,
+            "obstacle_slack_weights.quadratic_upper"
+        ))
 
-        # In the cost terms, the slack variables are arranged  as follows: idxsbu, idxsbx, idxsg, idxsh
-        # Attention: parameters must have the same length as cons.isxsbx + cons.idxsh
-        ocp.cost.Zl = np.diag(config["slack_weights"]["quadratic_lower"])   # Quadratic cost on lower bound slack variables
-        ocp.cost.Zu = np.diag(config["slack_weights"]["quadratic_upper"])   # Quadratic cost on upper bound slack variables
-        ocp.cost.zl = np.array(config["slack_weights"]["linear_lower"])     # Linear cost on lower bound slack variables
-        ocp.cost.zu = np.array(config["slack_weights"]["linear_upper"])     # Linear cost on upper bound slack variables
+    if slack_indices:
+        cons.idxsh = np.array(slack_indices, dtype=int)
+        zl = np.concatenate(slack_weights["zl"])
+        zu = np.concatenate(slack_weights["zu"])
+        Zl = np.concatenate(slack_weights["Zl"])
+        Zu = np.concatenate(slack_weights["Zu"])
+
+        # In the cost terms, the slack variables are arranged as follows: idxsbu, idxsbx, idxsg, idxsh
+        # Zl/Zu are diagonals of the Hessian wrt slack variables (vector form).
+        ocp.cost.Zl = Zl
+        ocp.cost.Zu = Zu
+        ocp.cost.zl = zl
+        ocp.cost.zu = zu
+
+        cons.idxsh_e = cons.idxsh
+        ocp.cost.Zl_e = ocp.cost.Zl
+        ocp.cost.Zu_e = ocp.cost.Zu
+        ocp.cost.zl_e = ocp.cost.zl
+        ocp.cost.zu_e = ocp.cost.zu
 
     ocp.constraints = cons
 
