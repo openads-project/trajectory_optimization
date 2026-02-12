@@ -5,7 +5,9 @@ from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node, SetParameter
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from tracetools_launch.action import Trace
 
 def generate_launch_description_with_resolved_launch_args(launch_context):
 
@@ -38,6 +40,7 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
         DeclareLaunchArgument("params", default_value=os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml"), description="path to parameter file"),
         DeclareLaunchArgument("log_level", default_value="info", description="ROS logging level (debug, info, warn, error, fatal)"),
         DeclareLaunchArgument("use_sim_time", default_value="false", description="use simulation clock"),
+        DeclareLaunchArgument("trace", default_value="false", description="enable tracing"),
         *remappable_topics
     ]
 
@@ -54,6 +57,11 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
             remappings=[(la.default_value[0].text, LaunchConfiguration(la.name)) for la in remappable_topics],
             output="screen",
             emulate_tty=True,
+        ),
+        Trace(
+            session_name='trace',
+            dual_session=True,
+            condition=IfCondition(LaunchConfiguration('trace')),
         )
     ]
 

@@ -26,9 +26,12 @@
   <depend>tf2_perception_msgs</depend>
   <depend>tf2_route_planning_msgs</depend>
   <depend>tf2_trajectory_planning_msgs</depend>
+  <depend>tracetools</depend>
   <depend>trajectory_planning_msgs</depend>
   <depend>trajectory_planning_msgs_utils</depend>
   <depend>visualization_msgs</depend>
+
+  <exec_depend>tracetools_launch</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
