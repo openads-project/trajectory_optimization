@@ -3,7 +3,7 @@
 <package format="3">
 
   <name>acados_ocp</name>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <description>Wraps the trajectory optimization OCP</description>
 
   <maintainer email="jean-pierre.busch@ika.rwth-aachen.de">Jean-Pierre Busch</maintainer>
