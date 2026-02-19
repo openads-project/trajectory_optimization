@@ -356,7 +356,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
     // transform trajectory to output frame
-    trajectory2outputFrame(*trajectory);
+    if (!trajectory2outputFrame(*trajectory)) {
+      return;
+    }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
     resetSolver();
@@ -422,7 +424,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // transform trajectory to output frame
-  trajectory2outputFrame(*trajectory);
+  if (!trajectory2outputFrame(*trajectory)) {
+    return;
+  }
 
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));

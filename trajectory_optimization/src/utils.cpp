@@ -90,8 +90,9 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
  * This function converts a trajectory from the vehicle frame to the output frame using the tf2 library.
  *
  * @param trajectory The trajectory to be converted.
+ * @return True if conversion succeeded or was not needed, false if conversion failed.
  */
-void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   if (trajectory_frame_id_ != vehicle_frame_id_) {
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
     try {
@@ -99,10 +100,11 @@ void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
     } catch (tf2::TransformException& ex) {
       RCLCPP_WARN(this->get_logger(),
                   "Transformation into output frame is not available. Publishing no trajectory. Ex: %s", ex.what());
-      return;
+      return false;
     }
     trajectory = tf_trajectory;
   }
+  return true;
 }
 
 /**

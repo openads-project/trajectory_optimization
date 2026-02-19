@@ -86,7 +86,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
-  void trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
+  bool trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
 
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
