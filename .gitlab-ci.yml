@@ -35,4 +35,17 @@ variables:
     --include-path /etc/login.defs
     --include-path /etc/default/useradd
     --include-path /root/.bashrc
+    --include-path /etc/ld.so.conf
+    --include-path /etc/ld.so.conf.d
+    --include-path /etc/ld.so.cache
+    --include-path /lib64/ld-linux-x86-64.so.2
+    --include-path /lib/x86_64-linux-gnu/libc.so.6
+    --include-path /lib/x86_64-linux-gnu/libm.so.6
+    --include-path /lib/x86_64-linux-gnu/libgcc_s.so.1
+    --include-path /lib/x86_64-linux-gnu/libstdc++.so.6
+    --include-path /lib/x86_64-linux-gnu/libconsole_bridge.so.1.0
+    --include-path /lib/x86_64-linux-gnu/libfmt.so.9
+    --include-path /lib/x86_64-linux-gnu/liborocos-kdl.so.1.5
+    --include-path /lib/x86_64-linux-gnu/libspdlog.so.1.12
+    --include-path /lib/x86_64-linux-gnu/libyaml-0.so.2
   COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
