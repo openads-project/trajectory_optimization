@@ -19,3 +19,7 @@ chmod +x /opt/acados/bin/t_renderer
 # write necessary environment variables to .bashrc
 echo "export ACADOS_SOURCE_DIR=/opt/acados" >> /root/.bashrc
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/opt/acados/lib" >> /root/.bashrc
+
+# make acados libs discoverable without requiring LD_LIBRARY_PATH at runtime
+echo "/opt/acados/lib" > /etc/ld.so.conf.d/acados.conf
+ldconfig
