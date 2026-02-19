@@ -7,4 +7,32 @@ variables:
   TARGET: dev,run
   PLATFORM: amd64
   ENABLE_RECURSIVE_VCS_IMPORT: 'false'
+  SLIM_BUILD_ARGS: >
+    --sensor-ipc-mode=proxy
+    --continue-after=30
+    --show-clogs
+    --http-probe=false
+    --include-path /opt/ros
+    --include-path /docker-ros/ws/install
+    --include-path /entrypoint.sh
+    --include-path /opt/acados/lib
+    --include-path /bin/bash
+    --include-path /usr/sbin/gosu
+    --include-path /usr/sbin/groupadd
+    --include-path /usr/sbin/useradd
+    --include-path /usr/bin/getent
+    --include-path /usr/bin/openssl
+    --include-path /usr/bin/cut
+    --include-path /usr/bin/touch
+    --include-path /usr/bin/cp
+    --include-path /usr/bin/ln
+    --include-path /usr/bin/chown
+    --include-path /etc/nsswitch.conf
+    --include-path /etc/passwd
+    --include-path /etc/group
+    --include-path /etc/shadow
+    --include-path /etc/gshadow
+    --include-path /etc/login.defs
+    --include-path /etc/default/useradd
+    --include-path /root/.bashrc
   COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
