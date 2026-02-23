@@ -13,7 +13,7 @@ def set_opts(ocp, config):
     # PARTIAL_CONDENSING_OSQP       doesn't work, error message: "OSQP interface can not handle ns>0 yet: what about implementing it? :)"
                                         # => ns>0 means, that there are soft constraints. If we remove them, OSQP works, but not faster, QPDUNES diverges.
     # FULL_CONDENSING_DAQP          doesn't work, because some libs cannot be found when building with ACADOS_WITH_DAQP=ON
-        
+
     opts.hessian_approx = "GAUSS_NEWTON"
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP"
