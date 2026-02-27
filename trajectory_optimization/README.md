@@ -70,6 +70,7 @@ flowchart LR
 | `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
 | `bi_level_dYaw` | `float` | `5.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
 | `init_as_ref` | `bool` | `false` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions |
+| `diagnostic_updater.ocp_duration_window_sec` | `float` | `10.0` | Window size in seconds for rolling OCP duration statistics. |
 
 ## Launch Files
 

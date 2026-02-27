@@ -17,6 +17,35 @@
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 
+    ### diagnostics
+    diagnostic_updater:
+      ego_data_diagnostic:
+        min_frequency: 8.0
+        max_frequency: 20.0
+        min_acceptable_timestamp_delta: -0.5
+        max_acceptable_timestamp_delta: 0.5
+      object_list_diagnostic:
+        min_frequency: 8.0
+        max_frequency: 20.0
+        min_acceptable_timestamp_delta: -0.5
+        max_acceptable_timestamp_delta: 0.5
+      route_diagnostic:
+        min_frequency: 0.2
+        max_frequency: 20.0
+        min_acceptable_timestamp_delta: -0.5
+        max_acceptable_timestamp_delta: 0.5
+      reference_trajectory_diagnostic:
+        min_frequency: 8.0
+        max_frequency: 20.0
+        min_acceptable_timestamp_delta: -0.5
+        max_acceptable_timestamp_delta: 0.5
+      trajectory_diagnosed_publisher:
+        min_frequency: 8.0
+        max_frequency: 20.0
+        min_acceptable_timestamp_delta: -0.5
+        max_acceptable_timestamp_delta: 0.5
+      ocp_duration_window_sec: 10.0 # rolling window [s] for OCP duration statistics in node health
+
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
     bi_level_dA: 2.0                # maximum a difference before bi-level stabilization hits [m/s²]

@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -75,6 +76,11 @@ bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
     } catch (tf2::TransformException& ex) {
       RCLCPP_WARN(this->get_logger(), "Transformation into output frame is not available. Publishing no trajectory. Ex: %s",
                   ex.what());
+      RCLCPP_WARN(this->get_logger(),
+                  "Transformation into output frame is not available. Publishing no trajectory. Ex: %s", ex.what());
+      diagnostics_.setHealthWithOcpData(
+          diagnostic_msgs::msg::DiagnosticStatus::ERROR,
+          "Failed to transform trajectory into output frame.", {{"tf_error", ex.what()}});
       return false;
     }
     trajectory = tf_trajectory;
@@ -426,37 +432,51 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   // 5: Solver created (ACADOS_READY)
   // 6: Problem unbounded (ACADOS_UNBOUNDED)
   // 7: Solver timeout (ACADOS_TIMEOUT)
+  unsigned char health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+  std::string health_message = "Optimization failed: unknown error.";
+
   if (status == ACADOS_SUCCESS) { // 0
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::OK, "Optimization succeeded.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    health_message = "Optimization succeeded.";
   } else if (status == ACADOS_NAN_DETECTED) { // 1
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (NaN detected).", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: NaN detected.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    health_message = "Optimization failed: NaN detected.";
   } else if (status == ACADOS_MAXITER) { // 2
     RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Optimization warning: maximum iterations reached.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    health_message = "Optimization warning: maximum iterations reached.";
   } else if (status == ACADOS_MINSTEP) { // 3
     RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (min step size).", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization warning: minimum step size reached.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    health_message = "Optimization failed: minimum step size reached.";
   } else if (status == ACADOS_QP_FAILURE) { // 4
     RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (QP solver failure).", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: QP solver failure.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    health_message = "Optimization failed: QP solver failure.";
   } else if (status == ACADOS_READY) { // 5
     RCLCPP_INFO(get_logger(), "Optimization solver created with status %d.", status);
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    health_message = "Optimization returned ACADOS_READY.";
   } else if (status == ACADOS_UNBOUNDED) { // 6
     RCLCPP_ERROR(get_logger(), "Optimization failed with status %d (problem unbounded).", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: problem unbounded.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    health_message = "Optimization failed: problem unbounded.";
   } else if (status == ACADOS_TIMEOUT) { // 7
     RCLCPP_WARN(get_logger(), "\033[38;5;214mOptimization failed with status %d (timeout).\033[0m", status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Optimization warning: solver timeout.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    health_message = "Optimization warning: solver timeout.";
   } else {
     RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
-    setHealth(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Optimization failed: unknown error.");
+    health_status = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    health_message = "Optimization failed: unknown error.";
   }
 
   // print duration, KKT, and number of SQP iterations
-  double elapsed_time = 0.0, kkt_norm_inf = 0.0;
-  int sqp_iter = 0;
+  double elapsed_time = std::numeric_limits<double>::quiet_NaN();
+  double kkt_norm_inf = std::numeric_limits<double>::quiet_NaN();
+  int sqp_iter = -1;
   ocp_nlp_get(nlp_solver_, "time_tot", &elapsed_time);
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
   ocp_nlp_get(nlp_solver_, "sqp_iter", &sqp_iter);
@@ -464,12 +484,21 @@ void TrajectoryOptimizationNode::printSolution(int status) {
               elapsed_time * 1000, sqp_iter, kkt_norm_inf);
 
   // print cost value and residuals
-  double cost_value = 0.0, nlp_res = 0.0;
+  double cost_value = std::numeric_limits<double>::quiet_NaN();
+  double nlp_res = std::numeric_limits<double>::quiet_NaN();
   ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_get(nlp_solver_, "cost_value", &cost_value);
   ocp_nlp_get(nlp_solver_, "nlp_res", &nlp_res);
   RCLCPP_INFO(get_logger(), "cost_value: \033[1m%f\033[0m; nlp_res: \033[1m%f\033[0m", cost_value, nlp_res);
+
+  diagnostics_.updateOcpTimingStats(elapsed_time * 1000.0);
+  diagnostics_.last_ocp_solver_status = status;
+  diagnostics_.last_ocp_sqp_iter = sqp_iter;
+  diagnostics_.last_ocp_kkt_norm_inf = kkt_norm_inf;
+  diagnostics_.last_ocp_cost_value = cost_value;
+  diagnostics_.last_ocp_nlp_res = nlp_res;
+  diagnostics_.setHealthWithOcpData(health_status, health_message);
 
   if (verbose_) {
     std::fputs("\n--- xtraj ---\n", stdout);
@@ -478,20 +507,6 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.data(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
-}
-
-void TrajectoryOptimizationNode::health(diagnostic_updater::DiagnosticStatusWrapper& stat) {
-  stat.summary(health_.status, health_.message);
-  for (const auto& [key, value] : health_.key_value_pairs) {
-    stat.add(key, value);
-  }
-}
-
-void TrajectoryOptimizationNode::setHealth(const unsigned char status, const std::string& msg, const std::map<std::string, std::string>& key_value_pairs) {
-  health_.status = status;
-  health_.message = msg;
-  health_.key_value_pairs = key_value_pairs;
-  diagnostic_updater_.force_update();
 }
 
 }  // namespace trajectory_optimization

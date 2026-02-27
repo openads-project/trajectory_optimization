@@ -6,14 +6,14 @@
 namespace trajectory_optimization {
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received ego data");
-  ego_data_diagnostic_->tick(msg->header.stamp);
+  if (diagnostics_.ego_data_diagnostic) diagnostics_.ego_data_diagnostic->tick(msg->header.stamp);
   ego_data_ = *msg;
 }
 
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
   if (consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS) {
     RCLCPP_DEBUG(this->get_logger(), "Received object list");
-    object_list_diagnostic_->tick(msg->header.stamp);
+    if (diagnostics_.object_list_diagnostic) diagnostics_.object_list_diagnostic->tick(msg->header.stamp);
     object_list_ = *msg;
   } else {
     // reset object list to empty
@@ -24,7 +24,7 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
 void TrajectoryOptimizationNode::referenceTrajectoryCallback(
     const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received reference trajectory");
-  reference_trajectory_diagnostic_->tick(msg->header.stamp);
+  if (diagnostics_.reference_trajectory_diagnostic) diagnostics_.reference_trajectory_diagnostic->tick(msg->header.stamp);
   reference_trajectory_ = *msg;
   if (run_as_callback_) {
     planningCycle();
@@ -34,7 +34,7 @@ void TrajectoryOptimizationNode::referenceTrajectoryCallback(
 void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
   if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
     RCLCPP_DEBUG(this->get_logger(), "Received route");
-    route_diagnostic_->tick(msg->header.stamp);
+    if (diagnostics_.route_diagnostic) diagnostics_.route_diagnostic->tick(msg->header.stamp);
     route_ = *msg;
   } else {
     // reset route to empty
