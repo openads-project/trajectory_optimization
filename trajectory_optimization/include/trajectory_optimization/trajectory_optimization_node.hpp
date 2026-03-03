@@ -55,18 +55,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
     PREDICTED_OBJECTS = 2
   };
 
-  // input topics
-  const std::string kEgoDataTopic = "~/ego_data";
-  const std::string kObjectListTopic = "~/object_list";
-  const std::string kReferenceTrajectoryTopic = "~/reference_trajectory";
-  const std::string kRouteTopic = "~/route";
-
-  // output topics
-  const std::string kTrajectoryTopic = "~/trajectory";
-  const std::string kObjectMarkerTopic = "~/visualization/object_circles";
-  const std::string kEgoMarkerTopic = "~/visualization/ego_circles";
-  const std::string kBoundaryMarkerTopic = "~/visualization/boundaries";
-
   template <typename T>
   void declareAndLoadParameter(const std::string &name,
                                T &param,

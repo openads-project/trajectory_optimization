@@ -195,30 +195,30 @@ void TrajectoryOptimizationNode::setup() {
 
   // set up subscriber for input topics
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
-      kEgoDataTopic, 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
-      kObjectListTopic, 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
-      kRouteTopic, 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
-      kReferenceTrajectoryTopic, 1,
+      "~/reference_trajectory", 1,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topics
-  trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
+  trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/trajectory", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
-  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectMarkerTopic, 1);
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/object_circles", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
-  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kEgoMarkerTopic, 1);
+  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/ego_circles", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", ego_circles_pub_->get_topic_name());
-  boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundaryMarkerTopic, 1);
+  boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/boundaries", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", boundary_pub_->get_topic_name());
 
   // create timer for planning cycle
