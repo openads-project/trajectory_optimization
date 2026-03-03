@@ -1,6 +1,3 @@
-[submodule ".devcontainer"]
-	path = .devcontainer
-	url = ../../../dev-environment/devcontainer.git
-[submodule ".vscode"]
-	path = .vscode
-	url = ../../../dev-environment/vscode.git
+[submodule "openads-dev-environment"]
+	path = openads-dev-environment
+	url = https://github.com/oads-org/openads-dev-environment.git
