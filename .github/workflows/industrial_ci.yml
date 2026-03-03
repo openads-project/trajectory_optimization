@@ -1,0 +1,10 @@
+name: industrial_ci
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  industrial_ci:
+    uses: oads-org/openads-dev-environment/.github/workflows/industrial_ci.yml@submodule # TODO: revert to main
+    secrets: inherit

@@ -1,0 +1,12 @@
+name: docs
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+jobs:
+  docs:
+    uses: oads-org/openads-dev-environment/.github/workflows/docs.yml@submodule # TODO: revert to main
+    secrets: inherit
