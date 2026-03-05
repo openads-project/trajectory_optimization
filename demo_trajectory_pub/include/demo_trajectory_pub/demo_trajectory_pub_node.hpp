@@ -34,6 +34,7 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   void setup();
+  void createPlanningTimer();
   void publish();
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
@@ -51,13 +52,25 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   double x0_ = 0.0;
   double y0_ = 0.0;
   double v0_ = 0.0;
-  double v_ego_ = 0.0;
   double a_ = 1.0;
   double theta0_ = 0.0;
   double omega_ = 0.0;
+  std::string reference_trajectory_frame_id_ = "map";
+  bool reference_standstill_ = false;
+  std::string ego_state_model_ = "ackermann";
+  std::string ego_frame_id_ = "map";
+  double ego_vel_lon_ = 0.0;
+  double ego_acc_lon_ = 0.0;
+  double ego_steering_angle_ack_ = 0.0;
+  double ego_steering_angle_front_ = 0.0;
+  double ego_steering_angle_rear_ = 0.0;
+  std::string object_list_frame_id_ = "map";
   int n_objects_ = 10;
   double objects_delta_x_ = 10.0;
   double objects_delta_y_ = 0.0;
+  double objects_length_ = 4.0;
+  double objects_width_ = 2.0;
+  double objects_yaw_ = 0.0;
 };
 
 }  // namespace demo_trajectory_pub

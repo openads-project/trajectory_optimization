@@ -1,0 +1,31 @@
+/**:
+  ros__parameters:
+
+    n_states: 51 # n_states = n_shots + 1
+    publish_frequency: 1.0
+    trajectory_horizon: 5.0
+    reference_trajectory_frame_id: map
+    reference_standstill: false
+
+    x0: 0.0
+    y0: 0.0
+    a: 0.0
+    v0: 5.0
+    omega: 10.0
+    theta0: -10.0
+
+    ego_state_model: ackermann
+    ego_frame_id: map
+    ego_vel_lon: 5.0
+    ego_acc_lon: 0.0
+    ego_steering_angle_ack: 0.0
+    ego_steering_angle_front: 0.0
+    ego_steering_angle_rear: 0.0
+
+    object_list_frame_id: map
+    n_objects: 3
+    objects_delta_x: 10.0
+    objects_delta_y: 5.0
+    objects_length: 4.0
+    objects_width: 2.0
+    objects_yaw: 0.0
