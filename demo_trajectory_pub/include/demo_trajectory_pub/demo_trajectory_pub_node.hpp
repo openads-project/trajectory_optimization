@@ -10,35 +10,29 @@
 
 namespace demo_trajectory_pub {
 
+template <typename C> struct is_vector : std::false_type {};
+template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};
+template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
+
 class DemoTrajectoryPubNode : public rclcpp::Node {
  public:
   explicit DemoTrajectoryPubNode(const rclcpp::NodeOptions &options);
 
  private:
 
-  // output topics
-  static const std::string kTrajectoryTopic;
-  static const std::string kEgoDataTopic;
-  static const std::string kObjectListTopic;
+  template <typename T>
+  void declareAndLoadParameter(const std::string &name,
+                               T &param,
+                               const std::string &description,
+                               const bool add_to_auto_reconfigurable_params = true,
+                               const bool is_required = false,
+                               const bool read_only = false,
+                               const std::optional<double> &from_value = std::nullopt,
+                               const std::optional<double> &to_value = std::nullopt,
+                               const std::optional<double> &step_value = std::nullopt,
+                               const std::string &additional_constraints = "");
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
-  // parameter names
-  static const std::string kNStatesParam;
-  static const std::string kPubFreqParam;
-  static const std::string kTrajectoryHorizonParam;
-  static const std::string kX0Param;
-  static const std::string kY0Param;
-  static const std::string kV0Param;
-  static const std::string kVEgoParam;
-  static const std::string kAParam;
-  static const std::string kTheta0Param;
-  static const std::string kOmegaParam;
-  static const std::string kNObjectsParam;
-  static const std::string kObjectsDeltaX;
-  static const std::string kObjectsDeltaY;
-
-  void declareParameters();
-  void loadParameters();
-  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
   void setup();
   void publish();
 
@@ -49,6 +43,8 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
   // parameters
+  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
+      auto_reconfigurable_params_;
   double pub_freq_ = 10.0;
   int n_states_ = 51;
   double optimization_horizon_ = 5.0;
