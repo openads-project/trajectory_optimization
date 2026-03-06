@@ -23,31 +23,33 @@ namespace demo_trajectory_pub {
 DemoTrajectoryPubNode::DemoTrajectoryPubNode(const rclcpp::NodeOptions& options)
     : Node("demo_trajectory_pub_node", options) {
   // declare and load node parameters; setup node
-  this->declareAndLoadParameter("n_states", n_states_, "Number of trajectory states", true, true, false, 2.0, 500.0, 1.0);
-  this->declareAndLoadParameter("publish_frequency", pub_freq_, "Publish frequency in Hz", true, true, false, 0.01, 100.0, 0.01);
-  this->declareAndLoadParameter("trajectory_horizon", optimization_horizon_, "Trajectory horizon in seconds", true, true, false, 0.1, 60.0, 0.1);
-  this->declareAndLoadParameter("reference_trajectory_frame_id", reference_trajectory_frame_id_, "Frame ID for published reference trajectory");
-  this->declareAndLoadParameter("reference_standstill", reference_standstill_, "Publish reference trajectory with standstill flag");
-  this->declareAndLoadParameter("x0", x0_, "Initial x position", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("y0", y0_, "Initial y position", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("v0", v0_, "Initial velocity", true, false, false, -10.0, 10.0, 0.5);
-  this->declareAndLoadParameter("a", a_, "Acceleration", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("theta0", theta0_, "Initial heading angle", true, false, false, -180.0, 180.0, 10.0);
-  this->declareAndLoadParameter("omega", omega_, "Initial angular velocity", true, false, false, -45.0, 45.0, 5.0);
+  this->declareAndLoadParameter("publish_frequency", publish_frequency_, "Publish frequency in Hz", true, true, false, 0.01, 100.0, 0.01);
+  this->declareAndLoadParameter("message_frame_id", message_frame_id_, "Common frame ID for all published messages");
+
   this->declareAndLoadParameter("ego_state_model", ego_state_model_, "Ego state model used for published EgoData", true, false, false, std::nullopt, std::nullopt, std::nullopt, "Valid values: ackermann, rws");
-  this->declareAndLoadParameter("ego_frame_id", ego_frame_id_, "Frame ID for published ego data");
   this->declareAndLoadParameter("ego_vel_lon", ego_vel_lon_, "Ego longitudinal velocity [m/s]", true, false, false, -20.0, 40.0, 0.1);
   this->declareAndLoadParameter("ego_acc_lon", ego_acc_lon_, "Ego longitudinal acceleration [m/s^2]", true, false, false, -10.0, 10.0, 0.1);
   this->declareAndLoadParameter("ego_steering_angle_ack", ego_steering_angle_ack_, "Ackermann steering angle [rad]", true, false, false, -M_PI/2, M_PI/2);
   this->declareAndLoadParameter("ego_steering_angle_front", ego_steering_angle_front_, "Front steering angle for RWS [rad]", true, false, false, -M_PI/2, M_PI/2);
   this->declareAndLoadParameter("ego_steering_angle_rear", ego_steering_angle_rear_, "Rear steering angle for RWS [rad]", true, false, false, -M_PI/2, M_PI/2);
-  this->declareAndLoadParameter("object_list_frame_id", object_list_frame_id_, "Frame ID for published object list");
-  this->declareAndLoadParameter("n_objects", n_objects_, "Number of objects in object list", true, false, false, 0.0, 100.0, 1.0);
-  this->declareAndLoadParameter("objects_delta_x", objects_delta_x_, "Delta x between objects");
-  this->declareAndLoadParameter("objects_delta_y", objects_delta_y_, "Delta y between objects");
-  this->declareAndLoadParameter("objects_length", objects_length_, "Object length [m]", true, false, false, 0.1, 20.0, 0.1);
-  this->declareAndLoadParameter("objects_width", objects_width_, "Object width [m]", true, false, false, 0.1, 10.0, 0.1);
-  this->declareAndLoadParameter("objects_yaw", objects_yaw_, "Object yaw [rad]", true, false, false, -M_PI, M_PI);
+
+  this->declareAndLoadParameter("reference_n_states", reference_n_states_, "Number of reference trajectory states", true, true, false, 2.0, 500.0, 1.0);
+  this->declareAndLoadParameter("reference_trajectory_horizon", reference_trajectory_horizon_, "Reference trajectory horizon in seconds", true, true, false, 0.1, 60.0, 0.1);
+  this->declareAndLoadParameter("reference_standstill", reference_standstill_, "Publish reference trajectory with standstill flag");
+  this->declareAndLoadParameter("reference_x0", reference_x0_, "Initial x position of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
+  this->declareAndLoadParameter("reference_y0", reference_y0_, "Initial y position of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
+  this->declareAndLoadParameter("reference_v0", reference_v0_, "Initial velocity of reference trajectory", true, false, false, -10.0, 10.0, 0.5);
+  this->declareAndLoadParameter("reference_a", reference_a_, "Acceleration of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
+  this->declareAndLoadParameter("reference_theta0", reference_theta0_, "Initial heading angle of reference trajectory [deg]", true, false, false, -180.0, 180.0, 10.0);
+  this->declareAndLoadParameter("reference_omega", reference_omega_, "Angular velocity of reference trajectory [deg/s]", true, false, false, -45.0, 45.0, 5.0);
+
+  this->declareAndLoadParameter("object_count", object_count_, "Number of objects in object list", true, false, false, 0.0, 100.0, 1.0);
+  this->declareAndLoadParameter("object_delta_x", object_delta_x_, "Delta x between objects");
+  this->declareAndLoadParameter("object_delta_y", object_delta_y_, "Delta y between objects");
+  this->declareAndLoadParameter("object_length", object_length_, "Object length [m]", true, false, false, 0.1, 20.0, 0.1);
+  this->declareAndLoadParameter("object_width", object_width_, "Object width [m]", true, false, false, 0.1, 10.0, 0.1);
+  this->declareAndLoadParameter("object_yaw", object_yaw_, "Object yaw [rad]", true, false, false, -M_PI, M_PI);
+
   this->setup();
 }
 
@@ -181,9 +183,9 @@ void DemoTrajectoryPubNode::createPlanningTimer() {
     planning_timer_->cancel();
     planning_timer_.reset();
   }
-  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / pub_freq_),
+  planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / publish_frequency_),
                                             std::bind(&DemoTrajectoryPubNode::publish, this));
-  RCLCPP_INFO(this->get_logger(), "Planning timer updated to %.3f Hz.", pub_freq_);
+  RCLCPP_INFO(this->get_logger(), "Planning timer updated to %.3f Hz.", publish_frequency_);
 }
 
 /**
@@ -212,8 +214,11 @@ void DemoTrajectoryPubNode::publish() {
     RCLCPP_FATAL(this->get_logger(), "Invalid ego_state_model '%s'. Valid values are 'ackermann' and 'rws'.", ego_state_model_.c_str());
     exit(EXIT_FAILURE);
   }
+  egodata->length = EGO_LENGTH;
+  egodata->width = EGO_WIDTH;
+  egodata->height = OBJECT_HEIGHT;
   egodata->header.stamp = this->now();
-  egodata->header.frame_id = ego_frame_id_;
+  egodata->header.frame_id = message_frame_id_;
   egodata_pub_->publish(std::move(egodata));
 
   // --- publish trajectory ---
@@ -221,28 +226,28 @@ void DemoTrajectoryPubNode::publish() {
   trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
       std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
-      *trajectory, trajectory_planning_msgs::msg::REFERENCE::TYPE_ID, n_states_);
+      *trajectory, trajectory_planning_msgs::msg::REFERENCE::TYPE_ID, reference_n_states_);
 
   trajectory->header.stamp = this->now();
-  trajectory->header.frame_id = reference_trajectory_frame_id_;
+  trajectory->header.frame_id = message_frame_id_;
   trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, reference_standstill_);
 
   double t = 0.0;
-  double dt = optimization_horizon_ / (n_states_ - 1);
-  double x = x0_;
-  double y = y0_;
-  double theta = theta0_;
-  double v = v0_;
+  double dt = reference_trajectory_horizon_ / (reference_n_states_ - 1);
+  double x = reference_x0_;
+  double y = reference_y0_;
+  double theta = reference_theta0_;
+  double v = reference_v0_;
   std::vector<double> state0 = {t, x, y, v};
   trajectory_planning_msgs::trajectory_access::setState(*trajectory, state0, 0);
 
-  for (int i = 1; i < n_states_; i++) {
+  for (int i = 1; i < reference_n_states_; i++) {
 
     double theta_rad = theta * M_PI / 180.0;
     double vx = v * std::cos(theta_rad);
     double vy = v * std::sin(theta_rad);
-    double ax = a_ * std::cos(theta_rad);
-    double ay = a_ * std::sin(theta_rad);
+    double ax = reference_a_ * std::cos(theta_rad);
+    double ay = reference_a_ * std::sin(theta_rad);
 
     t += dt;
     x = x + vx * dt + 0.5 * ax * dt * dt;
@@ -250,7 +255,7 @@ void DemoTrajectoryPubNode::publish() {
     vx = vx + ax * dt;
     vy = vy + ay * dt;
     v = std::sqrt(vx * vx + vy * vy);
-    theta_rad = theta_rad + omega_ * M_PI / 180.0 * dt;
+    theta_rad = theta_rad + reference_omega_ * M_PI / 180.0 * dt;
     theta = theta_rad * 180.0 / M_PI;
 
     std::vector<double> state = {t, x, y, v};
@@ -264,21 +269,21 @@ void DemoTrajectoryPubNode::publish() {
 
   perception_msgs::msg::ObjectList::UniquePtr object_list = std::make_unique<perception_msgs::msg::ObjectList>();
   object_list->header.stamp = this->now();
-  object_list->header.frame_id = object_list_frame_id_;
+  object_list->header.frame_id = message_frame_id_;
 
-  for (int i = 0; i < n_objects_; i++) {
+  for (int i = 0; i < object_count_; i++) {
     perception_msgs::msg::Object obj;
     perception_msgs::object_access::initializeState(obj, perception_msgs::msg::ISCACTR::MODEL_ID);
-    double h = 2.0;
-    double x = objects_delta_x_ * (i + 1);
-    double y = objects_delta_y_ * (i + 1);
+    double x = object_delta_x_ * (i + 1);
+    double y = object_delta_y_ * (i + 1);
+    double h = OBJECT_HEIGHT;
     double z = h / 2;
     perception_msgs::object_access::setX(obj, x);
     perception_msgs::object_access::setY(obj, y);
     perception_msgs::object_access::setZ(obj, z);
-    perception_msgs::object_access::setYaw(obj, objects_yaw_);
-    perception_msgs::object_access::setLength(obj, objects_length_);
-    perception_msgs::object_access::setWidth(obj, objects_width_);
+    perception_msgs::object_access::setYaw(obj, object_yaw_);
+    perception_msgs::object_access::setLength(obj, object_length_);
+    perception_msgs::object_access::setWidth(obj, object_width_);
     perception_msgs::object_access::setHeight(obj, h);
     object_list->objects.push_back(obj);
   }

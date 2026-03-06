@@ -18,6 +18,10 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
  public:
   explicit DemoTrajectoryPubNode(const rclcpp::NodeOptions &options);
 
+  static constexpr double EGO_LENGTH = 5.173;
+  static constexpr double EGO_WIDTH = 1.94;
+  static constexpr double OBJECT_HEIGHT = 2.0;
+
  private:
 
   template <typename T>
@@ -46,31 +50,37 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   // parameters
   std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
       auto_reconfigurable_params_;
-  double pub_freq_ = 10.0;
-  int n_states_ = 51;
-  double optimization_horizon_ = 5.0;
-  double x0_ = 0.0;
-  double y0_ = 0.0;
-  double v0_ = 0.0;
-  double a_ = 1.0;
-  double theta0_ = 0.0;
-  double omega_ = 0.0;
-  std::string reference_trajectory_frame_id_ = "map";
-  bool reference_standstill_ = false;
+
+  // 1) general params
+  double publish_frequency_ = 10.0;
+  std::string message_frame_id_ = "map";
+
+  // 2) ego data params
   std::string ego_state_model_ = "ackermann";
-  std::string ego_frame_id_ = "map";
   double ego_vel_lon_ = 0.0;
   double ego_acc_lon_ = 0.0;
   double ego_steering_angle_ack_ = 0.0;
   double ego_steering_angle_front_ = 0.0;
   double ego_steering_angle_rear_ = 0.0;
-  std::string object_list_frame_id_ = "map";
-  int n_objects_ = 10;
-  double objects_delta_x_ = 10.0;
-  double objects_delta_y_ = 0.0;
-  double objects_length_ = 4.0;
-  double objects_width_ = 2.0;
-  double objects_yaw_ = 0.0;
+
+  // 3) reference trajectory params
+  int reference_n_states_ = 51;
+  double reference_trajectory_horizon_ = 5.0;
+  bool reference_standstill_ = false;
+  double reference_x0_ = 0.0;
+  double reference_y0_ = 0.0;
+  double reference_v0_ = 0.0;
+  double reference_a_ = 1.0;
+  double reference_theta0_ = 0.0;
+  double reference_omega_ = 0.0;
+
+  // 4) object params
+  int object_count_ = 10;
+  double object_delta_x_ = 10.0;
+  double object_delta_y_ = 0.0;
+  double object_length_ = 4.0;
+  double object_width_ = 2.0;
+  double object_yaw_ = 0.0;
 };
 
 }  // namespace demo_trajectory_pub
