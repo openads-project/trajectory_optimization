@@ -4,24 +4,24 @@
 #include <functional>
 #include <thread>
 
-#include <demo_trajectory_pub/demo_trajectory_pub_node.hpp>
+#include <dummy_input_generation/dummy_input_generation_node.hpp>
 
 #include <rclcpp_components/register_node_macro.hpp>
 
-RCLCPP_COMPONENTS_REGISTER_NODE(demo_trajectory_pub::DemoTrajectoryPubNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(dummy_input_generation::DummyInputGenerationNode)
 
 /**
- * @brief Namespace for demo_trajectory_pub package
+ * @brief Namespace for dummy_input_generation package
  *
  */
-namespace demo_trajectory_pub {
+namespace dummy_input_generation {
 
 /**
- * @brief Creates a DemoTrajectoryPubNode node
+ * @brief Creates a DummyInputGenerationNode node
  *
  */
-DemoTrajectoryPubNode::DemoTrajectoryPubNode(const rclcpp::NodeOptions& options)
-    : Node("demo_trajectory_pub_node", options) {
+DummyInputGenerationNode::DummyInputGenerationNode(const rclcpp::NodeOptions& options)
+    : Node("dummy_input_generation_node", options) {
   // declare and load node parameters; setup node
   this->declareAndLoadParameter("publish_frequency", publish_frequency_, "Publish frequency in Hz", true, true, false, 0.01, 100.0, 0.01);
   this->declareAndLoadParameter("message_frame_id", message_frame_id_, "Common frame ID for all published messages");
@@ -54,7 +54,7 @@ DemoTrajectoryPubNode::DemoTrajectoryPubNode(const rclcpp::NodeOptions& options)
 }
 
 template <typename T>
-void DemoTrajectoryPubNode::declareAndLoadParameter(const std::string& name,
+void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
                                                          T& param,
                                                          const std::string& description,
                                                          const bool add_to_auto_reconfigurable_params,
@@ -135,7 +135,7 @@ void DemoTrajectoryPubNode::declareAndLoadParameter(const std::string& name,
  * @param parameters parameters
  * @return parameter change result
  */
-rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallback(const std::vector<rclcpp::Parameter>& parameters) {
+rcl_interfaces::msg::SetParametersResult DummyInputGenerationNode::parametersCallback(const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
@@ -159,11 +159,11 @@ rcl_interfaces::msg::SetParametersResult DemoTrajectoryPubNode::parametersCallba
  * @brief Sets up subscribers, publishers, and more.
  *
  */
-void DemoTrajectoryPubNode::setup() {
+void DummyInputGenerationNode::setup() {
 
   // create a callback for dynamic parameter configuration
   parameters_callback_ = this->add_on_set_parameters_callback(
-      std::bind(&DemoTrajectoryPubNode::parametersCallback, this, std::placeholders::_1));
+      std::bind(&DummyInputGenerationNode::parametersCallback, this, std::placeholders::_1));
 
   // set up publishers
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/reference_trajectory", 10);
@@ -178,13 +178,13 @@ void DemoTrajectoryPubNode::setup() {
   createPlanningTimer();
 }
 
-void DemoTrajectoryPubNode::createPlanningTimer() {
+void DummyInputGenerationNode::createPlanningTimer() {
   if (planning_timer_) {
     planning_timer_->cancel();
     planning_timer_.reset();
   }
   planning_timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / publish_frequency_),
-                                            std::bind(&DemoTrajectoryPubNode::publish, this));
+                                            std::bind(&DummyInputGenerationNode::publish, this));
   RCLCPP_INFO(this->get_logger(), "Planning timer updated to %.3f Hz.", publish_frequency_);
 }
 
@@ -192,7 +192,7 @@ void DemoTrajectoryPubNode::createPlanningTimer() {
  * @brief This function is invoked every period seconds by the timer
  *
  */
-void DemoTrajectoryPubNode::publish() {
+void DummyInputGenerationNode::publish() {
 
   // --- publish ego data ---
 
@@ -291,4 +291,4 @@ void DemoTrajectoryPubNode::publish() {
   object_list_pub_->publish(std::move(object_list));
 }
 
-}  // namespace demo_trajectory_pub
+}  // namespace dummy_input_generation

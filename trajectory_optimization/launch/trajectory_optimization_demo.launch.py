@@ -16,9 +16,9 @@ def generate_launch_description():
     )
 
     demo_pub_launch_file = os.path.join(
-        get_package_share_directory("demo_trajectory_pub"),
+        get_package_share_directory("dummy_input_generation"),
         "launch",
-        "demo_trajectory_pub_node.launch.py"
+        "dummy_input_generation_node.launch.py"
     )
     
     static_transform_publisher = Node(
@@ -35,9 +35,9 @@ def generate_launch_description():
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(trajectory_optimization_launch_file),
                     launch_arguments=[
-                        ("reference_trajectory_topic", "/demo_trajectory_pub_node/reference_trajectory"),
-                        ("ego_data_topic", "/demo_trajectory_pub_node/ego_data"),
-                        ("object_list_topic", "/demo_trajectory_pub_node/object_list")
+                        ("reference_trajectory_topic", "/dummy_input_generation_node/reference_trajectory"),
+                        ("ego_data_topic", "/dummy_input_generation_node/ego_data"),
+                        ("object_list_topic", "/dummy_input_generation_node/object_list")
                     ],
                 )
             ],

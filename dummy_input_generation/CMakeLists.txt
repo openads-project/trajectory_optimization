@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(demo_trajectory_pub)
+project(dummy_input_generation)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -13,13 +13,13 @@ find_package(perception_msgs_utils REQUIRED)
 find_package(trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs_utils REQUIRED)
 
-set(TARGET_NAME demo_trajectory_pub_node_component)
+set(TARGET_NAME dummy_input_generation_node_component)
 
-add_library(${TARGET_NAME} SHARED src/demo_trajectory_pub_node.cpp)
+add_library(${TARGET_NAME} SHARED src/dummy_input_generation_node.cpp)
 
 rclcpp_components_register_node(${TARGET_NAME}
-  PLUGIN "demo_trajectory_pub::DemoTrajectoryPubNode"
-  EXECUTABLE demo_trajectory_pub_node
+  PLUGIN "dummy_input_generation::DummyInputGenerationNode"
+  EXECUTABLE dummy_input_generation_node
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC

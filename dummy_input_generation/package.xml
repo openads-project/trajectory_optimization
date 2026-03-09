@@ -2,22 +2,23 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
 
-  <name>demo_trajectory_pub</name>
+  <name>dummy_input_generation</name>
   <version>1.1.0</version>
-  <description>Publishes a configurable reference trajectory for testing purposes</description>
+  <description>Generates and publishes dummy input data for testing purposes of the trajectory optimization node.</description>
 
   <maintainer email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</maintainer>
+  <author email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</author>
 
-  <license>TODO</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>perception_msgs_utils</depend>
+  <depend>perception_msgs</depend>
   <depend>rclcpp_components</depend>
   <depend>rclcpp</depend>
-  <depend>perception_msgs</depend>
-  <depend>perception_msgs_utils</depend>
-  <depend>trajectory_planning_msgs</depend>
   <depend>trajectory_planning_msgs_utils</depend>
+  <depend>trajectory_planning_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

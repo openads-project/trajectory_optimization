@@ -21,7 +21,7 @@ The ROS 2 node uses the open-source ROS 2 message definitions [perception_interf
 | --- | --- |
 | [trajectory_optimization](trajectory_optimization/README.md) | Runtime ROS 2 node that periodically solves the OCP and publishes optimized trajectories. |
 | [acados_ocp](acados_ocp/README.md) | Defines the OCP and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`. |
-| [demo_trajectory_pub](demo_trajectory_pub/README.md) | Test node that generates and publishes synthetic inputs for the `trajectory_optimization`. |
+| [dummy_input_generation](dummy_input_generation/README.md) | Test node that generates and publishes synthetic inputs for the `trajectory_optimization`. |
 
 ## Build and Run
 

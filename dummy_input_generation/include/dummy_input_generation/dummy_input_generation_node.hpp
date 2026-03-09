@@ -8,15 +8,15 @@
 #include <perception_msgs/msg/object_list.hpp>
 #include <perception_msgs_utils/object_access.hpp>
 
-namespace demo_trajectory_pub {
+namespace dummy_input_generation {
 
 template <typename C> struct is_vector : std::false_type {};
 template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};
 template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
 
-class DemoTrajectoryPubNode : public rclcpp::Node {
+class DummyInputGenerationNode : public rclcpp::Node {
  public:
-  explicit DemoTrajectoryPubNode(const rclcpp::NodeOptions &options);
+  explicit DummyInputGenerationNode(const rclcpp::NodeOptions &options);
 
   static constexpr double EGO_LENGTH = 5.173;
   static constexpr double EGO_WIDTH = 1.94;
@@ -83,4 +83,4 @@ class DemoTrajectoryPubNode : public rclcpp::Node {
   double object_yaw_ = 0.0;
 };
 
-}  // namespace demo_trajectory_pub
+}  // namespace dummy_input_generation
