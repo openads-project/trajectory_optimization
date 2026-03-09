@@ -1,0 +1,31 @@
+services:
+
+  trajectory-optimization-demo:
+    image: gitlab.ika.rwth-aachen.de:5050/fb-fi/its-modules/planning/trajectory_optimization:latest_improvements_ci
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    command: bash -ic "ros2 launch trajectory_optimization trajectory_optimization_demo.launch.py"
+
+  rviz:
+    image: gitlab.ika.rwth-aachen.de:5050/fb-fi/its-modules/monitoring/ros-monitoring:latest
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY_X11_DOCKER:-${DISPLAY:-""}}
+      - XAUTHORITY${XAUTHORITY_DOCKER:+=/.Xauthority}
+    command: bash -ic "rviz2 -d /root/.rviz2/config.rviz"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${XAUTHORITY_DOCKER:-/dev/null:/dev/null}${XAUTHORITY_DOCKER:+:/.Xauthority:ro}
+      - ./config.rviz:/root/.rviz2/config.rviz
+
+  rqt:
+    image: gitlab.ika.rwth-aachen.de:5050/fb-fi/its-modules/monitoring/ros-monitoring:latest
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY_X11_DOCKER:-${DISPLAY:-""}}
+      - XAUTHORITY${XAUTHORITY_DOCKER:+=/.Xauthority}
+    command: bash -ic "rqt --perspective-file /rqt.perspective"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${XAUTHORITY_DOCKER:-/dev/null:/dev/null}${XAUTHORITY_DOCKER:+:/.Xauthority:ro}
+      - ./rqt.perspective:/rqt.perspective
