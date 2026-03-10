@@ -8,5 +8,5 @@ on:
 
 jobs:
   docs:
-    uses: oads-org/openads-dev-environment/.github/workflows/docs.yml@submodule # TODO: revert to main
+    uses: oads-org/openads-dev-environment/.github/workflows/docs.yml@main
     secrets: inherit
