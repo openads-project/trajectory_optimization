@@ -6,5 +6,5 @@ on:
 
 jobs:
   industrial_ci:
-    uses: oads-org/openads-dev-environment/.github/workflows/industrial_ci.yml@improvement/industrial-ci # TODO: switch back to main
+    uses: openads-project/openads-dev-environment/.github/workflows/industrial_ci.yml@improvement/industrial-ci # TODO: switch back to main
     secrets: inherit
