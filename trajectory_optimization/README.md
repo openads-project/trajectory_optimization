@@ -1,33 +1,14 @@
+# `trajectory_optimization`
 
+Generates a drivable trajectory following a reference trajectory
 
-## 📦 Package Documentation
+- [Nodes](#nodes)
+  - [trajectory_optimization_node](#trajectory_optimization_node)
+- [Launch Files](#launch-files)
 
-### `trajectory_optimization`
+## Nodes
 
-#### Launch Files
-
-##### [`trajectory_optimization.launch.py`](launch/trajectory_optimization.launch.py)
-
-| Argument | Default | Description |
-| --- | --- | --- |
-| `ego_data_topic` | `"~/ego_data"` |  |
-| `object_list_topic` | `"~/object_list"` |  |
-| `reference_trajectory_topic` | `"~/reference_trajectory"` |  |
-| `route_topic` | `"~/route"` |  |
-| `trajectory_topic` | `"~/trajectory"` |  |
-| `boundary_marker_topic` | `"~/visualization/boundaries"` |  |
-| `ego_circles_topic` | `"~/visualization/ego_circles"` |  |
-| `object_circles_topic` | `"~/visualization/object_circles"` |  |
-| `name` | `executable_name` | node name |
-| `namespace` | `""` | node namespace |
-| `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |
-| `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
-| `use_sim_time` | `"false"` | use simulation clock |
-| `trace` | `"false"` | enable tracing |
-
-##### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)
-
-#### `trajectory_optimization_node`
+### `trajectory_optimization_node`
 
 ```mermaid
 flowchart LR
@@ -43,7 +24,7 @@ flowchart LR
     classDef hidden display: none;
 ```
 
-##### Subscribed Topics
+#### Subscribed Topics
 
 | Topic | Type | Description |
 | --- | --- | --- |
@@ -52,7 +33,7 @@ flowchart LR
 | `~/route` | `route_planning_msgs/msg/Route` | |
 | `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | |
 
-##### Published Topics
+#### Published Topics
 
 | Topic | Type | Description |
 | --- | --- | --- |
@@ -61,7 +42,7 @@ flowchart LR
 | `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | |
 
-##### Parameters
+#### Parameters
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -93,3 +74,25 @@ flowchart LR
 | `bi_level_dYaw` | `float` | `5.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
 | `init_as_ref` | `bool` | `false` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions |
 
+## Launch Files
+
+### [`trajectory_optimization.launch.py`](launch/trajectory_optimization.launch.py)
+
+| Argument | Default | Description |
+| --- | --- | --- |
+| `ego_data_topic` | `"~/ego_data"` |  |
+| `object_list_topic` | `"~/object_list"` |  |
+| `reference_trajectory_topic` | `"~/reference_trajectory"` |  |
+| `route_topic` | `"~/route"` |  |
+| `trajectory_topic` | `"~/trajectory"` |  |
+| `boundary_marker_topic` | `"~/visualization/boundaries"` |  |
+| `ego_circles_topic` | `"~/visualization/ego_circles"` |  |
+| `object_circles_topic` | `"~/visualization/object_circles"` |  |
+| `name` | `executable_name` | node name |
+| `namespace` | `""` | node namespace |
+| `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |
+| `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
+| `use_sim_time` | `"false"` | use simulation clock |
+| `trace` | `"false"` | enable tracing |
+
+### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)

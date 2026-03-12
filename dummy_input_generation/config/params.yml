@@ -12,6 +12,7 @@
     ego_steering_angle_ack: 0.0
     ego_steering_angle_front: 0.0
     ego_steering_angle_rear: 0.0
+    ego_translation_to_geometric_center: [1.4895, 0.0, 0.420]
 
     # reference trajectory params
     reference_n_states: 51

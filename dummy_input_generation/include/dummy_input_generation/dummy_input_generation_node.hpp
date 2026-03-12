@@ -62,6 +62,7 @@ class DummyInputGenerationNode : public rclcpp::Node {
   double ego_steering_angle_ack_ = 0.0;
   double ego_steering_angle_front_ = 0.0;
   double ego_steering_angle_rear_ = 0.0;
+  std::vector<double> ego_translation_to_geometric_center_ = {1.4895, 0.0, 0.420};
 
   // 3) reference trajectory params
   int reference_n_states_ = 51;

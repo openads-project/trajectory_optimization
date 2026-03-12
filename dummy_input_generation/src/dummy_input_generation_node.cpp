@@ -29,9 +29,10 @@ DummyInputGenerationNode::DummyInputGenerationNode(const rclcpp::NodeOptions& op
   this->declareAndLoadParameter("ego_state_model", ego_state_model_, "Ego state model used for published EgoData", true, false, false, std::nullopt, std::nullopt, std::nullopt, "Valid values: ackermann, rws");
   this->declareAndLoadParameter("ego_vel_lon", ego_vel_lon_, "Ego longitudinal velocity [m/s]", true, false, false, -20.0, 40.0, 0.1);
   this->declareAndLoadParameter("ego_acc_lon", ego_acc_lon_, "Ego longitudinal acceleration [m/s^2]", true, false, false, -10.0, 10.0, 0.1);
-  this->declareAndLoadParameter("ego_steering_angle_ack", ego_steering_angle_ack_, "Ackermann steering angle [rad]", true, false, false, -M_PI/2, M_PI/2);
-  this->declareAndLoadParameter("ego_steering_angle_front", ego_steering_angle_front_, "Front steering angle for RWS [rad]", true, false, false, -M_PI/2, M_PI/2);
-  this->declareAndLoadParameter("ego_steering_angle_rear", ego_steering_angle_rear_, "Rear steering angle for RWS [rad]", true, false, false, -M_PI/2, M_PI/2);
+  this->declareAndLoadParameter("ego_steering_angle_ack", ego_steering_angle_ack_, "Ackermann steering angle [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
+  this->declareAndLoadParameter("ego_steering_angle_front", ego_steering_angle_front_, "Front steering angle for RWS [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
+  this->declareAndLoadParameter("ego_steering_angle_rear", ego_steering_angle_rear_, "Rear steering angle for RWS [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
+  this->declareAndLoadParameter("ego_translation_to_geometric_center", ego_translation_to_geometric_center_, "Translation from ego reference point to geometric center [x, y, z]");
 
   this->declareAndLoadParameter("reference_n_states", reference_n_states_, "Number of reference trajectory states", true, true, false, 2.0, 500.0, 1.0);
   this->declareAndLoadParameter("reference_trajectory_horizon", reference_trajectory_horizon_, "Reference trajectory horizon in seconds", true, true, false, 0.1, 60.0, 0.1);
@@ -48,7 +49,7 @@ DummyInputGenerationNode::DummyInputGenerationNode(const rclcpp::NodeOptions& op
   this->declareAndLoadParameter("object_delta_y", object_delta_y_, "Delta y between objects");
   this->declareAndLoadParameter("object_length", object_length_, "Object length [m]", true, false, false, 0.1, 20.0, 0.1);
   this->declareAndLoadParameter("object_width", object_width_, "Object width [m]", true, false, false, 0.1, 10.0, 0.1);
-  this->declareAndLoadParameter("object_yaw", object_yaw_, "Object yaw [rad]", true, false, false, -M_PI, M_PI);
+  this->declareAndLoadParameter("object_yaw", object_yaw_, "Object yaw [rad]", true, false, false, -3.14, 3.14, 0.01);
 
   this->setup();
 }
@@ -217,6 +218,9 @@ void DummyInputGenerationNode::publish() {
   egodata->length = EGO_LENGTH;
   egodata->width = EGO_WIDTH;
   egodata->height = OBJECT_HEIGHT;
+  egodata->state.reference_point.translation_to_geometric_center.x = ego_translation_to_geometric_center_[0];
+  egodata->state.reference_point.translation_to_geometric_center.y = ego_translation_to_geometric_center_[1];
+  egodata->state.reference_point.translation_to_geometric_center.z = ego_translation_to_geometric_center_[2];
   egodata->header.stamp = this->now();
   egodata->header.frame_id = message_frame_id_;
   egodata_pub_->publish(std::move(egodata));
