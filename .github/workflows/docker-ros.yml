@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   docker-ros:
@@ -19,5 +20,6 @@ jobs:
           base-image: rwthika/ros2:jazzy
           rmw-implementation: rmw_zenoh_cpp
           command: ros2 launch trajectory_optimization trajectory_optimization.launch.py
+          enable-industrial-ci: true
           enable-slim: false
           enable-recursive-vcs-import: false
