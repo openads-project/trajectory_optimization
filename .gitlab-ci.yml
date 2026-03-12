@@ -15,7 +15,6 @@ docker-ros:
     BASE_IMAGE: rwthika/ros2:jazzy
     RMW_IMPLEMENTATION: rmw_zenoh_cpp
     COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
-    ENABLE_INDUSTRIAL_CI: 'true'
     ENABLE_RECURSIVE_VCS_IMPORT: 'false'
     SLIM_BUILD_ARGS: >
       --sensor-ipc-mode=proxy
@@ -48,6 +47,8 @@ docker-ros:
       --include-path /etc/ld.so.conf
       --include-path /etc/ld.so.conf.d
       --include-path /etc/ld.so.cache
+    ENABLE_INDUSTRIAL_CI: 'true'
+    TARGET_CMAK_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
 
 consistency:
   stage: consistency
