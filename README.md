@@ -73,3 +73,10 @@ Run the container and node by following these steps:
 > **Trajectory optimization** is one of many research topics within our [*Vehicle Intelligence & Automated Driving*](https://www.ika.rwth-aachen.de/en/competences/fields-of-research/vehicle-intelligence-automated-driving.html) domain.  
 > If you would like to learn more about how we can support your advanced driver assistance and automated driving efforts, feel free to reach out to us!  
 > :email: ***opensource@ika.rwth-aachen.de***
+
+## Licensing
+
+- The source code in this repository is licensed under Apache-2.0. See [LICENSE](LICENSE).
+- Docker images built from this repository also contain third-party software with its own license terms.
+- `acados` and its bundled dependencies ship license files in the container under `/opt/acados/LICENSE` and `/opt/acados/external/*/LICENSE*`.
+- `CasADi` is used for code generation and is distributed under LGPL-3.0-or-later. In the current container, its package metadata is available under `/usr/local/lib/python3.12/dist-packages/casadi-3.7.2.dist-info/METADATA`.
