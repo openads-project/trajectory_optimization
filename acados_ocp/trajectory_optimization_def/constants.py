@@ -1,3 +1,6 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 # state vector indices
 STATE_INDEX_X = 0
 STATE_INDEX_Y = 1

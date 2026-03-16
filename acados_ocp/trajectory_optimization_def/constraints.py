@@ -1,3 +1,6 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
 from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry

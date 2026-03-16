@@ -1,3 +1,6 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 from casadi import fmax, fmin, tan
 from acados_template import AcadosOcp
 from constants import *

@@ -1,3 +1,6 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 from acados_template import AcadosOcpOptions
 
 def set_opts(ocp, config):

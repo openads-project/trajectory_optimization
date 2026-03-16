@@ -1,3 +1,6 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 import numpy as np
 from acados_template import AcadosOcpCost, AcadosOcp
 from constants import *
