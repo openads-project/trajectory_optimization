@@ -189,7 +189,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
   // ocp variables
-  ocp_model_capsule_t acados_ocp_capsule_;
+  ocp_model_capsule_t ocp_capsule_;
   ocp_nlp_config *nlp_config_;
   ocp_nlp_dims *nlp_dims_;
   ocp_nlp_in *nlp_in_;

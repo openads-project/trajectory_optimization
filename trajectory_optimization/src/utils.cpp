@@ -514,7 +514,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_, *nlp_dims_->nx);
     printf("\n--- utraj ---\n");
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_, *nlp_dims_->nu);
-    trajectory_optimization::acados_print_stats(acados_ocp_capsule_);
+    trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
 }
 

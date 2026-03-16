@@ -6,7 +6,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(acados_ocp REQUIRED)
 find_package(acados REQUIRED)
 find_package(perception_msgs REQUIRED)
 find_package(perception_msgs_utils REQUIRED)
@@ -20,6 +19,7 @@ find_package(tf2_perception_msgs REQUIRED)
 find_package(tf2_route_planning_msgs REQUIRED)
 find_package(tf2_trajectory_planning_msgs REQUIRED)
 find_package(tracetools REQUIRED)
+find_package(trajectory_optimization_ocp REQUIRED)
 find_package(trajectory_planning_msgs REQUIRED)
 find_package(trajectory_planning_msgs_utils REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -55,7 +55,6 @@ target_include_directories(${TARGET_NAME} PUBLIC
 target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
-  acados_ocp
   acados
   perception_msgs
   perception_msgs_utils
@@ -69,6 +68,7 @@ ament_target_dependencies(${TARGET_NAME}
   tf2_route_planning_msgs
   tf2_trajectory_planning_msgs
   tracetools
+  trajectory_optimization_ocp
   trajectory_planning_msgs
   trajectory_planning_msgs_utils
   visualization_msgs

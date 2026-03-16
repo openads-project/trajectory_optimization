@@ -260,26 +260,26 @@ void TrajectoryOptimizationNode::setup() {
 
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
-  acados_ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
   if (n_shots_ <= 0) {
     RCLCPP_FATAL(this->get_logger(), "n_shots must be > 0, got %d", n_shots_);
     exit(1);
   }
   std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
   RCLCPP_INFO(this->get_logger(), "time_step = %f", new_time_steps.front());
-  int status = trajectory_optimization::acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps.data());
+  int status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
 
   if (status) {
     RCLCPP_INFO(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(), status);
     exit(1);
   }
 
-  nlp_config_ = trajectory_optimization::acados_get_nlp_config(acados_ocp_capsule_);
-  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
-  nlp_in_ = trajectory_optimization::acados_get_nlp_in(acados_ocp_capsule_);
-  nlp_out_ = trajectory_optimization::acados_get_nlp_out(acados_ocp_capsule_);
-  nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(acados_ocp_capsule_);
-  nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(acados_ocp_capsule_);
+  nlp_config_ = trajectory_optimization::acados_get_nlp_config(ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(ocp_capsule_);
+  nlp_in_ = trajectory_optimization::acados_get_nlp_in(ocp_capsule_);
+  nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
+  nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
+  nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
 
   // initialization of state and control values; set all to zero
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -311,12 +311,12 @@ void TrajectoryOptimizationNode::freeSolver() {
 
   int status;
   // free solver
-  status = trajectory_optimization::acados_free(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status) {
     printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
   }
   // free solver capsule
-  status = trajectory_optimization::acados_free_capsule(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free_capsule(ocp_capsule_);
   if (status) {
     printf("%s_acados_free_capsule() returned status %d. \n", model_name_.c_str(), status);
   }
@@ -394,7 +394,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // solve the optimization problem
-  int status = trajectory_optimization::acados_solve(acados_ocp_capsule_);
+  int status = trajectory_optimization::acados_solve(ocp_capsule_);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ++ii)
@@ -549,7 +549,7 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
       RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(), nlp_dims_->np_global);
       throw std::runtime_error("Size of global parameters does not match expected size.");
     }
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(ocp_capsule_, global_params.data(), global_params.size());
     const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
     RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
@@ -569,7 +569,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
+    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
     // obstacles
@@ -633,7 +633,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
   }
   const auto elapsed_ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();

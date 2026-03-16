@@ -11,10 +11,10 @@
 #include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 
 // models
-#include <acados_ocp/acados_solver_karl.h>
-#include <acados_ocp/acados_solver_shuttle.h>
-#include <acados_ocp/acados_solver_shuttle_ackermann.h>
-#include <acados_ocp/acados_solver_taxi.h>
+#include <trajectory_optimization_ocp/acados_solver_karl.h>
+#include <trajectory_optimization_ocp/acados_solver_shuttle.h>
+#include <trajectory_optimization_ocp/acados_solver_shuttle_ackermann.h>
+#include <trajectory_optimization_ocp/acados_solver_taxi.h>
 
 namespace trajectory_optimization {
 

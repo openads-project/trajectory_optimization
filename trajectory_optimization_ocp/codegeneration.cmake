@@ -1,8 +1,8 @@
 ## Generate OCP Model ##
-file(GLOB ACADOS_FILES "trajectory_optimization_def/*.py"
-                       "trajectory_optimization_def/*.yml"
-                       "trajectory_optimization_def/models/*.py"
-                       "trajectory_optimization_def/config/*.yml")
+file(GLOB ACADOS_FILES "trajectory_optimization_ocp/*.py"
+                       "trajectory_optimization_ocp/*.yml"
+                       "trajectory_optimization_ocp/models/*.py"
+                       "trajectory_optimization_ocp/config/*.yml")
 
 set(ACADOS_BUILD_FILES)
 foreach(input_file ${ACADOS_FILES})
