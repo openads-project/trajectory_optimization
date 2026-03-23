@@ -4,7 +4,7 @@
 
   <name>trajectory_optimization_ocp</name>
   <version>1.1.0</version>
-  <description>Wraps the trajectory optimization OCP</description>
+  <description>Defines the trajectory optimization OCP and wraps it into a ROS package.</description>
 
   <maintainer email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</maintainer>
   <author email="guido.linden@rwth-aachen.de">Guido Linden</author>

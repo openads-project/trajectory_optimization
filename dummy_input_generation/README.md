@@ -23,9 +23,9 @@ flowchart LR
 
 | Topic | Type | Description |
 | --- | --- | --- |
-| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | |
-| `~/ego_data` | `perception_msgs/msg/EgoData` | |
-| `~/object_list` | `perception_msgs/msg/ObjectList` | |
+| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Dummy reference trajectory; configurable via params |
+| `~/ego_data` | `perception_msgs/msg/EgoData` | Dummy EgoData; configurable via params |
+| `~/object_list` | `perception_msgs/msg/ObjectList` | Dummy object list; configurable via params |
 
 #### Parameters
 
@@ -39,7 +39,7 @@ flowchart LR
 | `ego_steering_angle_ack` | `float` | `0.0` | Ackermann steering angle [rad] |
 | `ego_steering_angle_front` | `float` | `0.0` | Front steering angle for RWS [rad] |
 | `ego_steering_angle_rear` | `float` | `0.0` | Rear steering angle for RWS [rad] |
-| `ego_translation_to_geometric_center` | `float[]` | `[1.4895, 0.0, 0.420]` | Translation from ego reference point to geometric center `[x, y, z]` |
+| `ego_translation_to_geometric_center` | `float[]` | `[1.4895, 0.0, 0.420]` | Translation from ego reference point to geometric center [x, y, z] |
 | `reference_n_states` | `int` | `51` | Number of reference trajectory states |
 | `reference_trajectory_horizon` | `float` | `5.0` | Reference trajectory horizon in seconds |
 | `reference_standstill` | `bool` | `false` | Publish reference trajectory with standstill flag |

@@ -28,19 +28,19 @@ flowchart LR
 
 | Topic | Type | Description |
 | --- | --- | --- |
-| `~/ego_data` | `perception_msgs/msg/EgoData` | |
-| `~/object_list` | `perception_msgs/msg/ObjectList` | |
-| `~/route` | `route_planning_msgs/msg/Route` | |
-| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | |
+| `~/ego_data` | `perception_msgs/msg/EgoData` | Current ego vehicle state used to initialize and time-stamp the optimization problem. |
+| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects, that are considered as obstacles in the OCP to avoid collisions. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
+| `~/route` | `route_planning_msgs/msg/Route` | Route and lane boundary information used to constrain the OCP. |
+| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run once for each received reference trajectory. |
 
 #### Published Topics
 
 | Topic | Type | Description |
 | --- | --- | --- |
-| `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | |
-| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | |
-| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | |
-| `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | |
+| `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
+| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the circular obstacle approximation used by the OCP. |
+| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego vehicle circle approximation used inside the OCP. |
+| `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
 #### Parameters
 
@@ -57,7 +57,7 @@ flowchart LR
 | `verbose` | `bool` | `false` | Print solver statistics |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
-| `cost_weights` | `string[]` | `std::vector<double>(15, 1.0)` | Cost function weights |
+| `cost_weights` | `float[]` | `std::vector<double>(15, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
 | `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
