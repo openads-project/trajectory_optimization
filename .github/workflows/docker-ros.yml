@@ -13,7 +13,7 @@ jobs:
   docker-ros:
     runs-on: ubuntu-latest
     steps:
-      - uses: ika-rwth-aachen/docker-ros@main
+      - uses: ika-rwth-aachen/docker-ros@fix/slim
         with:
           platform: amd64
           target: dev,run
@@ -21,7 +21,6 @@ jobs:
           rmw-implementation: rmw_zenoh_cpp
           command: ros2 launch trajectory_optimization trajectory_optimization.launch.py
           enable-recursive-vcs-import: false
-          enable-slim: false
           enable-industrial-ci: true
         env:
           TARGET_CMAKE_ARGS: -DCMAKE_EXPORT_COMPILE_COMMANDS=1

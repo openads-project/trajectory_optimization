@@ -7,46 +7,17 @@ docker-ros:
   stage: docker-ros
   trigger:
     include:
-      - remote: https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/main/.gitlab-ci/docker-ros.yml
+      - remote: https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/fix/slim/.gitlab-ci/docker-ros.yml
     strategy: depend
   variables:
+    DOCKER_ROS_GIT_REF: fix/slim
     PLATFORM: amd64
     TARGET: dev,run
     BASE_IMAGE: rwthika/ros2:jazzy
     RMW_IMPLEMENTATION: rmw_zenoh_cpp
     COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
     ENABLE_RECURSIVE_VCS_IMPORT: 'false'
-    SLIM_BUILD_ARGS: >
-      --sensor-ipc-mode=proxy
-      --continue-after=30
-      --show-clogs
-      --http-probe=false
-      --include-path /opt/ros
-      --include-path /docker-ros/ws/install
-      --include-path /entrypoint.sh
-      --include-path /opt/acados/lib
-      --include-path /bin/bash
-      --include-path /usr/sbin/gosu
-      --include-path /usr/sbin/groupadd
-      --include-path /usr/sbin/useradd
-      --include-path /usr/bin/getent
-      --include-path /usr/bin/openssl
-      --include-path /usr/bin/cut
-      --include-path /usr/bin/touch
-      --include-path /usr/bin/cp
-      --include-path /usr/bin/ln
-      --include-path /usr/bin/chown
-      --include-path /etc/nsswitch.conf
-      --include-path /etc/passwd
-      --include-path /etc/group
-      --include-path /etc/shadow
-      --include-path /etc/gshadow
-      --include-path /etc/login.defs
-      --include-path /etc/default/useradd
-      --include-path /root/.bashrc
-      --include-path /etc/ld.so.conf
-      --include-path /etc/ld.so.conf.d
-      --include-path /etc/ld.so.cache
+    ADDITIONAL_SLIM_BUILD_ARGS: '--include-path /opt/acados'
     ENABLE_INDUSTRIAL_CI: 'true'
     TARGET_CMAK_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
 
