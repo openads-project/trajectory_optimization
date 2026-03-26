@@ -2,10 +2,6 @@
 
 Generates and publishes dummy input data for testing purposes of the trajectory optimization node.
 
-- [Nodes](#nodes)
-  - [dummy_input_generation_node](#dummy_input_generation_node)
-- [Launch Files](#launch-files)
-
 ## Nodes
 
 ### `dummy_input_generation_node`

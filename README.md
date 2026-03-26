@@ -2,9 +2,12 @@
 
 # Trajectory Optimization for Automated Driving
 
-This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
+<p align="center">
+  <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
+  <a href="https://www.ros.org"><img src="https://img.shields.io/badge/ROS 2-jazzy-22314e"/></a>
+</p>
 
-<!-- This repository contains a ROS 2 node, that periodically solves a nonlinear optimal control problem (OCP) with the goal of following a reference trajectory under defined conditions and constraints. The result of the OCP is a trajectory that respects the dynamics of a given vehicle model and is optimized with respect to a configured cost function, while also not violating defined constraints such as collision avoidance and road boundaries. -->
+This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
 
 The open-source framework [acados](https://github.com/acados/acados) is used to define OCP and generate the libraries for solving it online in the ROS 2 node. Key features:
 - **Vehicle models**: single-track model with ackermann steering (and optionally rear-wheel steering).
@@ -13,70 +16,95 @@ The open-source framework [acados](https://github.com/acados/acados) is used to 
 
 The ROS 2 node uses the open-source ROS 2 message definitions [perception_interfaces](https://github.com/ika-rwth-aachen/perception_interfaces) and [planning_interfaces](https://github.com/ika-rwth-aachen/planning_interfaces) for all inputs and outputs, making it easy to integrate into a larger ROS 2-based system. The node is designed to be flexible and configurable, with support for different driving modes, model variants, and execution modes.
 
-## Repository Packages
+<p align="center">
+  <strong>🚀 <a href="#-quick-start">Quick Start</a></strong> • <strong>🧑‍💻 <a href="%E2%80%8D-development">Development</a></strong> • <strong>📝 <a href="#-documentation">Documentation</a></strong>
+</p>
 
-> For further details see the respective package README files.
+> [!IMPORTANT]
+> This repository is part of [🚗 ***OpenADS***](https://github.com/openads-project), the *Open Automated Driving Stack*.
+
+
+<!-- <img src="TODO: teaser image/gif" width=800> -->
+
+
+## 🚀 Quick Start
+
+Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts the trajectory optimization together with the dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the trajectory optimization and see the effect on the generated trajectories in RViz.
+
+1. On a local Linux desktop, allow Docker containers to open X11 windows.
+    ```bash
+    xhost +local:
+    ```
+1. Start the demo stack.
+    ```bash
+    cd docker/demo
+    docker compose up
+    ```
+1. Stop the stack with `Ctrl+C` and clean up the containers.
+    ```bash
+    docker compose down
+    ```
+
+## 🧑‍💻 Development
+
+### Set up Development Environment
+
+1. Clone the repository.
+    ```bash
+    git clone https://gitlab.ika.rwth-aachen.de/fb-fi/its-modules/planning/trajectory_optimization.git
+    ```
+1. Initialize the [`.openads-dev-environment`](https://github.com/openads-project/openads-dev-environment) submodule containing development environment configuration.
+    ```bash
+    cd trajectory_optimization
+    git submodule update --init --recursive
+    ```
+1. Open the repository in [Visual Studio Code](https://code.visualstudio.com).
+    ```bash
+    code .
+    ```
+1. Install the recommended VS Code extensions.
+    > *Ctrl+Shift+P / Extensions: Show Recommended Extensions / Install Workspace Recommended Extensions (Cloud Download Icon)*
+1. Reopen the repository in a [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers).
+    > *Ctrl+Shift+P / Dev Containers: Rebuild and Reopen in Container*
+
+### Build
+
+> *Ctrl+Shift+B*
+
+```bash
+colcon build
+```
+
+### Run Tests
+
+> *Ctrl+Shift+P / Tasks: Run Test Task*
+
+```bash
+colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=1
+colcon test
+colcon test-result --verbose
+```
+
+
+## 📝 Documentation
+
+For further details see the respective package README files and the [Doxygen Documentation](https://openads-project.github.io/trajectory_optimization).
 
 | Package | Purpose |
 | --- | --- |
-| [trajectory_optimization](trajectory_optimization/README.md) | Runtime ROS 2 node that periodically solves the OCP and publishes optimized trajectories. |
-| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the OCP and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`. |
-| [dummy_input_generation](dummy_input_generation/README.md) | Test node that generates and publishes synthetic inputs for the `trajectory_optimization`. |
+| [dummy_input_generation](dummy_input_generation/README.md) | Generates and publishes dummy input data for testing purposes of the trajectory optimization node. |
+| [trajectory_optimization](trajectory_optimization/README.md) | Generates a drivable trajectory following a reference trajectory |
+| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the trajectory optimization OCP and wraps it into a ROS package. |
 
-## Build and Run
-
-The packages are best used inside a Docker container.
-
-The Docker container of this repository is automatically build and published via the CI pipeline.
-
-```bash
-docker pull TODO
-```
-
-Or build the container yourself by following these steps:
-
-1. Add the [docker-ros](https://github.com/ika-rwth-aachen/docker-ros) repository as a submodule:
-    ```bash
-    git submodule add https://github.com/ika-rwth-aachen/docker-ros.git docker/docker-ros
-    ```
-
-2. Build the Docker image:
-    ```bash
-    BASE_IMAGE="rwthika/ros2:jazzy" \
-    ENABLE_RECURSIVE_VCS_IMPORT="false" \
-    COMMAND="ros2 launch trajectory_optimization trajectory_optimization.launch.py driving_mode:=ackermann" \
-    IMAGE="trajectory_optimization:local" \
-    ./docker/docker-ros/scripts/build.sh
-    ```
-
-Run the container and node by following these steps:
-
-1. Run and attach to the downloaded container:
-    ```bash
-    docker run --rm -it TODO bash
-    ```
-    or run and attach to the locally built image:
-    ```bash
-    docker run --rm -it trajectory_optimization:local bash
-    ```
-
-2. Inside the container, source the workspace and, e.g., run the node:
-    ```bash
-    source install/setup.bash
-    ros2 launch trajectory_optimization trajectory_optimization.launch.py
-    ```
-
-## Contact
-
-> [!IMPORTANT]  
-> This repository is open-sourced and maintained by the [**Institute for Automotive Engineering (ika) at RWTH Aachen University**](https://www.ika.rwth-aachen.de/).  
-> **Trajectory optimization** is one of many research topics within our [*Vehicle Intelligence & Automated Driving*](https://www.ika.rwth-aachen.de/en/competences/fields-of-research/vehicle-intelligence-automated-driving.html) domain.  
-> If you would like to learn more about how we can support your advanced driver assistance and automated driving efforts, feel free to reach out to us!  
-> :email: ***opensource@ika.rwth-aachen.de***
-
-## Licensing
+## ⚖️ Licensing
 
 - The source code in this repository is licensed under Apache-2.0. See [LICENSE](LICENSE).
 - Docker images built from this repository also contain third-party software with its own license terms.
 - `acados` and its bundled dependencies ship license files in the container under `/opt/acados/LICENSE` and `/opt/acados/external/*/LICENSE*`.
 - `CasADi` is used for code generation and is distributed under LGPL-3.0-or-later. In the current container, its package metadata is available under `/usr/local/lib/python3.12/dist-packages/casadi-3.7.2.dist-info/METADATA`.
+
+## 🙏 Acknowledgements
+
+This work is accomplished within the projects AIthena and autotech.*agil*. We acknowledge the financial support for the projects by
+- the *European Union’s Horizon Europe Research and Innovation Programme* :eu: under Grant Agreement No 101076754 for AIthena,
+- and the *Federal Ministry of Education and Research of Germany (BMBF)* :de: for AUTOtech.*agil* (FKZ 01IS22088A).

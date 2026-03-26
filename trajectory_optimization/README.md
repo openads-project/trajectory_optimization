@@ -2,10 +2,6 @@
 
 Generates a drivable trajectory following a reference trajectory
 
-- [Nodes](#nodes)
-  - [trajectory_optimization_node](#trajectory_optimization_node)
-- [Launch Files](#launch-files)
-
 ## Nodes
 
 ### `trajectory_optimization_node`
