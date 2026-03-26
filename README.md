@@ -92,9 +92,9 @@ For further details see the respective package README files and the [Doxygen Doc
 
 | Package | Purpose |
 | --- | --- |
-| [dummy_input_generation](dummy_input_generation/README.md) | Generates and publishes dummy input data for testing purposes of the trajectory optimization node. |
-| [trajectory_optimization](trajectory_optimization/README.md) | Generates a drivable trajectory following a reference trajectory |
-| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the trajectory optimization OCP and wraps it into a ROS package. |
+| [dummy_input_generation](dummy_input_generation/README.md) | Test node that generates and publishes synthetic inputs for the `trajectory_optimization`. |
+| [trajectory_optimization](trajectory_optimization/README.md) | Runtime ROS 2 node that periodically solves the OCP and publishes optimized trajectories. |
+| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the OCP and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`. |
 
 ## ⚖️ Licensing
 
