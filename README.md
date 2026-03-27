@@ -102,13 +102,21 @@ For further details see the respective package README files and the [Documentati
 
 ## ⚖️ Licensing
 
-- The source code in this repository is licensed under Apache-2.0. See [LICENSE](LICENSE).
-- Docker images built from this repository also contain third-party software with its own license terms.
-- `acados` and its bundled dependencies ship license files in the container under `/opt/acados/LICENSE` and `/opt/acados/external/*/LICENSE*`.
-- `CasADi` is used for code generation and is distributed under LGPL-3.0-or-later. In the current container, its package metadata is available under `/usr/local/lib/python3.12/dist-packages/casadi-3.7.2.dist-info/METADATA`.
+The source code in this repository is licensed under Apache-2.0, see [LICENSE](LICENSE). Container images provided by this repository may contain third-party software shipped with their own license terms.
 
 ## 🙏 Acknowledgements
 
-This work is accomplished within the projects AIthena and autotech.*agil*. We acknowledge the financial support for the projects by
-- the *European Union’s Horizon Europe Research and Innovation Programme* :eu: under Grant Agreement No 101076754 for AIthena,
-- and the *Federal Ministry of Education and Research of Germany (BMBF)* :de: for AUTOtech.*agil* (FKZ 01IS22088A).
+Development and maintenance of this repository are supported by the following projects. We acknowledge the funding of the respective institutions.
+
+| Project | Funding Institution | Grant Number |
+| --- | --- | --- |
+| [AIGGREGATE](https://aiggregate.eu/) | 🇪🇺 European Union | TODO |
+| [AIthena](https://aithena.eu/) | 🇪🇺 European Union | 101076754 |
+| [autotech.agil](https://www.autotechagil.de/) | 🇩🇪 Federal Ministry for Research, Technology and Space (BMFTR) | TODO |
+
+<p>
+  <img src="https://www.drought.uni-freiburg.de/stressres/images/bmftr-logo/image" height=70>
+  <img src="https://ec.europa.eu/regional_policy/images/information-sources/logo-download-center/eu_funded_en.jpg" height=70>
+</p>
+
+<sup><sub>Funded by the European Union. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Climate, Infrastructure and Environment Executive Agency (CINEA). Neither the European Union nor CINEA can be held responsible for them.</sup></sup>

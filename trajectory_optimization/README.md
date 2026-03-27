@@ -90,5 +90,6 @@ flowchart LR
 | `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
 | `use_sim_time` | `"false"` | use simulation clock |
 | `trace` | `"false"` | enable tracing |
+| `driving_mode` | `"ackermann"` |  |
 
 ### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)
