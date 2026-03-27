@@ -4,13 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+
 from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
-from launch_ros.actions import Node, SetParameter
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node, SetParameter
 from tracetools_launch.action import Trace
+
 
 def generate_launch_description():
 
@@ -19,15 +21,21 @@ def generate_launch_description():
         DeclareLaunchArgument("object_list_topic", default_value="~/object_list"),
         DeclareLaunchArgument("reference_trajectory_topic", default_value="~/reference_trajectory"),
     ]
-    
+
     args = [
         DeclareLaunchArgument("name", default_value="dummy_input_generation_node", description="node name"),
         DeclareLaunchArgument("namespace", default_value="", description="node namespace"),
-        DeclareLaunchArgument("params", default_value=os.path.join(get_package_share_directory("dummy_input_generation"), "config", "params.yml"), description="path to parameter file"),
-        DeclareLaunchArgument("log_level", default_value="info", description="ROS logging level (debug, info, warn, error, fatal)"),
+        DeclareLaunchArgument(
+            "params",
+            default_value=os.path.join(get_package_share_directory("dummy_input_generation"), "config", "params.yml"),
+            description="path to parameter file",
+        ),
+        DeclareLaunchArgument(
+            "log_level", default_value="info", description="ROS logging level (debug, info, warn, error, fatal)"
+        ),
         DeclareLaunchArgument("use_sim_time", default_value="false", description="use simulation clock"),
         DeclareLaunchArgument("trace", default_value="false", description="enable tracing"),
-        *remappable_topics
+        *remappable_topics,
     ]
 
     nodes = [
@@ -43,14 +51,16 @@ def generate_launch_description():
             emulate_tty=True,
         ),
         Trace(
-            session_name='trace',
+            session_name="trace",
             dual_session=True,
             condition=IfCondition(LaunchConfiguration("trace")),
         ),
     ]
 
-    return LaunchDescription([
-        *args,
-        SetParameter("use_sim_time", LaunchConfiguration("use_sim_time")),
-        *nodes,
-    ])
+    return LaunchDescription(
+        [
+            *args,
+            SetParameter("use_sim_time", LaunchConfiguration("use_sim_time")),
+            *nodes,
+        ]
+    )

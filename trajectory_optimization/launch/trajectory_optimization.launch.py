@@ -4,18 +4,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+
 from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
-from launch_ros.actions import Node, SetParameter
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node, SetParameter
 from tracetools_launch.action import Trace
+
 
 def generate_launch_description_with_resolved_launch_args(launch_context):
 
     # get the driving mode from the launch context
-    driving_mode = LaunchConfiguration('driving_mode').perform(launch_context)
+    driving_mode = LaunchConfiguration("driving_mode").perform(launch_context)
 
     if driving_mode == "ackermann":
         executable_name = "trajectory_optimization_ackermann_node"
@@ -25,7 +27,7 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
         raise ValueError(f"Invalid driving mode: {driving_mode}")
 
     # define other launch arguments / remappings / nodes
-    
+
     remappable_topics = [
         DeclareLaunchArgument("ego_data_topic", default_value="~/ego_data"),
         DeclareLaunchArgument("object_list_topic", default_value="~/object_list"),
@@ -36,15 +38,21 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
         DeclareLaunchArgument("ego_circles_topic", default_value="~/visualization/ego_circles"),
         DeclareLaunchArgument("object_circles_topic", default_value="~/visualization/object_circles"),
     ]
-    
+
     args = [
         DeclareLaunchArgument("name", default_value=executable_name, description="node name"),
         DeclareLaunchArgument("namespace", default_value="", description="node namespace"),
-        DeclareLaunchArgument("params", default_value=os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml"), description="path to parameter file"),
-        DeclareLaunchArgument("log_level", default_value="info", description="ROS logging level (debug, info, warn, error, fatal)"),
+        DeclareLaunchArgument(
+            "params",
+            default_value=os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml"),
+            description="path to parameter file",
+        ),
+        DeclareLaunchArgument(
+            "log_level", default_value="info", description="ROS logging level (debug, info, warn, error, fatal)"
+        ),
         DeclareLaunchArgument("use_sim_time", default_value="false", description="use simulation clock"),
         DeclareLaunchArgument("trace", default_value="false", description="enable tracing"),
-        *remappable_topics
+        *remappable_topics,
     ]
 
     return [
@@ -62,15 +70,18 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
             emulate_tty=True,
         ),
         Trace(
-            session_name='trace',
+            session_name="trace",
             dual_session=True,
-            condition=IfCondition(LaunchConfiguration('trace')),
-        )
+            condition=IfCondition(LaunchConfiguration("trace")),
+        ),
     ]
+
 
 def generate_launch_description():
 
-    return LaunchDescription([
-        DeclareLaunchArgument('driving_mode', default_value='ackermann'),
-        OpaqueFunction(function=generate_launch_description_with_resolved_launch_args)
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("driving_mode", default_value="ackermann"),
+            OpaqueFunction(function=generate_launch_description_with_resolved_launch_args),
+        ]
+    )
