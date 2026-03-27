@@ -1,4 +1,4 @@
-# trajectory_optimization <img src="./assets/logo.png" height=40 align="right">
+# trajectory_optimization <img src="./assets/logo.png" height=100 align="right">
 
 <p align="center">
   <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
@@ -110,9 +110,9 @@ Development and maintenance of this repository are supported by the following pr
 
 | Project | Funding Institution | Grant Number |
 | --- | --- | --- |
-| [AIGGREGATE](https://aiggregate.eu/) | 🇪🇺 European Union | TODO |
+| [AIGGREGATE](https://aiggregate.eu/) | 🇪🇺 European Union | 101202457 |
 | [AIthena](https://aithena.eu/) | 🇪🇺 European Union | 101076754 |
-| [autotech.agil](https://www.autotechagil.de/) | 🇩🇪 Federal Ministry for Research, Technology and Space (BMFTR) | TODO |
+| [autotech.agil](https://www.autotechagil.de/) | 🇩🇪 Federal Ministry for Research, Technology and Space (BMFTR) | 01IS22088A |
 
 <p>
   <img src="https://www.drought.uni-freiburg.de/stressres/images/bmftr-logo/image" height=70>
