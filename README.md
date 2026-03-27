@@ -1,15 +1,14 @@
-<img src="./assets/logo.png" height=40 align="right">
-
-# trajectory_optimization
+# trajectory_optimization <img src="./assets/logo.png" height=40 align="right">
 
 <p align="center">
+  <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
   <a href="https://www.ros.org"><img src="https://img.shields.io/badge/ROS 2-jazzy-22314e"/></a>
-  <a href="https://github.com/ika-rwth-aachen/trajectory_optimization/releases/latest"><img src="https://img.shields.io/github/v/release/ika-rwth-aachen/trajectory_optimization"/></a>
-  <a href="https://github.com/ika-rwth-aachen/trajectory_optimization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ika-rwth-aachen/trajectory_optimization"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/releases/latest"><img src="https://img.shields.io/github/v/release/openads-project/trajectory_optimization"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/openads-project/trajectory_optimization"/></a>
   <br>
-  <a href="https://github.com/ika-rwth-aachen/trajectory_optimization/actions/workflows/docker-ros.yml"><img src="https://github.com/ika-rwth-aachen/trajectory_optimization/actions/workflows/docker-ros.yml/badge.svg"/></a>
-  <a href="https://openads-project.github.io/trajectory_optimization"><img src="https://github.com/ika-rwth-aachen/trajectory_optimization/actions/workflows/docs.yml/badge.svg"/></a>
-  <a href="https://github.com/ika-rwth-aachen/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/ika-rwth-aachen/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml/badge.svg"/></a>
+  <a href="https://openads-project.github.io/trajectory_optimization"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docs.yml/badge.svg"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
 </p>
 
 This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
@@ -56,7 +55,7 @@ Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts 
 
 1. Clone the repository.
     ```bash
-    git clone https://github.com/ika-rwth-aachen/trajectory_optimization.git
+    git clone https://github.com/openads-project/trajectory_optimization.git
     ```
 1. Initialize the [`.openads-dev-environment`](https://github.com/openads-project/openads-dev-environment) submodule containing development environment configuration.
     ```bash
@@ -93,7 +92,7 @@ colcon test-result --verbose
 
 ## 📝 Documentation
 
-For further details see the respective package README files and the [Doxygen Documentation](https://openads-project.github.io/trajectory_optimization).
+For further details see the respective package README files and the [Documentation](https://openads-project.github.io/trajectory_optimization).
 
 | Package | Purpose |
 | --- | --- |
