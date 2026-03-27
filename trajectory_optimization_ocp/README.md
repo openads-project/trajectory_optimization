@@ -1,17 +1,17 @@
-# trajectory_optimization_ocp
+# `trajectory_optimization_ocp`
 
 `trajectory_optimization_ocp` is a ROS 2 wrapper package that generates acados OCP solver code at build time and exports it as a normal CMake/ament dependency.
 
 It is used by [`trajectory_optimization`](../README.md).
 
-## What this package does
+### What this package does
 
 - Runs acados code generation during CMake configure/build via [`codegeneration.cmake`](codegeneration.cmake).
 - Builds solver shared libraries (`.so`) from generated code.
 - Installs generated headers and libraries so downstream ROS 2 packages can link against them.
 - Exposes an interface target (`trajectory_optimization_ocp`) that downstream packages can `find_package(...)` and link.
 
-## Generation pipeline
+### Generation pipeline
 
 Generation logic is defined in [`codegeneration.cmake`](codegeneration.cmake):
 
@@ -26,7 +26,7 @@ Generation logic is defined in [`codegeneration.cmake`](codegeneration.cmake):
 
 In normal use, no separate generation command is needed. After adding a new model or changing an existing model/config, rebuild the workspace to automatically rebuild `trajectory_optimization_ocp` and rerun this generation pipeline.
 
-## Available model definitions
+### Available model definitions
 
 Model equations are defined in:
 
@@ -40,14 +40,14 @@ Model/config parameterizations are defined in:
 - [`trajectory_optimization_ocp/config/shuttle_ackermann_params.yml`](trajectory_optimization_ocp/config/shuttle_ackermann_params.yml)
 - [`trajectory_optimization_ocp/config/taxi_params.yml`](trajectory_optimization_ocp/config/taxi_params.yml)
 
-## Generated artifacts
+### Generated artifacts
 
 During build/install, this package provides:
 
 - Generated solver headers under `install/trajectory_optimization_ocp/include/trajectory_optimization_ocp/trajectory_optimization_ocp/...`
 - Generated solver shared libraries under `install/trajectory_optimization_ocp/lib`
 
-## How to use in another package
+### How to use in another package
 
 In a downstream package:
 
@@ -55,7 +55,7 @@ In a downstream package:
 2. `find_package(trajectory_optimization_ocp REQUIRED)` in `CMakeLists.txt`.
 3. Link your target against `trajectory_optimization_ocp` (and acados runtime as needed).
 
-## Adding a new model/configuration
+### Adding a new model/configuration
 
 1. Add/update model and/or parameter config under `trajectory_optimization_ocp/`.
 2. Add a corresponding generation call in [`codegeneration.cmake`](codegeneration.cmake).

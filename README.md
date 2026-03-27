@@ -1,9 +1,8 @@
-<img src="./assets/logo.png" height=150 align="right">
+<img src="./assets/logo.png" height=40 align="right">
 
-# Trajectory Optimization for Automated Driving
+# trajectory_optimization
 
 <p align="center">
-  <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
   <a href="https://www.ros.org"><img src="https://img.shields.io/badge/ROS 2-jazzy-22314e"/></a>
 </p>
 
@@ -17,11 +16,11 @@ The open-source framework [acados](https://github.com/acados/acados) is used to 
 The ROS 2 node uses the open-source ROS 2 message definitions [perception_interfaces](https://github.com/ika-rwth-aachen/perception_interfaces) and [planning_interfaces](https://github.com/ika-rwth-aachen/planning_interfaces) for all inputs and outputs, making it easy to integrate into a larger ROS 2-based system. The node is designed to be flexible and configurable, with support for different driving modes, model variants, and execution modes.
 
 <p align="center">
-  <strong>🚀 <a href="#-quick-start">Quick Start</a></strong> • <strong>🧑‍💻 <a href="%E2%80%8D-development">Development</a></strong> • <strong>📝 <a href="#-documentation">Documentation</a></strong>
+  <strong>🚀 <a href="#-quick-start">Quick Start</a></strong> • <strong>🧑‍💻 <a href="#-development">Development</a></strong> • <strong>📝 <a href="#-documentation">Documentation</a></strong>
 </p>
 
 > [!IMPORTANT]
-> This repository is part of [🚗 ***OpenADS***](https://github.com/openads-project), the *Open Automated Driving Stack*.
+> This repository is part of [***OpenADS***](https://github.com/openads-project), the *Open Automated Driving Stack*.
 
 
 <!-- <img src="TODO: teaser image/gif" width=800> -->
