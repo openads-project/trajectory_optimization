@@ -13,7 +13,7 @@ jobs:
   docker-ros:
     runs-on: ubuntu-latest
     steps:
-      - uses: ika-rwth-aachen/docker-ros@fix/slim
+      - uses: ika-rwth-aachen/docker-ros@improve-pr-image-names
         with:
           platform: amd64
           target: dev,run

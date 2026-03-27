@@ -7,17 +7,15 @@ docker-ros:
   stage: docker-ros
   trigger:
     include:
-      - remote: https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/fix/slim/.gitlab-ci/docker-ros.yml
+      - remote: https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/main/.gitlab-ci/docker-ros.yml
     strategy: depend
   variables:
-    DOCKER_ROS_GIT_REF: fix/slim
     PLATFORM: amd64
     TARGET: dev,run
     BASE_IMAGE: rwthika/ros2:jazzy
     RMW_IMPLEMENTATION: rmw_zenoh_cpp
     COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
     ENABLE_RECURSIVE_VCS_IMPORT: 'false'
-    ADDITIONAL_SLIM_BUILD_ARGS: '--include-path /opt/acados'
     ENABLE_INDUSTRIAL_CI: 'true'
     TARGET_CMAK_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
 
