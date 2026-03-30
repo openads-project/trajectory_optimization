@@ -28,25 +28,22 @@ The ROS 2 node uses the open-source ROS 2 message definitions [perception_interf
 > This repository is part of [***OpenADS***](https://github.com/openads-project), the *Open Automated Driving Stack*.
 
 
-<!-- <img src="TODO: teaser image/gif" width=800> -->
-
-
 ## 🚀 Quick Start
 
 Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts the trajectory optimization together with the dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the trajectory optimization and see the effect on the generated trajectories in RViz.
 
-1. On a local Linux desktop, allow Docker containers to open X11 windows.
+1. Launch a container of the pre-built runtime image in the provided demo [Docker Compose](demo/docker-compose.yml) setup.
     ```bash
-    xhost +local:
-    ```
-1. Start the demo stack.
-    ```bash
-    cd docker/demo
+    cd demo
+    xhost +local: # allow GUI forwarding from containers
     docker compose up
     ```
-1. Stop the stack with `Ctrl+C` and clean up the containers.
+1. Now you should see the trajectory optimization node running in the terminal, and RViz and RQt should open up. RViz is pre-configured to visualize the reference and drivable trajectories, as well as the dynamic obstacles. RQt is pre-configured to show the dynamic reconfigure options for the dummy input generation, which you can use to change the input data for the trajectory optimization and see how it affects the generated trajectories in RViz.
+1. Stop the demo and clean up.
+    > *Ctrl+C*
     ```bash
     docker compose down
+    xhost -local: # revoke GUI forwarding permissions
     ```
 
 ## 🧑‍💻 Development
@@ -92,13 +89,13 @@ colcon test-result --verbose
 
 ## 📝 Documentation
 
-For further details see the respective package README files and the [Documentation](https://openads-project.github.io/trajectory_optimization).
+Package and node interfaces are documented in the respective package READMEs listed below. Implementation details are found in the [Source Code Documentation](https://openads-project.github.io/trajectory_optimization).
 
-| Package | Purpose |
+| Package | Description |
 | --- | --- |
-| [dummy_input_generation](dummy_input_generation/README.md) | Test node that generates and publishes synthetic inputs for the `trajectory_optimization`. |
-| [trajectory_optimization](trajectory_optimization/README.md) | Runtime ROS 2 node that periodically solves the OCP and publishes optimized trajectories. |
-| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the OCP and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`. |
+| [dummy_input_generation](dummy_input_generation/README.md) | Generates and publishes dummy input data for testing purposes of the trajectory optimization node. |
+| [trajectory_optimization](trajectory_optimization/README.md) | Periodically solves a nonlinear OCP to generate optimized trajectories for automated driving. |
+| [trajectory_optimization_ocp](trajectory_optimization_ocp/README.md) | Defines the OCP for trajectory optimization and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`. |
 
 ## ⚖️ Licensing
 

@@ -59,11 +59,11 @@ flowchart LR
 | `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
 | `d_min_obstacle_lat` | `float` | `0.5` | Minimum distance to keep to obstacle in lateral direction [m] |
 | `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
-| `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If all state velocities are below this  |
+| `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If all state velocities are below this |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
 | `add_x_init_to_ref` | `bool` | `false` | add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle |
-| `consider_objects` | `` | `` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
-| `consider_boundaries` | `` | `` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |
+| `consider_objects` | `TODO` | `TODO` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
+| `consider_boundaries` | `TODO` | `TODO` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |
 | `bi_level_dV` | `float` | `5.0` | Threshold for bi-level stabilization: maximum velocity difference [m/s] |
 | `bi_level_dA` | `float` | `2.0` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2] |
 | `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
@@ -76,20 +76,20 @@ flowchart LR
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `ego_data_topic` | `"~/ego_data"` |  |
-| `object_list_topic` | `"~/object_list"` |  |
-| `reference_trajectory_topic` | `"~/reference_trajectory"` |  |
-| `route_topic` | `"~/route"` |  |
-| `trajectory_topic` | `"~/trajectory"` |  |
-| `boundary_marker_topic` | `"~/visualization/boundaries"` |  |
-| `ego_circles_topic` | `"~/visualization/ego_circles"` |  |
-| `object_circles_topic` | `"~/visualization/object_circles"` |  |
+| `ego_data_topic` | `"~/ego_data"` | Topic on which to subscribe EgoData |
+| `object_list_topic` | `"~/object_list"` | Topic on which to subscribe ObjectList |
+| `reference_trajectory_topic` | `"~/reference_trajectory"` | Topic on which to subscribe reference trajectory |
+| `route_topic` | `"~/route"` | Topic on which to subscribe route |
+| `trajectory_topic` | `"~/trajectory"` | Topic on which to publish optimized trajectory |
+| `boundary_marker_topic` | `"~/visualization/boundaries"` | Topic on which to publish boundary visualization markers |
+| `ego_circles_topic` | `"~/visualization/ego_circles"` | Topic on which to publish ego circle visualization markers |
+| `object_circles_topic` | `"~/visualization/object_circles"` | Topic on which to publish object circle visualization markers |
 | `name` | `executable_name` | node name |
 | `namespace` | `""` | node namespace |
 | `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |
 | `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
 | `use_sim_time` | `"false"` | use simulation clock |
 | `trace` | `"false"` | enable tracing |
-| `driving_mode` | `"ackermann"` |  |
+| `driving_mode` | `"ackermann"` | driving mode, which determines the model and cost function configuration used for optimization [ackermann, rws] |
 
 ### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)

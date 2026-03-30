@@ -58,9 +58,9 @@ flowchart LR
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `ego_data_topic` | `"~/ego_data"` |  |
-| `object_list_topic` | `"~/object_list"` |  |
-| `reference_trajectory_topic` | `"~/reference_trajectory"` |  |
+| `ego_data_topic` | `"~/ego_data"` | Topic on which to publish dummy EgoData |
+| `object_list_topic` | `"~/object_list"` | Topic on which to publish dummy ObjectList |
+| `reference_trajectory_topic` | `"~/reference_trajectory"` | Topic on which to publish dummy reference trajectory |
 | `name` | `"dummy_input_generation_node"` | node name |
 | `namespace` | `""` | node namespace |
 | `params` | `os.path.join(get_package_share_directory("dummy_input_generation"), "config", "params.yml")` | path to parameter file |

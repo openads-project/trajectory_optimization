@@ -4,7 +4,7 @@
 
   <name>trajectory_optimization</name>
   <version>1.1.0</version>
-  <description>Generates a drivable trajectory following a reference trajectory</description>
+  <description>Periodically solves a nonlinear OCP to generate optimized trajectories for automated driving.</description>
 
   <maintainer email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</maintainer>
   <author email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</author>
