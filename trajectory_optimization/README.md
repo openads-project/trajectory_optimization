@@ -1,6 +1,6 @@
 # `trajectory_optimization`
 
-Generates a drivable trajectory following a reference trajectory
+Periodically solves a nonlinear OCP to generate optimized trajectories for automated driving.
 
 ## Nodes
 
@@ -62,8 +62,8 @@ flowchart LR
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If all state velocities are below this |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
 | `add_x_init_to_ref` | `bool` | `false` | add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle |
-| `consider_objects` | `TODO` | `TODO` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
-| `consider_boundaries` | `TODO` | `TODO` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |
+| `consider_objects` | `int` | `2` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
+| `consider_boundaries` | `int` | `1` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |
 | `bi_level_dV` | `float` | `5.0` | Threshold for bi-level stabilization: maximum velocity difference [m/s] |
 | `bi_level_dA` | `float` | `2.0` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2] |
 | `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
