@@ -1,24 +1,17 @@
 # trajectory_optimization
 
-<table align="center">
-  <tr>
-    <td align="center" valign="middle">
-      <p align="center">
-        <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
-        <a href="https://www.ros.org"><img src="https://img.shields.io/badge/ROS 2-jazzy-22314e"/></a>
-        <a href="https://github.com/openads-project/trajectory_optimization/releases/latest"><img src="https://img.shields.io/github/v/release/openads-project/trajectory_optimization"/></a>
-        <a href="https://github.com/openads-project/trajectory_optimization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/openads-project/trajectory_optimization"/></a>
-        <br>
-        <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml/badge.svg"/></a>
-        <a href="https://openads-project.github.io/trajectory_optimization"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docs.yml/badge.svg"/></a>
-        <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
-      </p>
-    </td>
-    <td align="center" valign="middle">
-      <img src="./assets/logo.svg" height="80" alt="trajectory_optimization logo">
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://github.com/openads-project"><img src="https://img.shields.io/badge/OpenADS-f5ff01"/></a>
+  <a href="https://www.ros.org"><img src="https://img.shields.io/badge/ROS 2-jazzy-22314e"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/releases/latest"><img src="https://img.shields.io/github/v/release/openads-project/trajectory_optimization"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/openads-project/trajectory_optimization"/></a>
+  <br>
+  <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml/badge.svg"/></a>
+  <a href="https://openads-project.github.io/trajectory_optimization"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docs.yml/badge.svg"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
+</p>
+
+<img src="./assets/logo.svg" align="right" height="120" alt="trajectory_optimization logo">
 
 This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
 
@@ -47,7 +40,9 @@ Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts 
     xhost +local: # allow GUI forwarding from containers
     docker compose up
     ```
-1. Now you should see the trajectory optimization node running in the terminal, and RViz and RQt should open up. RViz is pre-configured to visualize the reference and drivable trajectories, as well as the dynamic obstacles. RQt is pre-configured to show the dynamic reconfigure options for the dummy input generation, which you can use to change the input data for the trajectory optimization and see how it affects the generated trajectories in RViz.
+1. You should now see the trajectory optimization node running in the terminal, with:
+    - **RViz** displaying the reference and drivable trajectories, as well as the ego vehicle and dynamic objects.
+    - **RQt** showing dynamic reconfigure options. Use these to change the dummy input data for the trajectory optimization and see the effect in RViz.
 1. Stop the demo and clean up.
     > *Ctrl+C*
     ```bash
