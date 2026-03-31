@@ -13,7 +13,9 @@
 
 <img src="./assets/logo.svg" align="right" height="120" alt="trajectory_optimization logo">
 
+<p align="justify">
 This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
+</p>
 
 The open-source framework [acados](https://github.com/acados/acados) is used to define OCP and generate the libraries for solving it online in the ROS 2 node. Key features:
 - **Vehicle models**: single-track model with ackermann steering (and optionally rear-wheel steering).
@@ -32,7 +34,7 @@ The ROS 2 node uses the open-source ROS 2 message definitions [perception_interf
 
 ## 🚀 Quick Start
 
-Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts the trajectory optimization together with the dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the trajectory optimization and see the effect on the generated trajectories in RViz.
+Run the ready-made demo setup from [`demo`](./demo), which starts the trajectory optimization together with the dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the running nodes and see the effect on the generated trajectories in RViz.
 
 1. Launch a container of the pre-built runtime image in the provided demo [Docker Compose](demo/docker-compose.yml) setup.
     ```bash
@@ -42,7 +44,7 @@ Run the ready-made demo setup from [`docker/demo`](./docker/demo), which starts 
     ```
 1. You should now see the trajectory optimization node running in the terminal, with:
     - **RViz** displaying the reference and drivable trajectories, as well as the ego vehicle and dynamic objects.
-    - **RQt** showing dynamic reconfigure options. Use these to change the dummy input data for the trajectory optimization and see the effect in RViz.
+    - **RQt** showing dynamic reconfigure options. Use these to change the dummy input data for the trajectory optimization to affect the generated trajectories.
 1. Stop the demo and clean up.
     > *Ctrl+C*
     ```bash
