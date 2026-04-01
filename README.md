@@ -25,7 +25,7 @@ The open-source framework [acados](https://github.com/acados/acados) is used to 
 The ROS 2 node uses the open-source ROS 2 message definitions [perception_interfaces](https://github.com/ika-rwth-aachen/perception_interfaces) and [planning_interfaces](https://github.com/ika-rwth-aachen/planning_interfaces) for all inputs and outputs, making it easy to integrate into a larger ROS 2-based system. The node is designed to be flexible and configurable, with support for different driving modes, model variants, and execution modes.
 
 <p align="center">
-  <strong>🚀 <a href="#-quick-start">Quick Start</a></strong> • <strong>🔧 <a href="#-development">Development</a></strong> • <strong>📝 <a href="#-documentation">Documentation</a></strong>
+  <strong>🚀 <a href="#-quick-start">Quick Start</a></strong> • <strong>💻 <a href="#-development">Development</a></strong> • <strong>📝 <a href="#-documentation">Documentation</a></strong>
 </p>
 
 > [!IMPORTANT]
@@ -52,7 +52,7 @@ Run the ready-made demo setup from [`demo`](./demo), which starts the trajectory
     xhost -local: # revoke GUI forwarding permissions
     ```
 
-## 🔧 Development
+## 💻 Development
 
 ### Set up Development Environment
 
@@ -96,6 +96,7 @@ colcon test-result --verbose
 ## 📝 Documentation
 
 Package and node interfaces are documented in the respective package READMEs listed below. Implementation details are found in the [Source Code Documentation](https://openads-project.github.io/trajectory_optimization).
+
 | Package | Description |
 | --- | --- |
 | [dummy_input_generation](dummy_input_generation/README.md) | Generates and publishes dummy input data for testing purposes of the trajectory optimization node. |

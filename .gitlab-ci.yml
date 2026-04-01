@@ -21,6 +21,7 @@ docker-ros:
 
 consistency:
   stage: consistency
+  needs: []
   image: python:3.12-bookworm
   variables:
     GIT_SUBMODULE_STRATEGY: recursive

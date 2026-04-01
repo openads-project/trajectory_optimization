@@ -38,4 +38,12 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/
   FILES_MATCHING PATTERN "*.so"
 )
 
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_clang_format_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/format/.clang-format)
+  set(ament_cmake_clang_tidy_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/.clang-tidy)
+  set(ament_cmake_flake8_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/ament_flake8.ini)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
 ament_package()
