@@ -261,13 +261,16 @@ void TrajectoryOptimizationNode::setup() {
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
   ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  int status = trajectory_optimization::acados_create(ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(ocp_capsule_);
   if (n_shots_ <= 0) {
     RCLCPP_FATAL(this->get_logger(), "n_shots must be > 0, got %d", n_shots_);
     exit(1);
+  } else if (n_shots_ != nlp_dims_->N) {
+    std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
+    RCLCPP_INFO(this->get_logger(), "Recreate OCP with: horizon = %f, n_shots = %d, dt = %f", optimization_horizon_, n_shots_, new_time_steps.front());
+    status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
   }
-  std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
-  RCLCPP_INFO(this->get_logger(), "time_step = %f", new_time_steps.front());
-  int status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
 
   if (status) {
     RCLCPP_INFO(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(), status);
