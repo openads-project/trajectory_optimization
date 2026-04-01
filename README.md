@@ -11,8 +11,9 @@
   <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
 </p>
 
-<img src="./assets/logo.svg" align="right" height="120" alt="trajectory_optimization logo">
+**ROS 2 Trajectory Optimization for Automated Driving based on an Optimal Control Problem (OCP).**
 
+<img src="./assets/logo.svg" align="right" height="120" alt="trajectory_optimization logo">
 <p align="justify">
 This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
 </p>
