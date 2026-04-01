@@ -28,13 +28,13 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
   }
 }
 
-#define ACADOS_DISPATCH(function_name, ...)                                                              \
-  if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                         \
-    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);                      \
-  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                                      \
-    return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__);           \
-  } else {                                                                                               \
-    throw std::invalid_argument("Invalid capsule type.");                                                \
+#define ACADOS_DISPATCH(function_name, ...)                                                    \
+  if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                 \
+    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);       \
+  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                       \
+    return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  } else {                                                                                     \
+    throw std::invalid_argument("Invalid capsule type.");                                      \
   }
 
 inline int acados_create(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_create); }

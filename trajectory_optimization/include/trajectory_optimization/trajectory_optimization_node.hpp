@@ -3,10 +3,10 @@
 
 #pragma once
 
+#include <tracetools/tracetools.h>
 #include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <tracetools/tracetools.h>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // definitions
@@ -33,42 +33,35 @@
 
 namespace trajectory_optimization {
 
-template <typename C> struct is_vector : std::false_type {};
-template <typename T,typename A> struct is_vector< std::vector<T,A> > : std::true_type {};
-template <typename C> inline constexpr bool is_vector_v = is_vector<C>::value;
+template <typename C>
+struct is_vector : std::false_type {};
+template <typename T, typename A>
+struct is_vector<std::vector<T, A>> : std::true_type {};
+template <typename C>
+inline constexpr bool is_vector_v = is_vector<C>::value;
 
 class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
-  explicit TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions &options);
+  explicit TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions& options);
 
   ~TrajectoryOptimizationNode();
 
  protected:
+  enum CONSIDER_BOUNDARIES { NO_BOUNDS = 0, SUGGESTED_LANE = 1, INCLUDING_ADJACENT = 2, DRIVABLE_SPACE = 3 };
 
-  enum CONSIDER_BOUNDARIES {
-    NO_BOUNDS = 0,
-    SUGGESTED_LANE = 1,
-    INCLUDING_ADJACENT = 2,
-    DRIVABLE_SPACE = 3
-  };
-
-  enum CONSIDER_OBJECTS {
-    NO_OBJECTS = 0,
-    STATIC_OBJECTS = 1,
-    PREDICTED_OBJECTS = 2
-  };
+  enum CONSIDER_OBJECTS { NO_OBJECTS = 0, STATIC_OBJECTS = 1, PREDICTED_OBJECTS = 2 };
 
   template <typename T>
-  void declareAndLoadParameter(const std::string &name,
-                               T &param,
-                               const std::string &description,
+  void declareAndLoadParameter(const std::string& name,
+                               T& param,
+                               const std::string& description,
                                const bool add_to_auto_reconfigurable_params = true,
                                const bool is_required = false,
                                const bool read_only = false,
-                               const std::optional<double> &from_value = std::nullopt,
-                               const std::optional<double> &to_value = std::nullopt,
-                               const std::optional<double> &step_value = std::nullopt,
-                               const std::string &additional_constraints = "");
+                               const std::optional<double>& from_value = std::nullopt,
+                               const std::optional<double>& to_value = std::nullopt,
+                               const std::optional<double>& step_value = std::nullopt,
+                               const std::string& additional_constraints = "");
   rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   void setup();
@@ -77,11 +70,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
-  bool trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
+  bool trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory);
 
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
-  bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
-                           double &output_y, const bool wrap_angle = false);
+  bool linearInterpolation(const std::vector<double>& X,
+                           const std::vector<double>& Y,
+                           const double& desired_x,
+                           double& output_y,
+                           const bool wrap_angle = false);
 
   void egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg);
   void objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg);
@@ -89,27 +85,27 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg);
 
   void planningCycle();
-  bool updateOcpInputs(const perception_msgs::msg::EgoData &ego_data,
-                       const perception_msgs::msg::ObjectList &object_list,
-                       const route_planning_msgs::msg::Route &route,
-                       const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
-                       const std::vector<double> &x_init);
+  bool updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
+                       const perception_msgs::msg::ObjectList& object_list,
+                       const route_planning_msgs::msg::Route& route,
+                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                       const std::vector<double>& x_init);
 
-  void setOcpGlobalParameters(const std::vector<double> &cost_weights,
-                              const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
-                              const route_planning_msgs::msg::Route &route);
+  void setOcpGlobalParameters(const std::vector<double>& cost_weights,
+                              const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                              const route_planning_msgs::msg::Route& route);
 
-  void setOcpParameters(const perception_msgs::msg::EgoData &ego_data,
-                        const perception_msgs::msg::ObjectList &object_list);
+  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
 
-  std::vector<std::pair<double, double>> normalBoundaryDistance(const trajectory_planning_msgs::msg::Trajectory &reference_trajectory,
-                                                                const route_planning_msgs::msg::Route &route);
-  void keepNClosestObjects(perception_msgs::msg::ObjectList &object_list, const int n_objects);
-  std::vector<double> discretizeBB2Circles(const double x, const double y, const double yaw, const double length, const double width);
-  void vizCircles(const std::vector<double> &obstacles);
+  std::vector<std::pair<double, double>> normalBoundaryDistance(
+      const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
+  void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
+  std::vector<double> discretizeBB2Circles(
+      const double x, const double y, const double yaw, const double length, const double width);
+  void vizCircles(const std::vector<double>& obstacles);
   void vizEgoCircles(const double* x_trajectory, const std::string& model_name);
-  void vizBoundaryPoints(const std::vector<Eigen::Vector2d> &left_boundary_points,
-                         const std::vector<Eigen::Vector2d> &right_boundary_points,
+  void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
+                         const std::vector<Eigen::Vector2d>& right_boundary_points,
                          bool is_intersection = false);
 
   // virtual functions need to be implemented in derived classes
@@ -142,8 +138,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
 
   // parameters
-  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter &)>>>
-      auto_reconfigurable_params_;
+  std::vector<std::tuple<std::string, std::function<void(const rclcpp::Parameter&)>>> auto_reconfigurable_params_;
   std::string vehicle_frame_id_ = "base_link";
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
@@ -184,21 +179,21 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {11, 1};       // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 6};           // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
-  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
+  std::vector<int64_t> p_cost_weights_shape_ = {11, 1};      // nWeights x weightDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 6};          // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};  // nObstacleCircles x [x, y, radius]
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;
-  ocp_nlp_config *nlp_config_;
-  ocp_nlp_dims *nlp_dims_;
-  ocp_nlp_in *nlp_in_;
-  ocp_nlp_out *nlp_out_;
-  ocp_nlp_solver *nlp_solver_;
-  void *nlp_opts_;
+  ocp_nlp_config* nlp_config_;
+  ocp_nlp_dims* nlp_dims_;
+  ocp_nlp_in* nlp_in_;
+  ocp_nlp_out* nlp_out_;
+  ocp_nlp_solver* nlp_solver_;
+  void* nlp_opts_;
 
-  double *xtraj_;
-  double *utraj_;
+  double* xtraj_;
+  double* utraj_;
 };
 
 }  // namespace trajectory_optimization

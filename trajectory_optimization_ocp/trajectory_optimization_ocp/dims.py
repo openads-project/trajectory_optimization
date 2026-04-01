@@ -3,14 +3,15 @@
 
 from acados_template import AcadosOcpDims
 
+
 def set_dims(ocp, config):
 
     dims = AcadosOcpDims()
 
-    dims.N = config['n_shots'] # number of shooting intervals
-    dims.nx = ocp.model.x.rows() # number of states
-    dims.nu = ocp.model.u.rows() # number of inputs/controls
-    dims.np = ocp.model.p.rows() # number of model parameters
-    dims.np_global = ocp.model.p_global.rows() # number of model global parameters
+    dims.N = config["n_shots"]  # number of shooting intervals
+    dims.nx = ocp.model.x.rows()  # number of states
+    dims.nu = ocp.model.u.rows()  # number of inputs/controls
+    dims.np = ocp.model.p.rows()  # number of model parameters
+    dims.np_global = ocp.model.p_global.rows()  # number of model global parameters
 
     ocp.dims = dims
