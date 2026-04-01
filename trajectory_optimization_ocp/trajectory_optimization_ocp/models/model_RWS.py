@@ -3,7 +3,16 @@
 
 import numpy as np
 from acados_template import AcadosModel
-from constants import *
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_ALPHA_R,
+    CONTROL_INDEX_J_T,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_DELTA_R,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+)
 from casadi import MX, vertcat, sin, cos, atan
 from utils import stable_tan
 

@@ -13,8 +13,10 @@ def set_opts(ocp, config):
     # PARTIAL_CONDENSING_HPIPM      default, works
     # FULL_CONDENSING_QPOASES       diverges
     # FULL_CONDENSING_HPIPM         works, looks very similar to default
-    # PARTIAL_CONDENSING_QPDUNES    doesn't work, error message: "qpDUNES interface can not handle ns>0 yet: what about implementing it? :)"
-    # PARTIAL_CONDENSING_OSQP       doesn't work, error message: "OSQP interface can not handle ns>0 yet: what about implementing it? :)"
+    # PARTIAL_CONDENSING_QPDUNES    does not work, error message:
+    # "qpDUNES interface can not handle ns>0 yet: what about implementing it? :)"
+    # PARTIAL_CONDENSING_OSQP       does not work, error message:
+    # "OSQP interface can not handle ns>0 yet: what about implementing it? :)"
     # => ns>0 means, that there are soft constraints. If we remove them, OSQP works, but not faster, QPDUNES diverges.
     # FULL_CONDENSING_DAQP          doesn't work, because some libs cannot be found when building with ACADOS_WITH_DAQP=ON
 

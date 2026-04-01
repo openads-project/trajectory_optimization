@@ -3,7 +3,17 @@
 
 from casadi import fmax, fmin, tan
 from acados_template import AcadosOcp
-from constants import *
+from constants import (
+    P_REF_PATH_INDEX_D_BOUND_LEFT,
+    P_REF_PATH_INDEX_D_BOUND_RIGHT,
+    P_REF_PATH_INDEX_PSI,
+    P_REF_PATH_INDEX_V,
+    P_REF_PATH_INDEX_X,
+    P_REF_PATH_INDEX_Y,
+    STATE_INDEX_PSI,
+    STATE_INDEX_X,
+    STATE_INDEX_Y,
+)
 import casadi as ca
 
 
@@ -68,8 +78,12 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     )
 
     # compute the shortest distance between the state-point and a line segment idx_min---next_idx_min
-    # extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
-    # values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
+    # extend the segment to a complete line first and determine the point with
+    # shortest distance to the state point, following
+    # https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line, but
+    # formulate it as parameter lambda
+    # values [0, 1] for lambda mean the nearest point is on the segment
+    # and the computed distance is perpendicular to the line segment
     # note that lambda must be >=0 due to the way we defined the line segment
     psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]

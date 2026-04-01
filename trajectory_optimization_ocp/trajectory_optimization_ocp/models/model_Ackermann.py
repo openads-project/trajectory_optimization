@@ -3,7 +3,14 @@
 
 import numpy as np
 from acados_template import AcadosModel
-from constants import *
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_J_T,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+)
 from casadi import MX, vertcat, sin, cos
 from utils import stable_tan
 
@@ -19,7 +26,7 @@ def set_model(ocp, config):
     model.name = config["model_name"]
 
     # set constants
-    l = config["wheelbase"]
+    wheelbase = config["wheelbase"]
 
     # set up states
     x = MX.sym("x")
@@ -52,7 +59,7 @@ def set_model(ocp, config):
     f_s_dot = state[STATE_INDEX_V_T]
     f_v_t_dot = state[STATE_INDEX_A_T]
     f_a_t_dot = u[CONTROL_INDEX_J_T]
-    f_psi_dot = state[STATE_INDEX_V_T] / l * stable_tan(state[STATE_INDEX_DELTA_F])
+    f_psi_dot = state[STATE_INDEX_V_T] / wheelbase * stable_tan(state[STATE_INDEX_DELTA_F])
     f_delta_f_dot = u[CONTROL_INDEX_ALPHA_F]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_t_dot, f_a_t_dot, f_psi_dot, f_delta_f_dot)
 

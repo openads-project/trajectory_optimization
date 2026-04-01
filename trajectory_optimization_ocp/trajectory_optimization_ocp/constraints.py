@@ -4,7 +4,21 @@
 from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
 from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry
-from constants import *
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_ALPHA_R,
+    CONTROL_INDEX_J_T,
+    P_OBSTACLES_INDEX_RADIUS,
+    P_OBSTACLES_INDEX_X,
+    P_OBSTACLES_INDEX_Y,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_DELTA_R,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+    STATE_INDEX_X,
+    STATE_INDEX_Y,
+)
 import numpy as np
 
 
@@ -21,7 +35,7 @@ def set_constraints(ocp: AcadosOcp, config):
 
     cons = AcadosOcpConstraints()
 
-    ########## static constraints on state ##########
+    # === Static constraints on state ===
     # set v_min < v < v_max [m/s]
     # set a_min < a < a_max [m/s^2]
     # set -delta_max < delta_f < delta_max [rad]
@@ -49,7 +63,7 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.ubx_e = cons.ubx
     cons.idxbx_e = cons.idxbx
 
-    ########## static constraints on control ##########
+    # === Static constraints on control ===
     # set j_min < j < j_max [m/s^3]
     # set -alpha_max < alpha_f < alpha_max [rad]
     # RWS: set -alpha_max < alpha_r < alpha_max [rad]
@@ -62,7 +76,7 @@ def set_constraints(ocp: AcadosOcp, config):
         cons.ubu = np.concatenate((cons.ubu, [config["alpha_max"]]))
         cons.idxbu = np.concatenate((cons.idxbu, [CONTROL_INDEX_ALPHA_R]))
 
-    ########## nonlinear constraints ##########
+    # === Nonlinear constraints ===
     ocp.model.con_h_expr = ca.vertcat()  # initialize empty expression for nonlinear constraints
     cons.lh = np.array([])  # initialize empty lower bounds for nonlinear constraints
     cons.uh = np.array([])  # initialize empty upper bounds for nonlinear constraints
@@ -72,13 +86,13 @@ def set_constraints(ocp: AcadosOcp, config):
     ego_radius = ego_approximation["radius"]
     n_ego_circles = config["n_ego_circles"]
 
-    ### route boundaries ###
+    # --- Route boundaries ---
 
     # get ref path with boundaries from global parameters
     idx_global_params = 0
-    p_cost_weights = ocp.model.p_global[
+    _ = ocp.model.p_global[
         idx_global_params : (idx_global_params := idx_global_params + np.prod(config["p_cost_weights_shape"]))
-    ]  # not used in constraints
+    ]  # cost weights, not used in constraints
     p_cost_params = ocp.model.p_global[
         idx_global_params : (idx_global_params := idx_global_params + np.prod(config["p_cost_params_shape"]))
     ]
@@ -126,12 +140,12 @@ def set_constraints(ocp: AcadosOcp, config):
         cons.lh = np.concatenate((cons.lh, [-MAX_BOUNDARY_CONSTRAINT, -MAX_BOUNDARY_CONSTRAINT]))
         cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
-    ### obstacle avoidance ###
+    # --- Obstacle avoidance ---
     # get obstacles from parameters
     idx_params = 0
-    p_dynamic_weight = ocp.model.p[
+    _ = ocp.model.p[
         idx_params : (idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))
-    ]  # not used in constraints
+    ]  # dynamic weights, not used in constraints
     p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
     assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 
@@ -171,7 +185,7 @@ def set_constraints(ocp: AcadosOcp, config):
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_CONSTRAINT]))
 
-    ### a_abs_squared, psi_dot, steering_mode_constraint ###
+    # --- a_abs_squared, psi_dot, steering_mode_constraint ---
     # Ackermann: psi_dot = v / l * tan(delta_f)
     # RWS: psi_dot = v * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r)
     # beta = atan((L_r / (L_f + L_r)) * tan(delta_f) + (L_f / (L_f + L_r)) * tan(delta_r))
@@ -190,8 +204,8 @@ def set_constraints(ocp: AcadosOcp, config):
             / (L_f + L_r)
         )
     else:
-        l = config["wheelbase"]
-        psi_dot = ocp.model.x[STATE_INDEX_V_T] / l * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
+        wheelbase = config["wheelbase"]
+        psi_dot = ocp.model.x[STATE_INDEX_V_T] / wheelbase * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
 
     # compute normal acceleration
     a_n = ocp.model.x[STATE_INDEX_V_T] * psi_dot
@@ -230,7 +244,7 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.lh_e = cons.lh
     cons.uh_e = cons.uh
 
-    ########## soft constraints ##########
+    # === Soft constraints ===
 
     slack_indices = []
     slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}

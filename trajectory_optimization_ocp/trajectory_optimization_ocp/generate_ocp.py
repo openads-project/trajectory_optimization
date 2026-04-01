@@ -1,18 +1,26 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from acados_template import AcadosOcp, AcadosOcpSolver, builders
 import argparse
+import importlib
 import os
 import sys
 import yaml
 
-CURRENT_DIR_PATH = os.path.dirname(__file__)
-sys.path.append(os.path.join(CURRENT_DIR_PATH, "models"))
-import dims, constraints, costs, opts
-import model_Ackermann, model_RWS
+from acados_template import AcadosOcp, AcadosOcpSolver, builders
 
-CURRENT_DIR_PATH = os.path.dirname(__file__)
+CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "models")
+for import_path in (CURRENT_DIR_PATH, MODELS_DIR_PATH):
+    if import_path not in sys.path:
+        sys.path.insert(0, import_path)
+
+constraints = importlib.import_module("constraints")
+costs = importlib.import_module("costs")
+dims = importlib.import_module("dims")
+model_Ackermann = importlib.import_module("model_Ackermann")
+model_RWS = importlib.import_module("model_RWS")
+opts = importlib.import_module("opts")
 
 
 def parseArguments() -> argparse.Namespace:
@@ -38,7 +46,7 @@ def main():
     elif parameters["model_type"] == "RWS":
         model_RWS.set_model(ocp, parameters)
     else:
-        raise ValueError(f"Unknown model type. Choose between 'Ackermann' or 'RWS'.")
+        raise ValueError("Unknown model type. Choose between 'Ackermann' or 'RWS'.")
     costs.set_costs(ocp, parameters)
     constraints.set_constraints(ocp, parameters)  # Set constraints AFTER costs as soft constraints need to modify cost
     dims.set_dims(ocp, parameters)
@@ -48,7 +56,7 @@ def main():
     builder = builders.CMakeBuilder()
     builder.options_on = ["BUILD_ACADOS_SOLVER_LIB", "BUILD_ACADOS_OCP_SOLVER_LIB"]
 
-    acados_tp_ocp = AcadosOcpSolver(
+    _ = AcadosOcpSolver(
         ocp, json_file=f"{parameters['model_name']}.json", simulink_opts=None, build=True, generate=True, cmake_builder=builder
     )
 

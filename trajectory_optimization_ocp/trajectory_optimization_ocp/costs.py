@@ -3,7 +3,19 @@
 
 import numpy as np
 from acados_template import AcadosOcpCost, AcadosOcp
-from constants import *
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_ALPHA_R,
+    CONTROL_INDEX_J_T,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_DELTA_R,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+    STATE_INDEX_X,
+    STATE_INDEX_Y,
+    V_SCALE_MIN,
+)
 import casadi as ca
 from utils import stable_tan, determine_spacially_matched_ref_path_point, wrap_angle
 
@@ -41,9 +53,9 @@ def set_costs(ocp: AcadosOcp, config):
     # get global parameters
     idx_global_params = 0
     p_cost_weights = ocp.model.p_global[idx_global_params : (idx_global_params := idx_global_params + n_params_cost_weights)]
-    p_cost_params = ocp.model.p_global[
+    _ = ocp.model.p_global[
         idx_global_params : (idx_global_params := idx_global_params + n_params_cost_params)
-    ]  # not used in cost function
+    ]  # cost_params, not used in cost function
     p_ref_path = ocp.model.p_global[idx_global_params : (idx_global_params := idx_global_params + n_params_ref_path)]
     assert idx_global_params == n_global_params
 
@@ -60,7 +72,7 @@ def set_costs(ocp: AcadosOcp, config):
     w_alpha = p_cost_weights[9]
     w_end_yaw = p_cost_weights[10]
 
-    ########## external cost function ##########
+    # === External cost function ===
 
     # calculate quantities needed for cost terms
     interpolated_state_ref = determine_spacially_matched_ref_path_point(
@@ -72,7 +84,7 @@ def set_costs(ocp: AcadosOcp, config):
     a_costs = calc_acceleration_cost(ocp, config)
     control_costs = calc_control_cost(ocp, config)
 
-    #### define costs at intermediate nodes
+    # --- Define costs at intermediate nodes ---
     # reference path costs
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_inter * ref_path_costs["v_t_inter"]
@@ -90,10 +102,10 @@ def set_costs(ocp: AcadosOcp, config):
         ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_psi * ref_path_costs["psi"]
         ocp.model.cost_expr_ext_cost += w_alpha * control_costs["alpha_r"]
 
-    #### define costs at initial shooting node
+    # --- Define costs at initial shooting node ---
     ocp.model.cost_expr_ext_cost_0 = ocp.model.cost_expr_ext_cost
 
-    #### define costs at terminal shooting node
+    # --- Define costs at terminal shooting node ---
     ocp.model.cost_expr_ext_cost_e = w_end_yaw * ref_path_costs["psi"]
 
 
@@ -163,7 +175,7 @@ def calc_acceleration_cost(ocp: AcadosOcp, config: dict) -> dict:
     return cost_terms
 
 
-########## helper functions ##########
+# === Helper functions ===
 
 
 def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
