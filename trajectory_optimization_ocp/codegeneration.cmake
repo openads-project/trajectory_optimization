@@ -26,11 +26,3 @@ execute_process(
 execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/shuttle_params.yml"
 )
-
-execute_process(
-  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/shuttle_ackermann_params.yml"
-)
-
-execute_process(
-  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/taxi_params.yml"
-)

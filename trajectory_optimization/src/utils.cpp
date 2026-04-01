@@ -391,13 +391,8 @@ void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const
     ego_width = 2.252;
     ego_offset2geocenter = {1.4895, 0.0};
     n_ego_circles = 5;
-  } else if (model_name == "shuttle" || model_name == "shuttle_ackermann") {
+  } else if (model_name == "shuttle") {
     ego_length = 4.97;
-    ego_width = 2.12;
-    ego_offset2geocenter = {0.0, 0.0};
-    n_ego_circles = 3;
-  } else if (model_name == "taxi") {
-    ego_length = 4.37;
     ego_width = 2.12;
     ego_offset2geocenter = {0.0, 0.0};
     n_ego_circles = 3;

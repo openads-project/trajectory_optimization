@@ -28,7 +28,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
   this->declareAndLoadParameter("ego_data_timeout", ego_data_timeout_,
                                 "Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.");
-  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]");
+  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
