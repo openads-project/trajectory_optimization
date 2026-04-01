@@ -1,3 +1,5 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
 
 #include <trajectory_optimization/trajectory_optimization_ackermann.hpp>
 

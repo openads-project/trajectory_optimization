@@ -7,8 +7,3 @@ repositories:
     type: git
     url: https://github.com/ika-rwth-aachen/perception_interfaces.git
     version: v1.0.0
-  # remove once [https://github.com/ros2/ros2_tracing/issues/211] is solved in released version
-  ros2_tracing:
-    type: git
-    url: https://github.com/RaphvK/ros2_tracing.git
-    version: jazzy-ika

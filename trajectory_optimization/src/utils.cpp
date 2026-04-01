@@ -1,3 +1,6 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
+
 #include <cmath>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
@@ -90,8 +93,9 @@ bool TrajectoryOptimizationNode::linearInterpolation(const std::vector<double>& 
  * This function converts a trajectory from the vehicle frame to the output frame using the tf2 library.
  *
  * @param trajectory The trajectory to be converted.
+ * @return True if conversion succeeded or was not needed, false if conversion failed.
  */
-void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
+bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   if (trajectory_frame_id_ != vehicle_frame_id_) {
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
     try {
@@ -99,10 +103,11 @@ void TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
     } catch (tf2::TransformException& ex) {
       RCLCPP_WARN(this->get_logger(),
                   "Transformation into output frame is not available. Publishing no trajectory. Ex: %s", ex.what());
-      return;
+      return false;
     }
     trajectory = tf_trajectory;
   }
+  return true;
 }
 
 /**
@@ -386,13 +391,8 @@ void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const
     ego_width = 2.252;
     ego_offset2geocenter = {1.4895, 0.0};
     n_ego_circles = 5;
-  } else if (model_name == "shuttle" || model_name == "shuttle_ackermann") {
+  } else if (model_name == "shuttle") {
     ego_length = 4.97;
-    ego_width = 2.12;
-    ego_offset2geocenter = {0.0, 0.0};
-    n_ego_circles = 3;
-  } else if (model_name == "taxi") {
-    ego_length = 4.37;
     ego_width = 2.12;
     ego_offset2geocenter = {0.0, 0.0};
     n_ego_circles = 3;
@@ -509,7 +509,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
     d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_, *nlp_dims_->nx);
     printf("\n--- utraj ---\n");
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_, *nlp_dims_->nu);
-    trajectory_optimization::acados_print_stats(acados_ocp_capsule_);
+    trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
 }
 

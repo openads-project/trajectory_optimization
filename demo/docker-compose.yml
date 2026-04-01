@@ -1,0 +1,27 @@
+services:
+
+  trajectory-optimization-demo:
+    image: ghcr.io/openads-project/trajectory_optimization:latest
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    command: bash -ic "ros2 launch trajectory_optimization trajectory_optimization_demo.launch.py"
+
+  rviz:
+    image: ghcr.io/openads-project/trajectory_optimization:demo-monitoring
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY}
+    command: bash -ic "rviz2 -d /root/.rviz2/config.rviz"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./config.rviz:/root/.rviz2/config.rviz
+
+  rqt:
+    image: ghcr.io/openads-project/trajectory_optimization:demo-monitoring
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY}
+    command: bash -ic "rqt --perspective-file /rqt.perspective"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./rqt.perspective:/rqt.perspective

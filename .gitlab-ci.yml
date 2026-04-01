@@ -1,10 +1,53 @@
-include:
-  - remote: 'https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/main/.gitlab-ci/docker-ros.yml'
+stages:
+  - docker-ros
+  - consistency
+  - docs
 
-variables:
-  BASE_IMAGE: rwthika/ros2:jazzy
-  RMW_IMPLEMENTATION: rmw_zenoh_cpp
-  TARGET: dev,run
-  PLATFORM: amd64
-  ENABLE_RECURSIVE_VCS_IMPORT: 'false'
-  COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
+docker-ros:
+  stage: docker-ros
+  trigger:
+    include:
+      - remote: https://raw.githubusercontent.com/ika-rwth-aachen/docker-ros/main/.gitlab-ci/docker-ros.yml
+    strategy: depend
+  variables:
+    PLATFORM: amd64
+    TARGET: dev,run
+    BASE_IMAGE: rwthika/ros2:jazzy
+    RMW_IMPLEMENTATION: rmw_zenoh_cpp
+    COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
+    ENABLE_RECURSIVE_VCS_IMPORT: 'false'
+    ENABLE_INDUSTRIAL_CI: 'true'
+    TARGET_CMAK_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
+
+consistency:
+  stage: consistency
+  needs: []
+  image: python:3.12-bookworm
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    - python3 -m pip install -r .openads-dev-environment/scripts/requirements.txt
+  script:
+    - python3 .openads-dev-environment/scripts/check_repository_consistency.py
+
+pages:
+  stage: docs
+  image: ubuntu:24.04
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+    DOXYGEN_PROJECT_NAME: $CI_PROJECT_NAME
+    DOXYGEN_PROJECT_NUMBER: $CI_COMMIT_TAG
+  before_script:
+    - apt-get update
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates doxygen git
+    - git clone --depth 1 --branch v2.4.1 https://github.com/jothepro/doxygen-awesome-css.git doxygen-awesome-css
+  script:
+    - if [ -z "$DOXYGEN_PROJECT_NUMBER" ]; then export DOXYGEN_PROJECT_NUMBER="$CI_COMMIT_SHORT_SHA"; fi
+    - doxygen .openads-dev-environment/Doxyfile
+    - rm -rf public
+    - mv docs/html public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'

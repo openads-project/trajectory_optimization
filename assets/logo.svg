@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Ebene_1" xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 841.89 595.28">
+  <!-- Generator: Adobe Illustrator 30.3.0, SVG Export Plug-In . SVG Version: 2.1.3 Build 182)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: url(#Unbenannter_Verlauf_130);
+      }
+
+      .st1 {
+        fill: #b2d5e3;
+      }
+
+      .st2 {
+        fill: #bbdae7;
+      }
+
+      .st3 {
+        fill: #35556f;
+      }
+
+      .st4 {
+        fill: #6ea4c1;
+      }
+
+      .st5 {
+        fill: #1e2f3e;
+      }
+
+      .st6 {
+        fill: #253a4b;
+      }
+
+      .st7 {
+        fill: #253c50;
+      }
+
+      .st8 {
+        fill: #1e2f3d;
+      }
+
+      .st9 {
+        fill: #2a4257;
+      }
+
+      .st10 {
+        fill: #31506d;
+      }
+
+      .st11 {
+        fill: #446c8d;
+      }
+
+      .st12 {
+        fill: #d0e5ec;
+      }
+
+      .st13 {
+        fill: #2e4b63;
+      }
+
+      .st14 {
+        fill: #fff;
+      }
+
+      .st15 {
+        fill: #e0edf2;
+      }
+
+      .st16 {
+        fill: #213141;
+      }
+
+      .st17, .st18 {
+        fill: none;
+      }
+
+      .st19 {
+        fill: #e5f0f4;
+      }
+
+      .st20 {
+        fill: #1f313f;
+      }
+
+      .st21 {
+        fill: #5485a7;
+      }
+
+      .st22 {
+        fill: #527e9f;
+      }
+
+      .st23 {
+        fill: #86bdd7;
+      }
+
+      .st24 {
+        fill: #82b7d3;
+      }
+
+      .st25 {
+        fill: #507ea0;
+      }
+
+      .st26 {
+        fill: #284259;
+      }
+
+      .st27 {
+        fill: #1f303e;
+      }
+
+      .st28 {
+        fill: #426a8a;
+      }
+
+      .st29 {
+        fill: #497595;
+      }
+
+      .st30 {
+        fill: #d5e7ee;
+      }
+
+      .st31 {
+        fill: #203242;
+      }
+
+      .st32 {
+        fill: #416684;
+      }
+
+      .st33 {
+        fill: #85bcd6;
+      }
+
+      .st34 {
+        fill: #fafcfd;
+      }
+
+      .st35 {
+        fill: #1e303e;
+      }
+
+      .st36 {
+        fill: #24394a;
+      }
+
+      .st37 {
+        fill: #2d485d;
+      }
+
+      .st38 {
+        fill: #2e4b62;
+      }
+
+      .st39 {
+        fill: #9ecbde;
+      }
+
+      .st40 {
+        fill: #31506c;
+      }
+
+      .st41 {
+        fill: #395e7d;
+      }
+
+      .st42 {
+        fill: url(#Unbenannter_Verlauf_67);
+      }
+
+      .st43 {
+        fill: #4f7d9d;
+      }
+
+      .st44 {
+        fill: #2d495e;
+      }
+
+      .st18 {
+        stroke: url(#Unbenannter_Verlauf_30);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 13px;
+      }
+
+      .st45 {
+        fill: #2c475e;
+      }
+
+      .st46 {
+        fill: #355671;
+      }
+
+      .st47 {
+        fill: #f9fcfc;
+      }
+
+      .st48 {
+        fill: #1e303f;
+      }
+
+      .st49 {
+        fill: #3f6483;
+      }
+
+      .st50 {
+        fill: #1f303f;
+      }
+
+      .st51 {
+        fill: #23394f;
+      }
+
+      .st52 {
+        fill: #467391;
+      }
+
+      .st53 {
+        fill: #bfdce9;
+      }
+
+      .st54 {
+        fill: #5280a0;
+      }
+
+      .st55 {
+        fill: #355771;
+      }
+
+      .st56 {
+        fill: #89c0d8;
+      }
+
+      .st57 {
+        fill: #304e66;
+      }
+
+      .st58 {
+        clip-path: url(#clippath);
+      }
+
+      .st59 {
+        fill: #263d4e;
+      }
+
+      .st60 {
+        fill: url(#Unbenannter_Verlauf_13);
+      }
+
+      .st61 {
+        fill: #93c6dc;
+      }
+
+      .st62 {
+        fill: #d8e9ef;
+      }
+
+      .st63 {
+        fill: #304d65;
+      }
+    </style>
+    <clipPath id="clippath">
+      <ellipse class="st17" cx="304.31" cy="538.79" rx="157.99" ry="7.58"/>
+    </clipPath>
+    <radialGradient id="Unbenannter_Verlauf_130" data-name="Unbenannter Verlauf 130" cx="232.55" cy="593.64" fx="232.55" fy="593.64" r="166.8" gradientTransform="translate(1.31 218.33) rotate(.79) scale(1 .54) skewX(.3)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9cb9cc"/>
+      <stop offset="0" stop-color="#a2bdcf"/>
+      <stop offset=".05" stop-color="#bcd0dc"/>
+      <stop offset=".09" stop-color="#d0dee6"/>
+      <stop offset=".14" stop-color="#dee9ed"/>
+      <stop offset=".2" stop-color="#e6eff1"/>
+      <stop offset=".3" stop-color="#e9f1f3"/>
+      <stop offset=".44" stop-color="#e9f1f3" stop-opacity=".99"/>
+      <stop offset=".54" stop-color="#eaf1f3" stop-opacity=".95"/>
+      <stop offset=".62" stop-color="#ebf2f4" stop-opacity=".89"/>
+      <stop offset=".69" stop-color="#edf3f5" stop-opacity=".8"/>
+      <stop offset=".75" stop-color="#eff5f6" stop-opacity=".69"/>
+      <stop offset=".82" stop-color="#f2f7f8" stop-opacity=".55"/>
+      <stop offset=".88" stop-color="#f6f9fa" stop-opacity=".39"/>
+      <stop offset=".93" stop-color="#fafcfc" stop-opacity=".2"/>
+      <stop offset=".98" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="Unbenannter_Verlauf_13" data-name="Unbenannter Verlauf 13" x1="170.46" y1="248.97" x2="641.12" y2="248.97" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5260ad"/>
+      <stop offset=".9" stop-color="#71b8c0"/>
+    </linearGradient>
+    <linearGradient id="Unbenannter_Verlauf_67" data-name="Unbenannter Verlauf 67" x1="668.59" y1="138.32" x2="668.59" y2="63.18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5d7fc3"/>
+      <stop offset=".55" stop-color="#659fd9"/>
+      <stop offset="1" stop-color="#6cb6ea"/>
+    </linearGradient>
+    <linearGradient id="Unbenannter_Verlauf_30" data-name="Unbenannter Verlauf 30" x1="246.94" y1="459.3" x2="535.17" y2="171.06" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#74a2bd"/>
+      <stop offset="1" stop-color="#c8e0ea"/>
+    </linearGradient>
+  </defs>
+  <g class="st58">
+    <ellipse class="st0" cx="293.31" cy="536.99" rx="157.99" ry="13.89"/>
+  </g>
+  <g>
+    <g>
+      <g>
+        <path class="st60" d="M641.12,92.68c-102.36,0-207.66,37.89-308.72,103.07-79.42,51.23-161.94,151.58-161.94,179.49,0,41.95,58.36,27.66,58.36,27.66,0,0-10.11-30.24-10.11-41.43,0-8.59,40.14-68.35,121.77-133.89,75.42-60.57,187.8-118.74,300.63-118.74v-16.17Z"/>
+        <path class="st42" d="M666.44,134.35l24.66-22.4c6.62-6.01,6.62-16.41,0-22.42l-24.66-22.4c-9.73-8.84-25.32-1.93-25.32,11.21v44.79c0,13.14,15.6,20.05,25.32,11.21Z"/>
+      </g>
+      <path class="st38" d="M230.24,369.1c2.92,1.06,6.37,1.79,10.32,1.79,7.44,0,16.11-3.26,23.94-7.25l.06,30.22-34.32-24.76Z"/>
+      <polygon class="st40" points="328.11 356.87 354.63 297.64 287.04 349.29 328.11 356.87"/>
+      <path class="st7" d="M287.04,349.29s-10.22,8.07-22.53,14.35l.06,30.22c30.99-13.43,63.54-36.99,63.54-36.99l-41.06-7.58Z"/>
+      <path class="st8" d="M264.57,393.86c-13.04,5.65-25.8,9.5-35.75,9.05-28.04-6.82-10.11-41.43-10.11-41.43,0,0,4,4.89,11.53,7.62l34.32,24.76Z"/>
+    </g>
+    <g>
+      <polygon class="st52" points="524.85 373.01 500.87 393.16 536.78 405.26 524.85 373.01"/>
+      <polygon class="st62" points="560.02 384.35 524.85 373.01 536.78 405.26 560.02 384.35"/>
+      <polygon class="st28" points="536.13 442.93 563.24 414.28 536.78 405.26 536.13 442.93"/>
+      <path class="st4" d="M568.36,399.13c0-7.39-8.34-14.78-8.34-14.78l-23.24,20.91,26.46,9.02s5.12-7.77,5.12-15.16Z"/>
+      <polygon class="st57" points="530.85 448.51 536.13 442.93 536.78 405.26 490.67 448.85 530.85 448.51"/>
+      <path class="st50" d="M490.67,448.85l-1.52,1.43s-9.22,11.49-.38,20.84,20.84-.19,20.84-.19l21.22-22.42-40.17.34Z"/>
+      <polygon class="st30" points="524.85 373.01 478.93 358.2 500.87 393.16 524.85 373.01"/>
+      <polygon class="st13" points="478.93 358.2 474.06 351.19 434.53 368.18 483.28 387.19 500.87 393.16 478.93 358.2"/>
+    </g>
+    <g>
+      <polygon class="st33" points="358.04 388.33 328.11 356.87 301.2 409.93 358.04 388.33"/>
+      <polygon class="st54" points="258.38 466.58 301.2 409.93 315.98 439.86 281.48 452.64 258.38 466.58"/>
+      <polygon class="st41" points="216.92 518.11 258.38 466.58 263.84 502.37 216.92 518.11"/>
+      <path class="st51" d="M263.84,502.37l-27.44,32.92s-9.35,10.11-18.44,2.78-3.28-17.18-3.28-17.18l2.24-2.79,46.92-15.73Z"/>
+      <polygon class="st26" points="315.98 439.86 292.73 467.72 258.38 466.58 281.48 452.64 315.98 439.86"/>
+      <polygon class="st5" points="358.04 388.33 315.98 439.86 394.04 373.36 358.04 388.33"/>
+      <polygon class="st55" points="301.2 409.93 315.98 439.86 358.04 388.33 301.2 409.93"/>
+      <polygon class="st61" points="258.38 466.58 263.84 502.37 292.73 467.72 258.38 466.58"/>
+    </g>
+    <g>
+      <path class="st35" d="M530.84,157.36s-31.58,7.58,5.74,47.94l11.76-16.05-17.5-31.89Z"/>
+      <polygon class="st32" points="548.34 189.25 561.35 172.89 530.84 157.36 548.34 189.25"/>
+      <polygon class="st63" points="576.88 239.4 610.17 206.75 575.18 221.15 576.88 239.4"/>
+      <polygon class="st30" points="571.39 193.11 536.58 205.29 561.35 172.89 571.39 193.11"/>
+      <polygon class="st15" points="561.35 172.89 546.76 164.94 575.94 153.95 605.12 181.33 591.73 181.33 571.39 193.11 561.35 172.89"/>
+      <polygon class="st36" points="536.58 205.29 575.18 221.15 576.88 239.4 536.58 205.29"/>
+      <polygon class="st25" points="536.58 205.29 571.39 193.11 575.18 221.15 536.58 205.29"/>
+      <path class="st31" d="M610.17,206.75l-6.32-8.84-6.82-.76-9.98-7.9-15.35,6.16-.31-2.3,20.34-11.78h16.04v14.18l5.56,9.79v25.2h20.46l4.29-10.11-9.85-10.99,18.19.25s.76,3.03-.57,5.49-4.36,4.93-4.36,4.93c0,0-.38,4.74-1.52,7.39s-9.09,13.26-9.09,13.26l-16.67.38-10.74-5.43-26.59,3.73,33.28-32.65Z"/>
+      <polyline class="st21" points="628.23 209.4 607.77 189.25 607.77 181.33 605.12 181.33 575.94 153.95 620.27 170.62 624.82 187.67 646.42 209.65"/>
+      <polygon class="st14" points="591.22 185.91 603.35 185.91 603.35 193.11 600.19 193.11 591.22 185.91"/>
+      <polygon class="st39" points="571.7 195.41 585.92 192.35 595.26 200.05 605.39 200.05 610.17 206.75 575.18 221.15 571.7 195.41"/>
+      <polygon class="st14" points="571.7 195.41 587.05 189.25 597.03 197.15 603.85 197.91 605.39 200.05 595.26 200.05 585.92 192.35 571.7 195.41"/>
+      <polygon class="st14" points="607.77 189.25 628.23 209.4 638.08 220.39 633.79 230.49 613.33 230.49 613.33 205.29 607.77 195.51 607.77 189.25"/>
+    </g>
+    <g>
+      <polygon class="st47" points="490.67 238.26 503.94 224.43 539.56 269.65 514.29 300.6 467.31 310.2 490.67 238.26"/>
+      <polygon class="st19" points="490.67 238.26 392.53 272.56 439.71 298.64 490.67 238.26"/>
+      <polygon class="st34" points="354.63 297.64 392.53 272.56 380.59 339.19 354.63 297.64"/>
+      <polygon class="st53" points="328.11 356.87 354.63 297.64 380.59 339.19 328.11 356.87"/>
+      <polygon class="st16" points="434.53 368.18 394.04 373.36 467.31 310.2 434.53 368.18"/>
+      <polygon class="st6" points="571.77 319.55 531.98 368.81 474.06 351.19 571.77 319.55"/>
+      <polygon class="st3" points="571.77 319.55 539.56 269.65 575.39 262.88 571.77 319.55"/>
+      <polygon class="st27" points="576.88 239.4 575.39 262.88 539.56 269.65 576.88 239.4"/>
+      <polygon class="st11" points="539.56 269.65 536.58 205.29 576.88 239.4 539.56 269.65"/>
+      <polygon class="st2" points="467.31 310.2 474.06 351.19 434.53 368.18 467.31 310.2"/>
+      <polygon class="st25" points="514.29 300.6 474.06 351.19 571.77 319.55 514.29 300.6"/>
+      <polygon class="st63" points="380.59 339.19 358.04 388.33 394.04 373.36 380.59 339.19"/>
+      <polygon class="st46" points="467.31 310.2 380.59 339.19 394.04 373.36 467.31 310.2"/>
+      <polygon class="st43" points="439.71 298.64 467.31 310.2 380.59 339.19 439.71 298.64"/>
+      <polygon class="st56" points="439.71 298.64 490.67 238.26 467.31 310.2 439.71 298.64"/>
+      <polygon class="st23" points="392.53 272.56 439.71 298.64 380.59 339.19 392.53 272.56"/>
+      <polygon class="st25" points="328.11 356.87 380.59 339.19 358.04 388.33 328.11 356.87"/>
+      <polygon class="st12" points="467.31 310.2 514.29 300.6 474.06 351.19 467.31 310.2"/>
+      <polygon class="st1" points="539.56 269.65 514.29 300.6 571.77 319.55 539.56 269.65"/>
+      <polygon class="st39" points="536.58 205.29 528.42 196.28 503.94 224.43 539.56 269.65 536.58 205.29"/>
+    </g>
+    <g>
+      <polygon class="st59" points="390.44 455.59 422.32 448.81 397.81 426.29 390.44 455.59"/>
+      <polyline class="st29" points="368.13 480.85 390.44 455.59 346.23 465.01 368.13 480.85"/>
+      <path class="st48" d="M319.67,494.78l-3.69,4.13s-6.06,11.87,1.77,17.94,16.42,1.77,16.42,1.77l21.74-24.19-36.25.35Z"/>
+      <polygon class="st10" points="355.91 494.43 368.13 480.85 346.23 465.01 319.67 494.78 355.91 494.43"/>
+      <polygon class="st45" points="346.23 465.01 374.04 433.65 390.44 455.59 346.23 465.01"/>
+      <polygon class="st49" points="397.81 426.29 376.47 430.91 374.04 433.65 390.44 455.59 397.81 426.29"/>
+      <polygon class="st24" points="464.72 411.82 428.66 419.62 451.05 442.69 464.72 411.82"/>
+      <polygon class="st35" points="475.19 397.93 483.28 387.19 513.98 397.61 506.78 405.76 475.19 397.93"/>
+      <polygon class="st44" points="451.05 442.69 479.49 436.64 464.72 411.82 451.05 442.69"/>
+      <polygon class="st37" points="422.32 448.81 451.05 442.69 428.66 419.62 422.32 448.81"/>
+      <polygon class="st22" points="428.66 419.62 397.81 426.29 422.32 448.81 428.66 419.62"/>
+      <polygon class="st20" points="506.78 405.76 479.49 436.64 464.72 411.82 506.78 405.76"/>
+      <polygon class="st9" points="464.72 411.82 475.19 397.93 506.78 405.76 464.72 411.82"/>
+    </g>
+  </g>
+  <path class="st18" d="M418.43,108.47l35.23-9.73M316.36,167.97s-53.24,41.12-73.71,60.63M195.09,285.44l-28.56,40.12M393.99,233.58s-62.42,35.89-106.95,82.69M596.4,344.81l-19.98,18.2M453.44,473.64l-35.17,5.32M324.35,457.96l-31.62,37.94"/>
+</svg>

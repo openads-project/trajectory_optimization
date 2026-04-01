@@ -1,3 +1,6 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 // acados
@@ -8,24 +11,18 @@
 #include <blasfeo_d_aux_ext_dep.h>  // for printing dense matrices
 
 // models
-#include <acados_ocp/acados_solver_karl.h>
-#include <acados_ocp/acados_solver_shuttle.h>
-#include <acados_ocp/acados_solver_shuttle_ackermann.h>
-#include <acados_ocp/acados_solver_taxi.h>
+#include <trajectory_optimization_ocp/acados_solver_karl.h>
+#include <trajectory_optimization_ocp/acados_solver_shuttle.h>
 
 namespace trajectory_optimization {
 
-typedef std::variant<karl_solver_capsule*, shuttle_solver_capsule*, shuttle_ackermann_solver_capsule*, taxi_solver_capsule*> ocp_model_capsule_t;
+typedef std::variant<karl_solver_capsule*, shuttle_solver_capsule*> ocp_model_capsule_t;
 
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "karl") {
     return karl_acados_create_capsule();
   } else if (model_name == "shuttle") {
     return shuttle_acados_create_capsule();
-  } else if (model_name == "shuttle_ackermann") {
-    return shuttle_ackermann_acados_create_capsule();
-  } else if (model_name == "taxi") {
-    return taxi_acados_create_capsule();
   } else {
     throw std::invalid_argument("Invalid model name: " + model_name);
   }
@@ -36,10 +33,6 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
     return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);                      \
   } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                                      \
     return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__);           \
-  } else if (std::holds_alternative<shuttle_ackermann_solver_capsule*>(capsule)) {                            \
-    return shuttle_ackermann_##function_name(std::get<shuttle_ackermann_solver_capsule*>(capsule), ##__VA_ARGS__); \
-  } else if (std::holds_alternative<taxi_solver_capsule*>(capsule)) {                                         \
-    return taxi_##function_name(std::get<taxi_solver_capsule*>(capsule), ##__VA_ARGS__);              \
   } else {                                                                                               \
     throw std::invalid_argument("Invalid capsule type.");                                                \
   }

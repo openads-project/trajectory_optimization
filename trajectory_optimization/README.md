@@ -1,81 +1,95 @@
-# trajectory_optimization
+# `trajectory_optimization`
 
-This package provides a ROS 2 node for solving the OCPs defined [here](../acados_ocp/). The OCP is based on [ACADOS](https://docs.acados.org/index.html) and is used for trajectory planning and optimization in the context of autonomous driving. This node provides the runtime integration of the OCP into ika's AD-Stack and acts as trajectory planner for the ego vehicle.
+Periodically solves a nonlinear OCP to generate optimized trajectories for automated driving.
 
-### Subscribed Topics
+## Nodes
 
-| Topic | Type | Description |
-| --- | --- | --- |
-| `~/ego_data` | `perception_msgs::msg::EgoData` | Contains the current state of the ego vehicle. |
-| `~/object_list` | `perception_msgs::msg::ObjectList` | Contains a list of detected objects. Used in OCP for collision avoidance. |
-| `~/reference_trajectory` | `trajectory_planning_msgs::msg::Trajectory` | Contains the reference trajectory, which the ego vehicle should follow. |
-| `~/route` | `route_planning_msgs::msg::Route` | Contains route and drivable space boundaries. (Currently unused in OCP) |
+### `trajectory_optimization_node`
 
-### Published Topics
-
-| Topic | Type | Description |
-| --- | --- | --- |
-| `~/trajectory` | `trajectory_planning_msgs::msg::Trajectory` | Contains the planned trajectory for the ego vehicle. Resluting from the OCP. |
-| `~/visualization/object_circles` | `visualization_msgs::msg::MarkerArray` | Contains RViz markers for direct visualization of the OCP inputs (objects). |
-
-### Parameters
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `vehicle_frame_id` | `std::string` | Frame ID of local vehicle frame (the ocp is defined in this frame). Default: `base_link` |
-| `trajectory_frame_id` | `std::string` | Frame ID of output trajectory. Default: `base_link` |
-| `fixed_over_time_frame_id` | `std::string` | Frame ID of frame that is fixed over time for finding temporal transforms. Default: `map` |
-| `model_name` | `std::string` | Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]. Default: `karl` |
-| `optimization_frequency` | `double` | Optimization Frequency in Hz. Default: `10.0` |
-| `n_shots` | `int` | Number of shooting intervals in optimization horizon. Default: `50` |
-| `optimization_horizon` | `double` | Optimization Horizon in seconds. Default: `1.0` |
-| `verbose` | `bool` | Print solver statistics. Default: `false` |
-| `debug_visualization` | `bool` | Publish debug visualization markers (e.g. obstacle circles). Default: `false` |
-| `cost_weights` | `std::vector<double>` | Cost function weights. Default: all elements `1.0` |
-| `dynamic_weight` | `double` | Dynamic weight alpha. Default: `1.0` |
-| `thw` | `double` | Time headway to front vehicle. Default: `2.0` |
-| `d_min_obstacle_long` | `double` | Minimum distance to keep to obstacle in longitudinal direction [m]. Default: `5.0` |
-| `d_min_obstacle_lat` | `double` | Minimum distance to keep to obstacle in lateral direction [m]. Default: `0.5` |
-| `standstill_threshold` | `double` | Threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory. Default: `0.45` |
-| `high_level_stabilization` | `bool` | Use high-level stabilization strategy for init state (= init with current EgoData). Default: `false` |
-| `use_prediction` | `bool` | Use obstacle predictions for optimization (True) or only static obstacles (False). Default: `false` |
-| `bi_level_dV` | `double` | Threshold for bi-level stabilization: maximum velocity difference [m/s]. Default: `5.0` |
-| `bi_level_dA` | `double` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]. Default: `2.0` |
-| `bi_level_dY` | `double` | Threshold for bi-level stabilization: maximum y-offset [m]. Default: `0.1` |
-| `bi_level_dYaw` | `double` | Threshold for bi-level stabilization: maximum yaw difference [degree]. Default: `5.0` |
-| `bi_level_dDelta` | `double` | Threshold for bi-level stabilization: maximum steering angle difference [degree]. Default: `90.0` |
-| `init_as_ref` | `bool` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions. Default: `false` |
-
-## Usage of docker-ros Images
-
-### Available Images
-
-| Tag | Description |
-| --- | --- |
-| `latest` | run image |
-| `slim` | minimal run image |
-| `latest-dev` | development image |
-
-### Default Command
-
-```bash
-ros2 launch trajectory_optimization trajectory_optimization_node.launch.py
+```mermaid
+flowchart LR
+    NODE("trajectory_optimization_node")
+    S0:::hidden -->|~/ego_data| NODE
+    S1:::hidden -->|~/object_list| NODE
+    S2:::hidden -->|~/route| NODE
+    S3:::hidden -->|~/reference_trajectory| NODE
+    NODE -->|~/trajectory| P0:::hidden
+    NODE -->|~/visualization/object_circles| P1:::hidden
+    NODE -->|~/visualization/ego_circles| P2:::hidden
+    NODE -->|~/visualization/boundaries| P3:::hidden
+    classDef hidden display: none;
 ```
 
-### Launch Files
+#### Subscribed Topics
 
-| Package | File | Path | Description |
+| Topic | Type | Description |
+| --- | --- | --- |
+| `~/ego_data` | `perception_msgs/msg/EgoData` | Current ego vehicle state used to initialize and time-stamp the optimization problem. |
+| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects, that are considered as obstacles in the OCP to avoid collisions. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
+| `~/route` | `route_planning_msgs/msg/Route` | Route and lane boundary information used to constrain the OCP. |
+| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run once for each received reference trajectory. |
+
+#### Published Topics
+
+| Topic | Type | Description |
+| --- | --- | --- |
+| `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
+| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the circular obstacle approximation used by the OCP. |
+| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego vehicle circle approximation used inside the OCP. |
+| `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `trajectory_optimization` | `trajectory_optimization_node.launch.py` | `/docker-ros/ws/install/trajectory_optimization/share/trajectory_optimization/launch/` | Default launch file for the trajectory optimization node. Remapping and other launch parameters can be set here. |
+| `vehicle_frame_id` | `string` | `"base_link"` | Frame ID of local vehicle frame (the ocp is defined in this frame) |
+| `trajectory_frame_id` | `string` | `"base_link"` | Frame ID of output trajectory |
+| `fixed_over_time_frame_id` | `string` | `"map"` | Frame ID of frame that is fixed over time for finding temporal transforms |
+| `ego_data_timeout` | `float` | `1.0` | Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid. |
+| `model_name` | `string` | `"karl"` | Name of the model to be used for trajectory optimization [karl, shuttle] |
+| `optimization_frequency` | `float` | `10.0` | Optimization Frequency in Hz |
+| `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
+| `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
+| `verbose` | `bool` | `false` | Print solver statistics |
+| `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
+| `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
+| `cost_weights` | `float[]` | `std::vector<double>(15, 1.0)` | Cost function weights |
+| `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
+| `thw` | `float` | `2.0` | Time headway to front vehicle |
+| `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
+| `d_min_obstacle_lat` | `float` | `0.5` | Minimum distance to keep to obstacle in lateral direction [m] |
+| `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
+| `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If all state velocities are below this |
+| `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
+| `add_x_init_to_ref` | `bool` | `false` | add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle |
+| `consider_objects` | `int` | `2` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
+| `consider_boundaries` | `int` | `1` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |
+| `bi_level_dV` | `float` | `5.0` | Threshold for bi-level stabilization: maximum velocity difference [m/s] |
+| `bi_level_dA` | `float` | `2.0` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2] |
+| `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
+| `bi_level_dYaw` | `float` | `5.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
+| `init_as_ref` | `bool` | `false` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions |
 
-### Configuration Files
+## Launch Files
 
-| Package | File | Path | Description |
-| --- | --- | --- | --- |
-| `trajectory_optimization` | `params.yml` | `install/trajectory_optimization/share/trajectory_optimization/config/` | Example configuration file for the trajectory optimization node (these are not the default parameters). |
+### [`trajectory_optimization.launch.py`](launch/trajectory_optimization.launch.py)
 
-### Usage of different models
+| Argument | Default | Description |
+| --- | --- | --- |
+| `ego_data_topic` | `"~/ego_data"` | Topic on which to subscribe EgoData |
+| `object_list_topic` | `"~/object_list"` | Topic on which to subscribe ObjectList |
+| `reference_trajectory_topic` | `"~/reference_trajectory"` | Topic on which to subscribe reference trajectory |
+| `route_topic` | `"~/route"` | Topic on which to subscribe route |
+| `trajectory_topic` | `"~/trajectory"` | Topic on which to publish optimized trajectory |
+| `boundary_marker_topic` | `"~/visualization/boundaries"` | Topic on which to publish boundary visualization markers |
+| `ego_circles_topic` | `"~/visualization/ego_circles"` | Topic on which to publish ego circle visualization markers |
+| `object_circles_topic` | `"~/visualization/object_circles"` | Topic on which to publish object circle visualization markers |
+| `name` | `executable_name` | node name |
+| `namespace` | `""` | node namespace |
+| `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |
+| `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
+| `use_sim_time` | `"false"` | use simulation clock |
+| `trace` | `"false"` | enable tracing |
+| `driving_mode` | `"ackermann"` | driving mode, which determines the model and cost function configuration used for optimization [ackermann, rws] |
 
-The [ocp_model_handler.hpp](./include/trajectory_optimization/ocp_model_handler.hpp) contains wrapper functions to handle different OCP models / parameterizations within this node (i.e. `karl` and `shuttle`). The `model_name` parameter can be used to switch between these models. In case of adding a new model, following steps are necessary:
-1. Add the new model / parameterization in the `acados_ocp` package, as described [here](../acados_ocp/README.md).
-2. Add the new model / parameterization in the [ocp_model_handler.hpp](./include/trajectory_optimization/ocp_model_handler.hpp#L28-L35) and extend the wrapper functions accordingly.
+### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)

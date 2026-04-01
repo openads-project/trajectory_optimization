@@ -1,3 +1,6 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include <Eigen/Dense>
@@ -55,18 +58,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
     PREDICTED_OBJECTS = 2
   };
 
-  // input topics
-  const std::string kEgoDataTopic = "~/ego_data";
-  const std::string kObjectListTopic = "~/object_list";
-  const std::string kReferenceTrajectoryTopic = "~/reference_trajectory";
-  const std::string kRouteTopic = "~/route";
-
-  // output topics
-  const std::string kTrajectoryTopic = "~/trajectory";
-  const std::string kObjectMarkerTopic = "~/visualization/object_circles";
-  const std::string kEgoMarkerTopic = "~/visualization/ego_circles";
-  const std::string kBoundaryMarkerTopic = "~/visualization/boundaries";
-
   template <typename T>
   void declareAndLoadParameter(const std::string &name,
                                T &param,
@@ -86,7 +77,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   void printSolution(int status);
-  void trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
+  bool trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory &trajectory);
 
   double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
   bool linearInterpolation(const std::vector<double> &X, const std::vector<double> &Y, const double &desired_x,
@@ -198,7 +189,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};   // nObstacleCircles x [x, y, radius]
 
   // ocp variables
-  ocp_model_capsule_t acados_ocp_capsule_;
+  ocp_model_capsule_t ocp_capsule_;
   ocp_nlp_config *nlp_config_;
   ocp_nlp_dims *nlp_dims_;
   ocp_nlp_in *nlp_in_;

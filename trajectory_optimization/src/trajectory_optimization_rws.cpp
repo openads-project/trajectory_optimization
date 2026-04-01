@@ -1,3 +1,6 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
+
 #include <limits>
 
 #include <trajectory_optimization/trajectory_optimization_rws.hpp>

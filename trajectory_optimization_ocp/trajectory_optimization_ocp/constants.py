@@ -1,0 +1,33 @@
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
+# state vector indices
+STATE_INDEX_X = 0
+STATE_INDEX_Y = 1
+STATE_INDEX_S = 2
+STATE_INDEX_V_T = 3
+STATE_INDEX_A_T = 4
+STATE_INDEX_PSI = 5
+STATE_INDEX_DELTA_F = 6
+STATE_INDEX_DELTA_R = 7
+
+# state vector indices
+CONTROL_INDEX_J_T = 0
+CONTROL_INDEX_ALPHA_F = 1
+CONTROL_INDEX_ALPHA_R = 2
+
+# reference path indices
+P_REF_PATH_INDEX_PSI = 0
+P_REF_PATH_INDEX_X = 1
+P_REF_PATH_INDEX_Y = 2
+P_REF_PATH_INDEX_V = 3
+P_REF_PATH_INDEX_D_BOUND_LEFT = 4
+P_REF_PATH_INDEX_D_BOUND_RIGHT = 5
+
+# obstacle indices
+P_OBSTACLES_INDEX_X = 0
+P_OBSTACLES_INDEX_Y = 1
+P_OBSTACLES_INDEX_RADIUS = 2
+
+# fixed cost parameters
+V_SCALE_MIN = 2.778

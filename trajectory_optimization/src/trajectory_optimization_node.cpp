@@ -1,3 +1,6 @@
+// Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+// SPDX-License-Identifier: Apache-2.0
+
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -25,7 +28,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Frame ID of frame that is fixed over time for finding temporal transforms");
   this->declareAndLoadParameter("ego_data_timeout", ego_data_timeout_,
                                 "Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.");
-  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle, shuttle_ackermann, taxi]");
+  this->declareAndLoadParameter("model_name", model_name_, "Name of the model to be used for trajectory optimization [karl, shuttle]");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
@@ -195,30 +198,30 @@ void TrajectoryOptimizationNode::setup() {
 
   // set up subscriber for input topics
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
-      kEgoDataTopic, 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
-      kObjectListTopic, 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
-      kRouteTopic, 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
-      kReferenceTrajectoryTopic, 1,
+      "~/reference_trajectory", 1,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topics
-  trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>(kTrajectoryTopic, 1);
+  trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/trajectory", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
-  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kObjectMarkerTopic, 1);
+  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/object_circles", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
-  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kEgoMarkerTopic, 1);
+  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/ego_circles", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", ego_circles_pub_->get_topic_name());
-  boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kBoundaryMarkerTopic, 1);
+  boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/boundaries", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", boundary_pub_->get_topic_name());
 
   // create timer for planning cycle
@@ -257,30 +260,29 @@ void TrajectoryOptimizationNode::setup() {
 
 void TrajectoryOptimizationNode::setupSolver() {
   // setup acados solver
-  acados_ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
-  int status = trajectory_optimization::acados_create(acados_ocp_capsule_);
-  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
-
-  // allocate the array and fill it accordingly
-  double* new_time_steps = NULL;
-  if (n_shots_ != nlp_dims_->N) {
-    new_time_steps = new double(optimization_horizon_ / n_shots_);
-    RCLCPP_INFO(this->get_logger(), "new_time_steps = %f", *new_time_steps);
-    status = trajectory_optimization::acados_create_with_discretization(acados_ocp_capsule_, n_shots_, new_time_steps);
+  ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  int status = trajectory_optimization::acados_create(ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(ocp_capsule_);
+  if (n_shots_ <= 0) {
+    RCLCPP_FATAL(this->get_logger(), "n_shots must be > 0, got %d", n_shots_);
+    exit(1);
+  } else if (n_shots_ != nlp_dims_->N) {
+    std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
+    RCLCPP_INFO(this->get_logger(), "Recreate OCP with: horizon = %f, n_shots = %d, dt = %f", optimization_horizon_, n_shots_, new_time_steps.front());
+    status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
   }
-  delete[] new_time_steps;
 
   if (status) {
-    RCLCPP_INFO(this->get_logger(), "%s_acados_create() returned status %d. Exiting.", model_name_.c_str(), status);
+    RCLCPP_INFO(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(), status);
     exit(1);
   }
 
-  nlp_config_ = trajectory_optimization::acados_get_nlp_config(acados_ocp_capsule_);
-  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(acados_ocp_capsule_);
-  nlp_in_ = trajectory_optimization::acados_get_nlp_in(acados_ocp_capsule_);
-  nlp_out_ = trajectory_optimization::acados_get_nlp_out(acados_ocp_capsule_);
-  nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(acados_ocp_capsule_);
-  nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(acados_ocp_capsule_);
+  nlp_config_ = trajectory_optimization::acados_get_nlp_config(ocp_capsule_);
+  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(ocp_capsule_);
+  nlp_in_ = trajectory_optimization::acados_get_nlp_in(ocp_capsule_);
+  nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
+  nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
+  nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
 
   // initialization of state and control values; set all to zero
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -312,12 +314,12 @@ void TrajectoryOptimizationNode::freeSolver() {
 
   int status;
   // free solver
-  status = trajectory_optimization::acados_free(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status) {
     printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
   }
   // free solver capsule
-  status = trajectory_optimization::acados_free_capsule(acados_ocp_capsule_);
+  status = trajectory_optimization::acados_free_capsule(ocp_capsule_);
   if (status) {
     printf("%s_acados_free_capsule() returned status %d. \n", model_name_.c_str(), status);
   }
@@ -360,7 +362,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (trajectory_planning_msgs::trajectory_access::getStandstill(reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
     // transform trajectory to output frame
-    trajectory2outputFrame(*trajectory);
+    if (!trajectory2outputFrame(*trajectory)) {
+      return;
+    }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
     resetSolver();
@@ -393,7 +397,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // solve the optimization problem
-  int status = trajectory_optimization::acados_solve(acados_ocp_capsule_);
+  int status = trajectory_optimization::acados_solve(ocp_capsule_);
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ++ii)
@@ -426,7 +430,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // transform trajectory to output frame
-  trajectory2outputFrame(*trajectory);
+  if (!trajectory2outputFrame(*trajectory)) {
+    return;
+  }
 
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
@@ -546,7 +552,7 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
       RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(), nlp_dims_->np_global);
       throw std::runtime_error("Size of global parameters does not match expected size.");
     }
-    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(acados_ocp_capsule_, global_params.data(), global_params.size());
+    trajectory_optimization::acados_set_p_global_and_precompute_dependencies(ocp_capsule_, global_params.data(), global_params.size());
     const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
     RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
@@ -566,7 +572,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
+    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
     floating_dynamic_weight *= dynamic_weight_;
 
     // obstacles
@@ -630,7 +636,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(acados_ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
   }
   const auto elapsed_ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
