@@ -31,7 +31,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "be run if ego data is invalid.");
   this->declareAndLoadParameter("model_name", model_name_,
                                 "Name of the model to be used for trajectory optimization [karl, shuttle]");
-  this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization Frequency in Hz");
+  this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
