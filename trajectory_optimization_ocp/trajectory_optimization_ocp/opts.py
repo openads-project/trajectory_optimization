@@ -5,7 +5,12 @@ from acados_template import AcadosOcpOptions
 
 
 def set_opts(ocp, config):
+    """Set ACADOS OCP solver options based on configuration.
 
+    Args:
+        ocp: ACADOS OCP object to configure.
+        config: Configuration dictionary containing optimization settings.
+    """
     opts = AcadosOcpOptions()
 
     # set options

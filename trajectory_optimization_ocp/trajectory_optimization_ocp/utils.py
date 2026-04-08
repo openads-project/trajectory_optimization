@@ -1,7 +1,7 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from casadi import fmax, fmin, tan
+import casadi as ca
 from acados_template import AcadosOcp
 from constants import (
     P_REF_PATH_INDEX_D_BOUND_LEFT,
@@ -14,19 +14,35 @@ from constants import (
     STATE_INDEX_X,
     STATE_INDEX_Y,
 )
-import casadi as ca
 
 
 def stable_tan(rad):
+    """Computes the tangent function with numerical stability bounds.
+
+    Args:
+        rad: The input angle in radians.
+
+    Returns:
+        The tangent value clamped to the range [-100, 100].
+    """
     # for numerical stability of the tangent function
-    return fmax(-100, fmin(100, tan(rad)))
+    return ca.fmax(-100, ca.fmin(100, ca.tan(rad)))
 
 
 def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, x_position: ca.MX, y_position: ca.MX) -> ca.MX:
-    """
-    Determines the spacially matched reference path point for the current state.
+    """Determines the spatially matched reference path point for a given position (current state).
+
     This is done by calculating the closest point on the reference path to the current state.
     The reference path is given as a parameter p_ref_path.
+
+    Args:
+        config: Configuration dictionary containing p_ref_path_shape.
+        p_ref_path: Reference path containing psi, x, y, v, and boundary values.
+        x_position: X-coordinate of the current position.
+        y_position: Y-coordinate of the current position.
+
+    Returns:
+        A dictionary with interpolated reference path point containing psi, x, y, v, and boundary values.
     """
     ref_path_state_dim = config["p_ref_path_shape"][1]
     # p_ref_path shuold be sortet like this: (psi1, x1, y1, v1, psi2, x2, y2, v2, ...)
@@ -125,6 +141,15 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
 
 
 def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
+    """Approximates the ego vehicle geometry as a set of circles.
+
+    Args:
+        ocp: The ACADOS OCP object containing the vehicle model.
+        config: Configuration dictionary with parameters like length, width, n_ego_circles, and offset2geocenter.
+
+    Returns:
+        A dictionary containing circle positions (x, y), offsets (x_offset, y_offset), and radius.
+    """
     # rectangular ego-vehicle approximation with n_circles circles
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
@@ -164,7 +189,5 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
 
 
 def wrap_angle(angle: ca.MX) -> ca.MX:
-    """
-    Wraps an angle to the interval [-pi, pi]
-    """
+    """Wraps an angle to the interval [-pi, pi]."""
     return angle - 2 * ca.pi * ca.floor((angle + ca.pi) / (2 * ca.pi))

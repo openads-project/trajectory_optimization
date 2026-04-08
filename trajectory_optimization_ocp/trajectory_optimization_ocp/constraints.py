@@ -1,9 +1,9 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
-from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry
+import numpy as np
+from acados_template import AcadosOcp, AcadosOcpConstraints
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
@@ -19,7 +19,7 @@ from constants import (
     STATE_INDEX_X,
     STATE_INDEX_Y,
 )
-import numpy as np
+from utils import approximate_ego_geometry, determine_spacially_matched_ref_path_point, stable_tan
 
 
 def _expand_slack_weights(values, count, name):
@@ -32,7 +32,12 @@ def _expand_slack_weights(values, count, name):
 
 
 def set_constraints(ocp: AcadosOcp, config):
+    """Set up constraints for the optimal control problem.
 
+    Args:
+        ocp: The AcadosOcp object to configure constraints for.
+        config: Configuration dictionary containing constraint parameters.
+    """
     cons = AcadosOcpConstraints()
 
     # === Static constraints on state ===
@@ -315,12 +320,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
 
 def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector)
-    Ackermann:
-    beta = 0.0
-    RWS:
-    beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
+    """Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector).
+
+    Ackermann: beta = 0.0
+    RWS: beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
     """
     if config["model_type"] == "Ackermann":
         return 0.0

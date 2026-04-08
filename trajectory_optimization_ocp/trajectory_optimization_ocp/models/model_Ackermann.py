@@ -3,6 +3,7 @@
 
 import numpy as np
 from acados_template import AcadosModel
+from casadi import cos, MX, sin, vertcat
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_J_T,
@@ -11,14 +12,15 @@ from constants import (
     STATE_INDEX_PSI,
     STATE_INDEX_V_T,
 )
-from casadi import MX, vertcat, sin, cos
 from utils import stable_tan
 
 
 def set_model(ocp, config):
-    """
-    Set up kinematic bicycle model with Ackermann steering
-    referenced at the center of the rear axle
+    """Set up kinematic bicycle model with Ackermann steering, referenced at the center of the rear axle.
+
+    Args:
+        ocp: The optimal control problem instance to configure.
+        config: Configuration dictionary containing model parameters and shapes.
     """
     model = AcadosModel()
 

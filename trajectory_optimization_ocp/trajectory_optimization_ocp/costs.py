@@ -1,8 +1,9 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
+import casadi as ca
 import numpy as np
-from acados_template import AcadosOcpCost, AcadosOcp
+from acados_template import AcadosOcp, AcadosOcpCost
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
@@ -16,12 +17,21 @@ from constants import (
     STATE_INDEX_Y,
     V_SCALE_MIN,
 )
-import casadi as ca
-from utils import stable_tan, determine_spacially_matched_ref_path_point, wrap_angle
+from utils import determine_spacially_matched_ref_path_point, stable_tan, wrap_angle
 
 
 def set_costs(ocp: AcadosOcp, config):
+    """Set up cost functions for the optimal control problem.
 
+    Combines multiple seperate defined cost terms into a single external cost function for the initial,
+    intermediate and terminal shooting nodes. The cost terms include reference path tracking costs,
+    acceleration costs and control variable costs. The cost function is defined as a weighted sum of the individual cost terms,
+    where the weights are defined as parameters that can be modified at runtime.
+
+    Args:
+        ocp: The Acados OCP object to configure.
+        config: Configuration dictionary containing cost parameters and model settings.
+    """
     # set up as external cost function
     cost = AcadosOcpCost()
     cost.cost_type = "EXTERNAL"
@@ -110,6 +120,17 @@ def set_costs(ocp: AcadosOcp, config):
 
 
 def calc_ref_path_cost(ocp: AcadosOcp, config: dict, ref_inter: dict) -> dict:
+    """Compute normalized reference-tracking cost terms.
+
+    Args:
+        ocp: Configured OCP object containing symbolic state variables.
+        config: Configuration dictionary with normalization constants.
+        ref_inter: Interpolated reference state at the current position.
+
+    Returns:
+        Dictionary with normalized terms for lateral error, yaw error, and
+        intermediate velocity error.
+    """
 
     # lateral deviation term
     dlat = ca.sqrt(
@@ -133,6 +154,18 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, ref_inter: dict) -> dict:
 
 
 def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
+    """Compute normalized control-related cost terms.
+
+    Includes positive/negative tangential jerk, nominal lateral jerk, and
+    steering-rate penalties (front and rear for RWS).
+
+    Args:
+        ocp: Configured OCP object containing symbolic state/control variables.
+        config: Configuration dictionary with model type and scaling constants.
+
+    Returns:
+        Dictionary with normalized control cost terms.
+    """
     j_t_pos = ca.fmax(0, ocp.model.u[CONTROL_INDEX_J_T])
     j_t_pos_term = ca.power(j_t_pos, 2) / ca.power(config["c_j_t"], 2)
     j_t_neg = ca.fmin(0, ocp.model.u[CONTROL_INDEX_J_T])
@@ -159,6 +192,18 @@ def calc_control_cost(ocp: AcadosOcp, config: dict) -> dict:
 
 
 def calc_acceleration_cost(ocp: AcadosOcp, config: dict) -> dict:
+    """Compute normalized acceleration-related cost terms.
+
+    Includes positive/negative tangential acceleration and nominal lateral
+    acceleration derived from yaw rate and speed.
+
+    Args:
+        ocp: Configured OCP object containing symbolic state variables.
+        config: Configuration dictionary with model type and scaling constants.
+
+    Returns:
+        Dictionary with normalized acceleration cost terms.
+    """
 
     # tangential acceleration is given as state variable
     a_t_pos = ca.fmax(0, ocp.model.x[STATE_INDEX_A_T])
@@ -179,12 +224,10 @@ def calc_acceleration_cost(ocp: AcadosOcp, config: dict) -> dict:
 
 
 def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector)
-    Ackermann:
-    beta = 0.0
-    RWS:
-    beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
+    """Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector).
+
+    Ackermann: beta = 0.0
+    RWS: beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
     """
     if config["model_type"] == "Ackermann":
         return 0.0
@@ -199,13 +242,14 @@ def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
 
 
 def compute_alpha_r_cost_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
+    """Compute normalized rear steering-rate penalty term for RWS."""
     alpha_r_term = ca.power(ocp.model.u[CONTROL_INDEX_ALPHA_R], 2) / ca.power(config["c_alpha"], 2)
     return alpha_r_term
 
 
 def compute_psi_dot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the yaw rate for for a vehicle with RWS:
+    """Computes the yaw rate for for a vehicle with RWS.
+
     psi_dot = v_t * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r)
     """
     L_f = config["distance_cg_front_axle"]
@@ -221,8 +265,8 @@ def compute_psi_dot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
 
 
 def compute_psi_dot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the yaw rate for a vehicle with Ackermann steering
+    """Computes the yaw rate for a vehicle with Ackermann steering.
+
     psi_dot = v_t / L * tan(delta)
     """
     L = config["wheelbase"]
@@ -232,8 +276,8 @@ def compute_psi_dot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
 
 
 def compute_psi_ddot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the second derivative of yaw angle (yaw acceleration) for RWS:
+    """Computes the second derivative of yaw angle (yaw acceleration) for RWS.
+
     ψ̈ = (∂ψ̇/∂v) * ∂v/∂t + (∂ψ̇/∂β) * (∂β/∂t) + (∂ψ̇/∂δ_f) * (∂δ_f/∂t) + (∂ψ̇/∂δ_r) * (∂δ_r/∂t)
     """
     L_f = config["distance_cg_front_axle"]
@@ -293,8 +337,8 @@ def compute_psi_ddot_RWS(ocp: AcadosOcp, config: dict) -> ca.MX:
 
 
 def compute_psi_ddot_Ack(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the second derivative of yaw angle (yaw acceleration) for Ackermann steering:
+    """Computes the second derivative of yaw angle (yaw acceleration) for Ackermann steering:
+
     ψ̈ = (∂ψ̇/∂v) * ∂v/∂t + (∂ψ̇/∂δ_f) * (∂δ_f/∂t)
     """
     L = config["wheelbase"]

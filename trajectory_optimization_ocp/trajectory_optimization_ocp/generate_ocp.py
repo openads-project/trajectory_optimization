@@ -5,8 +5,8 @@ import argparse
 import importlib
 import os
 import sys
-import yaml
 
+import yaml
 from acados_template import AcadosOcp, AcadosOcpSolver, builders
 
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +24,11 @@ opts = importlib.import_module("opts")
 
 
 def parseArguments() -> argparse.Namespace:
+    """Parse command line arguments.
+
+    Returns:
+        argparse.Namespace: Parsed command line arguments.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="configuration file (.yml)", type=str, required=False, default="params.yml")
     args = parser.parse_args()
@@ -31,12 +36,21 @@ def parseArguments() -> argparse.Namespace:
 
 
 def readConfig(config):
+    """Read configuration from a YAML file.
+
+    Args:
+        config: Path to the configuration file.
+
+    Returns:
+        dict: Parsed configuration parameters.
+    """
     with open(os.path.join(CURRENT_DIR_PATH, config)) as configFile:
         params = yaml.load(configFile, yaml.FullLoader)
     return params
 
 
 def main():
+    """Generate and build the optimal control problem (OCP) based on configuration."""
     args = parseArguments()
     parameters = readConfig(args.config)
 
