@@ -11,8 +11,6 @@ class TrajectoryOptimizationAckermannNode : public TrajectoryOptimizationNode {
  public:
   explicit TrajectoryOptimizationAckermannNode(const rclcpp::NodeOptions& options);
 
-  ~TrajectoryOptimizationAckermannNode();
-
  private:
   // init trajectory with correct type
   void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) override;

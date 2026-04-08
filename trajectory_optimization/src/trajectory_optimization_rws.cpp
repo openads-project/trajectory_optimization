@@ -20,8 +20,6 @@ TrajectoryOptimizationRWSNode::TrajectoryOptimizationRWSNode(const rclcpp::NodeO
                                 "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
 }
 
-TrajectoryOptimizationRWSNode::~TrajectoryOptimizationRWSNode() = default;
-
 void TrajectoryOptimizationRWSNode::initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       trajectory, trajectory_planning_msgs::msg::DRIVABLERWS::TYPE_ID, n_shots_ + 1);
@@ -62,18 +60,21 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
   }
 
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
-  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_front_tgt, delta_rear_tgt;
+  double v_tgt = 0.0, a_tgt = 0.0, y_tgt = 0.0, theta_tgt = 0.0, delta_front_tgt = 0.0, delta_rear_tgt = 0.0;
   double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(tf_trajectory.header.stamp)).seconds();
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelocityMagnitude(ego_data);
-  if (!linearInterpolation(TIME, A, des_time, a_tgt))
+  if (!linearInterpolation(TIME, A, des_time, a_tgt)) {
     a_tgt = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
                               perception_msgs::object_access::getVelocity(ego_data));
-  if (!linearInterpolation(TIME, DELTA_FRONT, des_time, delta_front_tgt))
+  }
+  if (!linearInterpolation(TIME, DELTA_FRONT, des_time, delta_front_tgt)) {
     delta_front_tgt = perception_msgs::object_access::getSteeringAngleFront(ego_data);
-  if (!linearInterpolation(TIME, DELTA_REAR, des_time, delta_rear_tgt))
+  }
+  if (!linearInterpolation(TIME, DELTA_REAR, des_time, delta_rear_tgt)) {
     delta_rear_tgt = perception_msgs::object_access::getSteeringAngleRear(ego_data);
+  }
 
   RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_front_tgt: %f, delta_rear_tgt: %f",
                y_tgt, v_tgt, a_tgt, theta_tgt, delta_front_tgt, delta_rear_tgt);

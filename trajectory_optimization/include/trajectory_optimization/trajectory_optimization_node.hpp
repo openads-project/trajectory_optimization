@@ -44,7 +44,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
  public:
   explicit TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions& options);
 
-  ~TrajectoryOptimizationNode();
+  ~TrajectoryOptimizationNode() override;
+  TrajectoryOptimizationNode(const TrajectoryOptimizationNode&) = delete;
+  TrajectoryOptimizationNode& operator=(const TrajectoryOptimizationNode&) = delete;
+  TrajectoryOptimizationNode(TrajectoryOptimizationNode&&) = delete;
+  TrajectoryOptimizationNode& operator=(TrajectoryOptimizationNode&&) = delete;
 
  protected:
   enum CONSIDER_BOUNDARIES { NO_BOUNDS = 0, SUGGESTED_LANE = 1, INCLUDING_ADJACENT = 2, DRIVABLE_SPACE = 3 };

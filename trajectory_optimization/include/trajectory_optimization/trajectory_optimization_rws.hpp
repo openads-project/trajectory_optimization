@@ -11,8 +11,6 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
  public:
   explicit TrajectoryOptimizationRWSNode(const rclcpp::NodeOptions& options);
 
-  ~TrajectoryOptimizationRWSNode();
-
  private:
   // init trajectory with correct type
   void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) override;

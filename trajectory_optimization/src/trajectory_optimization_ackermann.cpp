@@ -15,8 +15,6 @@ TrajectoryOptimizationAckermannNode::TrajectoryOptimizationAckermannNode(const r
                                 "Threshold for bi-level stabilization: maximum ackermann steering angle difference [degree]");
 }
 
-TrajectoryOptimizationAckermannNode::~TrajectoryOptimizationAckermannNode() = default;
-
 void TrajectoryOptimizationAckermannNode::initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID,
                                                                     n_shots_ + 1);
@@ -56,14 +54,15 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
   }
 
   // interpolate target states by time from the extracted vectors; if not successful, set to ego state (high-level initialization)
-  double v_tgt, y_tgt, a_tgt, theta_tgt, delta_tgt;
+  double v_tgt = 0.0, a_tgt = 0.0, y_tgt = 0.0, theta_tgt = 0.0, delta_tgt = 0.0;
   double des_time = (rclcpp::Time(ego_data.header.stamp) - rclcpp::Time(tf_trajectory.header.stamp)).seconds();
   if (!linearInterpolation(TIME, Y, des_time, y_tgt)) y_tgt = 0.0;
   if (!linearInterpolation(TIME, V, des_time, v_tgt)) v_tgt = perception_msgs::object_access::getVelLon(ego_data);
   if (!linearInterpolation(TIME, A, des_time, a_tgt)) a_tgt = perception_msgs::object_access::getAccLon(ego_data);
   if (!linearInterpolation(TIME, THETA, des_time, theta_tgt, true)) theta_tgt = 0.0;
-  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt))
+  if (!linearInterpolation(TIME, DELTA, des_time, delta_tgt)) {
     delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+  }
 
   RCLCPP_DEBUG(this->get_logger(), "y_tgt: %f, v_tgt: %f, a_tgt: %f, theta_tgt: %f, delta_tgt: %f", y_tgt, v_tgt, a_tgt,
                theta_tgt, delta_tgt);

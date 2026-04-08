@@ -320,9 +320,8 @@ void TrajectoryOptimizationNode::freeSolver() {
   delete[] xtraj_;
   delete[] utraj_;
 
-  int status;
   // free solver
-  status = trajectory_optimization::acados_free(ocp_capsule_);
+  int status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status) {
     printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
   }
@@ -407,10 +406,12 @@ void TrajectoryOptimizationNode::planningCycle() {
   int status = trajectory_optimization::acados_solve(ocp_capsule_);
 
   // get solution
-  for (int ii = 0; ii <= nlp_dims_->N; ++ii)
+  for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
-  for (int ii = 0; ii < nlp_dims_->N; ++ii)
+  }
+  for (int ii = 0; ii < nlp_dims_->N; ++ii) {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
+  }
 
   printSolution(status);
   if (debug_viz_) {
@@ -573,11 +574,9 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
   for (int i = 0; i <= n_shots_; ++i) {
-    int idx, n;
-
     // dynamic weight
-    idx = 0;
-    n = 1;
+    int idx = 0;
+    int n = 1;
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
@@ -590,7 +589,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
-      double x_tgt, y_tgt, yaw_tgt;
+      double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
       std::vector<double> TIME, X, Y, YAW;
       // TODO: should not be done for each shooting interval. Could be improved.
       TIME.push_back(rclcpp::Time(object_list.header.stamp).nanoseconds() / 1e9);
@@ -627,14 +626,14 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                                perception_msgs::object_access::getWidth(object_list.objects[j]));
 
       circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
-      if (circles.size() >= (size_t)n) {
+      if (circles.size() >= static_cast<size_t>(n)) {
         circles.resize(n);
         break;
       }
     }
     // fill up with dummy "ghost" obstacle circles at (10000, 10000) to avoid NaNs in the optimization problem
     // TODO: improve this
-    while (circles.size() < (size_t)n) {
+    while (circles.size() < static_cast<size_t>(n)) {
       std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
       circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());
     }

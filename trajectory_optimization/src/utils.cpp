@@ -65,7 +65,7 @@ bool TrajectoryOptimizationNode::linearInterpolation(
   }
 
   //go through array and search for sampling points
-  size_t i;
+  size_t i = 0;
   for (i = 0; i < X.size(); i++) {
     if (X[i] < desired_x) {
       continue;
@@ -138,8 +138,8 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
   std::vector<perception_msgs::msg::Object> closest_objects;
   const int n_objects_to_keep = std::min<size_t>(n_objects, indices_sorted_by_distance.size());
   int i = 0;
-  while (closest_objects.size() < (size_t)n_objects_to_keep) {
-    if ((size_t)i >= indices_sorted_by_distance.size()) break;
+  while (closest_objects.size() < static_cast<size_t>(n_objects_to_keep)) {
+    if (static_cast<size_t>(i) >= indices_sorted_by_distance.size()) break;
     // ignore object with negative x-coordinate (behind the ego vehicle)
     if (perception_msgs::object_access::getX(object_list.objects[indices_sorted_by_distance[i]]) > 0.0) {
       closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
@@ -156,18 +156,19 @@ std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(
     RCLCPP_WARN(get_logger(), "Invalid bounding box dimensions: length = %f, width = %f. Setting n_circles = 1.", length, width);
   } else {
     double aspect_ratio = length / width;
-    if (aspect_ratio > 8.0)
+    if (aspect_ratio > 8.0) {
       n_circles = 9;
-    else if (aspect_ratio > 6.0)
+    } else if (aspect_ratio > 6.0) {
       n_circles = 7;
-    else if (aspect_ratio > 4.0)
+    } else if (aspect_ratio > 4.0) {
       n_circles = 5;
-    else if (aspect_ratio > 1.8)
+    } else if (aspect_ratio > 1.8) {
       n_circles = 3;
-    else if (aspect_ratio > 1.3)
+    } else if (aspect_ratio > 1.3) {
       n_circles = 2;
-    else
+    } else {
       n_circles = 1;
+    }
   }
 
   double radius = std::sqrt(std::pow(length / (2 * n_circles), 2) + std::pow(width / 2.0, 2));
