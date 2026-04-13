@@ -9,17 +9,42 @@ namespace trajectory_optimization {
 
 class TrajectoryOptimizationAckermannNode : public TrajectoryOptimizationNode {
  public:
+  /**
+   * @brief Initializes the optimization node for a kinematic bicycle model with Ackermann steering.
+   *
+   * @param[in] options ROS node options used for construction.
+   */
   explicit TrajectoryOptimizationAckermannNode(const rclcpp::NodeOptions& options);
 
  private:
-  // init trajectory with correct type
+  /**
+   * @brief Initializes a drivable trajectory message for a kinematic bicycle model with Ackermann steering.
+   *
+   * @param[out] trajectory Trajectory message to initialize.
+   */
   void initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
 
-  // stabilization strageties
+  /**
+   * @brief Computes the initial optimizer state using bi-level stabilizaion.
+   *
+   * @param[in] ego_data Current EgoData based on the kinematic bicycle model with Ackermann steering.
+   * @return Initial state vector for the Ackermann model.
+   */
   std::vector<double> getBiLevelX0(const perception_msgs::msg::EgoData& ego_data) override;
+
+  /**
+   * @brief Computes the initial optimizer state using high-level stabilization.
+   *
+   * @param[in] ego_data Current EgoData based on the kinematic bicycle model with Ackermann steering.
+   * @return Initial state vector for the Ackermann model.
+   */
   std::vector<double> getHighLevelX0(const perception_msgs::msg::EgoData& ego_data) override;
 
-  // convert to trajectory msg
+  /**
+   * @brief Maps the optimized state trajectory into a trajectory message for a kinematic bicycle model with Ackermann steering.
+   *
+   * @param[in,out] trajectory Trajectory message to populate.
+   */
   void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
 
   // parameters

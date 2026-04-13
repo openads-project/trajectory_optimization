@@ -18,6 +18,13 @@ namespace trajectory_optimization {
 
 typedef std::variant<karl_solver_capsule*, shuttle_solver_capsule*> ocp_model_capsule_t;
 
+/**
+ * @brief Creates the model-specific acados capsule selected by the configured model name.
+ *
+ * @param[in] model_name Name of the generated acados model.
+ * @return Variant containing the concrete acados capsule pointer.
+ * @throws std::invalid_argument If no generated model matches the given name.
+ */
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "karl") {
     return karl_acados_create_capsule();
@@ -37,38 +44,129 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
     throw std::invalid_argument("Invalid capsule type.");                                      \
   }
 
+/**
+ * @brief Wrapper around the generated acados create function for the selected model.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_create(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_create); }
 
+/**
+ * @brief Wrapper around the generated acados create function with custom discretization.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @param[in] n_time_steps Number of shooting intervals.
+ * @param[in] new_time_steps Time-step array passed through to acados.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_create_with_discretization(ocp_model_capsule_t capsule, int n_time_steps, double* new_time_steps) {
   ACADOS_DISPATCH(acados_create_with_discretization, n_time_steps, new_time_steps);
 }
 
+/**
+ * @brief Wrapper around the generated acados capsule cleanup function.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_free_capsule(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_free_capsule); }
 
+/**
+ * @brief Wrapper around the generated acados solver cleanup function.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_free(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_free); }
 
+/**
+ * @brief Wrapper around the generated acados solve function.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_solve(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_solve); }
 
+/**
+ * @brief Wrapper around the generated sparse parameter update function.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @param[in] stage Shooting stage to update.
+ * @param[in] idx Indices of the parameters to overwrite.
+ * @param[in] p Parameter values written to the selected indices.
+ * @param[in] n_update Number of updated parameter entries.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_update_params_sparse(ocp_model_capsule_t capsule, int stage, int* idx, double* p, int n_update) {
   ACADOS_DISPATCH(acados_update_params_sparse, stage, idx, p, n_update);
 }
 
+/**
+ * @brief Wrapper around the generated global-parameter update function.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @param[in] data Global parameter buffer.
+ * @param[in] data_len Number of entries in `data`.
+ * @return Status code returned by the generated acados function.
+ */
 inline int acados_set_p_global_and_precompute_dependencies(ocp_model_capsule_t capsule, double* data, int data_len) {
   ACADOS_DISPATCH(acados_set_p_global_and_precompute_dependencies, data, data_len);
 }
 
+/**
+ * @brief Wrapper around the generated acados statistics printer.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ */
 inline void acados_print_stats(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_print_stats); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP input structure.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific `ocp_nlp_in`.
+ */
 inline ocp_nlp_in* acados_get_nlp_in(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_in); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP output structure.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific `ocp_nlp_out`.
+ */
 inline ocp_nlp_out* acados_get_nlp_out(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_out); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP solver instance.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific `ocp_nlp_solver`.
+ */
 inline ocp_nlp_solver* acados_get_nlp_solver(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_solver); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP configuration.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific `ocp_nlp_config`.
+ */
 inline ocp_nlp_config* acados_get_nlp_config(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_config); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP solver options.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific options object.
+ */
 inline void* acados_get_nlp_opts(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_opts); }
 
+/**
+ * @brief Wrapper around the generated accessor for the OCP dimensions.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @return Pointer to the model-specific `ocp_nlp_dims`.
+ */
 inline ocp_nlp_dims* acados_get_nlp_dims(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_dims); }
 
 }  // namespace trajectory_optimization

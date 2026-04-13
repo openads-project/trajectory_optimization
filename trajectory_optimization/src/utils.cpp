@@ -10,14 +10,6 @@
 
 namespace trajectory_optimization {
 
-/**
- * Wraps an angle in radians within a specified range.
- *
- * @param angle_rad The angle in radians to be wrapped.
- * @param min_val The minimum value of the range (default: -M_PI).
- * @param max_val The maximum value of the range (default: M_PI).
- * @return The wrapped angle within the specified range.
- */
 double TrajectoryOptimizationNode::wrap_angle_rad(double angle_rad, double min_val, double max_val) {
   double capped_angle_rad = angle_rad;
   while (capped_angle_rad > max_val) capped_angle_rad -= 2 * M_PI;
@@ -25,19 +17,6 @@ double TrajectoryOptimizationNode::wrap_angle_rad(double angle_rad, double min_v
   return capped_angle_rad;
 }
 
-/**
- * @brief Performs linear interpolation to find the corresponding y-value for a given x-value.
- *
- * This function takes two vectors, X and Y, representing the x and y values of a dataset, and a desired x-value.
- * It performs linear interpolation to find the corresponding y-value for the desired x-value.
- *
- * @param X The vector of x-values.
- * @param Y The vector of y-values.
- * @param desired_x The desired x-value.
- * @param output_y The output variable to store the interpolated y-value.
- * @param wrap_angle If true (relevant if Y is an angle list), angle differences are wrapped to [-pi, pi] (default: false).
- * @return True if the interpolation is successful, false otherwise.
- */
 bool TrajectoryOptimizationNode::linearInterpolation(
     const std::vector<double>& X, const std::vector<double>& Y, const double& desired_x, double& output_y, bool wrap_angle) {
   if (desired_x == X.front()) {
@@ -88,14 +67,6 @@ bool TrajectoryOptimizationNode::linearInterpolation(
   return true;
 }
 
-/**
- * @brief Converts a trajectory from the vehicle frame to the output frame.
- *
- * This function converts a trajectory from the vehicle frame to the output frame using the tf2 library.
- *
- * @param trajectory The trajectory to be converted.
- * @return True if conversion succeeded or was not needed, false if conversion failed.
- */
 bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   if (trajectory_frame_id_ != vehicle_frame_id_) {
     trajectory_planning_msgs::msg::Trajectory tf_trajectory;
@@ -111,15 +82,6 @@ bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
   return true;
 }
 
-/**
- * @brief Keeps the N closest objects from the given object list (relative to the header frame).
- * 
- * This function calculates the distance to each object in the object list and keeps the N closest objects (relative to the header frame).
- * All objects with a negative x-coordinate are discarded (ignores objects behind the ego vehicle).
- *
- * @param object_list The object list to filter.
- * @param n_objects The number of closest objects to keep.
- */
 void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects) {
   // calculate distance to each object
   std::vector<double> distances;
@@ -374,15 +336,6 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
   }
   circles_pub_->publish(marker_array);
 }
-/**
- * @brief Publishes visualization markers representing the ego vehicle as its represented in the OCP.
- * 
- * Enables debug view of the ego vehicle approximation to check collision with bounds or obstacles.
- * Relevant parameters are hardcoded here (as they are defined in the OCP).
- *
- * @param x_trajectory The trajectory of the ego vehicle. As represented in the OCP.
- * @param model_name The name of the acados model used in the OCP.
- */
 void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name) {
   if (!ego_circles_pub_) return;
 
@@ -463,14 +416,6 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
   ego_circles_pub_->publish(marker_array);
 }
 
-/**
- * @brief Prints the solution of the trajectory optimization problem.
- *
- * This function prints the solution of the trajectory optimization problem, including the resulting xtraj and utraj,
- * as well as some solver statistics.
- *
- * @param status The status of the trajectory optimization solver.
- */
 void TrajectoryOptimizationNode::printSolution(int status) {
   // Status codes:
   // 0: Success (ACADOS_SUCCESS)

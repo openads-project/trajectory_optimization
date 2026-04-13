@@ -14,10 +14,6 @@
  */
 namespace trajectory_optimization {
 
-/**
- * @brief Creates a TrajectoryOptimizationNode node
- *
- */
 TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions& options)
     : rclcpp::Node(node_name, options) {
   // declare and load node parameters
@@ -74,10 +70,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->setup();
 }
 
-/**
- * @brief Destroys a TrajectoryOptimizationNode node
- *
- */
 TrajectoryOptimizationNode::~TrajectoryOptimizationNode() { freeSolver(); }
 
 template <typename T>
@@ -153,12 +145,6 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(const std::string& name
   }
 }
 
-/**
- * @brief Handles reconfiguration when a parameter value is changed
- *
- * @param parameters parameters
- * @return parameter change result
- */
 rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
@@ -190,10 +176,6 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
   return result;
 }
 
-/**
- * @brief Sets up subscribers, publishers, and more.
- *
- */
 void TrajectoryOptimizationNode::setup() {
   tf2_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf2_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
@@ -307,14 +289,6 @@ void TrajectoryOptimizationNode::setupSolver() {
   utraj_.resize(*nlp_dims_->nu * n_shots_);
 }
 
-/**
- * @brief Deallocates memory and frees the solver used for trajectory optimization.
- *
- * This function deallocates the memory used by `xtraj_` and `utraj_` arrays.
- * It also frees the solver and the solver capsule used for trajectory planning.
- *
- * @return None.
- */
 void TrajectoryOptimizationNode::freeSolver() {
   // deallocate memory
   std::vector<double>().swap(xtraj_);
@@ -332,21 +306,11 @@ void TrajectoryOptimizationNode::freeSolver() {
   }
 }
 
-/**
- * @brief Resets the solver by freeing the existing solver and setting up a new one.
- *
- * This function first frees the existing solver by calling the `freeSolver` function,
- * and then sets up a new solver by calling the `setupSolver` function.
- */
 void TrajectoryOptimizationNode::resetSolver() {
   freeSolver();
   setupSolver();
 }
 
-/**
- * @brief This function is invoked every period seconds by the timer
- *
- */
 void TrajectoryOptimizationNode::planningCycle() {
   if (debug_viz_) viz_circles_.clear();
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
@@ -447,15 +411,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 }
 
-/**
- * @brief Updates the inputs for the ocp.
- *
- * @param ego_data
- * @param object_list
- * @param route (currently unused)
- * @param reference_trajectory
- * @return True if the inputs were successfully updated, false otherwise.
- */
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                                                  const perception_msgs::msg::ObjectList& object_list,
                                                  const route_planning_msgs::msg::Route& route,
