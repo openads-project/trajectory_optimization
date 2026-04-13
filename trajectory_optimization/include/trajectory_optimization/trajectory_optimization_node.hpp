@@ -5,6 +5,7 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
+#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -196,8 +197,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ocp_nlp_solver* nlp_solver_;
   void* nlp_opts_;
 
-  double* xtraj_;
-  double* utraj_;
+  std::unique_ptr<double[]> xtraj_;
+  std::unique_ptr<double[]> utraj_;
 };
 
 }  // namespace trajectory_optimization

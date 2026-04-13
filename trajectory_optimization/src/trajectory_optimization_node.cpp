@@ -303,8 +303,8 @@ void TrajectoryOptimizationNode::setupSolver() {
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", x_init.data());
 
-  xtraj_ = new double[*nlp_dims_->nx * (n_shots_ + 1)];
-  utraj_ = new double[*nlp_dims_->nu * n_shots_];
+  xtraj_ = std::unique_ptr<double[]>(new double[*nlp_dims_->nx * (n_shots_ + 1)]);
+  utraj_ = std::unique_ptr<double[]>(new double[*nlp_dims_->nu * n_shots_]);
 }
 
 /**
@@ -317,18 +317,18 @@ void TrajectoryOptimizationNode::setupSolver() {
  */
 void TrajectoryOptimizationNode::freeSolver() {
   // deallocate memory
-  delete[] xtraj_;
-  delete[] utraj_;
+  xtraj_.reset();
+  utraj_.reset();
 
   // free solver
   int status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status) {
-    printf("%s_acados_free() returned status %d. \n", model_name_.c_str(), status);
+    RCLCPP_ERROR(this->get_logger(), "%s_acados_free() returned status %d.", model_name_.c_str(), status);
   }
   // free solver capsule
   status = trajectory_optimization::acados_free_capsule(ocp_capsule_);
   if (status) {
-    printf("%s_acados_free_capsule() returned status %d. \n", model_name_.c_str(), status);
+    RCLCPP_ERROR(this->get_logger(), "%s_acados_free_capsule() returned status %d.", model_name_.c_str(), status);
   }
 }
 
@@ -391,7 +391,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   std::stringstream ss;
   ss << "Initial state: ";
   for (size_t i = 0; i < x_init.size(); ++i) ss << "x[" << i << "]: " << x_init[i] << (i != x_init.size() - 1 ? ", " : "");
-  RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
+  RCLCPP_DEBUG(this->get_logger(), "%s", ss.str().c_str());
 
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "lbx", x_init.data());
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
@@ -416,7 +416,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   printSolution(status);
   if (debug_viz_) {
     vizCircles(viz_circles_);
-    vizEgoCircles(xtraj_, model_name_);
+    vizEgoCircles(xtraj_.get(), model_name_);
   }
 
   if (status == 1 || status == 3 || status == 4) {
@@ -482,7 +482,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     } else {
       tf_object_list = object_list;
     }
-    keepNClosestObjects(tf_object_list, p_obstacle_circles_shape_[0]);
+    keepNClosestObjects(tf_object_list, static_cast<int>(p_obstacle_circles_shape_[0]));
     // route
     if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
       tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
@@ -536,7 +536,7 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
   global_params.push_back(d_min_boundary_lat_);
 
   // reference path (including boundaries)
-  int n_ref_states = p_ref_path_shape_[0] * p_ref_path_shape_[1];
+  const size_t n_ref_states = static_cast<size_t>(p_ref_path_shape_[0] * p_ref_path_shape_[1]);
   std::vector<std::pair<double, double>> boundary_distances = normalBoundaryDistance(reference_trajectory, route);
   // fill ref vector for ocp -> psi, x, y, v, d_bound_left, d_bound_right
   std::vector<double> ref;
@@ -548,21 +548,22 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
     ref.push_back(boundary_distances[i].first);   // left boundary distance
     ref.push_back(boundary_distances[i].second);  // right boundary distance
   }
-  if (ref.size() >= static_cast<size_t>(n_ref_states)) {
-    global_params.insert(global_params.end(), ref.begin(), ref.begin() + n_ref_states);
+  if (ref.size() >= n_ref_states) {
+    global_params.insert(global_params.end(), ref.begin(),
+                         ref.begin() + static_cast<std::vector<double>::difference_type>(n_ref_states));
   } else {
     // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
     global_params.insert(global_params.end(), ref.begin(), ref.end());
     global_params.insert(global_params.end(), n_ref_states - ref.size(), std::numeric_limits<double>::infinity());
   }
 
-  if (global_params.size() != (size_t)nlp_dims_->np_global) {
-    RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%ld) does not match expected size (%d).", global_params.size(),
+  if (global_params.size() != static_cast<size_t>(nlp_dims_->np_global)) {
+    RCLCPP_ERROR(this->get_logger(), "Size of global parameters (%zu) does not match expected size (%d).", global_params.size(),
                  nlp_dims_->np_global);
     throw std::runtime_error("Size of global parameters does not match expected size.");
   }
   trajectory_optimization::acados_set_p_global_and_precompute_dependencies(ocp_capsule_, global_params.data(),
-                                                                           global_params.size());
+                                                                           static_cast<int>(global_params.size()));
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
   RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
@@ -585,25 +586,25 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
 
     // obstacles
     idx += n;
-    n = p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1];
+    n = static_cast<int>(p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1]);
     std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
       std::vector<double> TIME, X, Y, YAW;
       // TODO: should not be done for each shooting interval. Could be improved.
-      TIME.push_back(rclcpp::Time(object_list.header.stamp).nanoseconds() / 1e9);
+      TIME.push_back(static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
       if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && object_list.objects[j].state_predictions.size() > 0) {
         for (auto& predicted_state : object_list.objects[j].state_predictions[0].states) {
-          TIME.push_back(rclcpp::Time(predicted_state.header.stamp).nanoseconds() / 1e9);
+          TIME.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
           X.push_back(perception_msgs::object_access::getX(predicted_state));
           Y.push_back(perception_msgs::object_access::getY(predicted_state));
           YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
         }
-        double des_time = rclcpp::Time(ego_data.header.stamp).nanoseconds() / 1e9 + dt * i;
+        double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
         linearInterpolation(TIME, X, des_time, x_tgt);
         linearInterpolation(TIME, Y, des_time, y_tgt);
         linearInterpolation(TIME, YAW, des_time, yaw_tgt, true);

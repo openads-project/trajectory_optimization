@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <cmath>
+#include <cstdio>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
@@ -136,7 +137,7 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
 
   // keep only the closest objects
   std::vector<perception_msgs::msg::Object> closest_objects;
-  const int n_objects_to_keep = std::min<size_t>(n_objects, indices_sorted_by_distance.size());
+  const auto n_objects_to_keep = std::min(static_cast<size_t>(n_objects), indices_sorted_by_distance.size());
   int i = 0;
   while (closest_objects.size() < static_cast<size_t>(n_objects_to_keep)) {
     if (static_cast<size_t>(i) >= indices_sorted_by_distance.size()) break;
@@ -240,9 +241,9 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   }
 
   // Helper lambda to find intersection
-  auto findIntersection = [this](const Eigen::Vector2d& ref_pos, double sin_yaw, double cos_yaw,
-                                 const std::vector<Eigen::Vector2d>& boundary_points,
-                                 bool isLeft) -> std::pair<double, Eigen::Vector2d> {
+  auto findIntersection = [](const Eigen::Vector2d& ref_pos, double sin_yaw, double cos_yaw,
+                             const std::vector<Eigen::Vector2d>& boundary_points,
+                             bool isLeft) -> std::pair<double, Eigen::Vector2d> {
     std::pair<double, Eigen::Vector2d> intersection_result = {
         std::numeric_limits<double>::infinity(),
         Eigen::Vector2d(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())};
@@ -352,7 +353,7 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
 
 void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles) {
   visualization_msgs::msg::MarkerArray marker_array;
-  int n_circles = obstacles.size() / p_obstacle_circles_shape_[1];
+  const int n_circles = static_cast<int>(obstacles.size() / static_cast<size_t>(p_obstacle_circles_shape_[1]));
   for (int j = 0; j < n_circles; ++j) {
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
@@ -385,8 +386,8 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
 void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const std::string& model_name) {
   if (!ego_circles_pub_) return;
 
-  double ego_length, ego_width;
-  int n_ego_circles;
+  double ego_length = 0.0, ego_width = 0.0;
+  int n_ego_circles = 0;
   std::vector<double> ego_offset2geocenter;
 
   // define vehicle geometry based on model name (should match the OCP definition)
@@ -491,8 +492,8 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   }
 
   // print duration, KKT, and number of SQP iterations
-  double elapsed_time, kkt_norm_inf;
-  int sqp_iter;
+  double elapsed_time = 0.0, kkt_norm_inf = 0.0;
+  int sqp_iter = 0;
   ocp_nlp_get(nlp_solver_, "time_tot", &elapsed_time);
   ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
   ocp_nlp_get(nlp_solver_, "sqp_iter", &sqp_iter);
@@ -500,7 +501,7 @@ void TrajectoryOptimizationNode::printSolution(int status) {
               elapsed_time * 1000, sqp_iter, kkt_norm_inf);
 
   // print cost value and residuals
-  double cost_value, nlp_res;
+  double cost_value = 0.0, nlp_res = 0.0;
   ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
   ocp_nlp_get(nlp_solver_, "cost_value", &cost_value);
@@ -508,10 +509,10 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   RCLCPP_INFO(get_logger(), "cost_value: \033[1m%f\033[0m; nlp_res: \033[1m%f\033[0m", cost_value, nlp_res);
 
   if (verbose_) {
-    printf("\n--- xtraj ---\n");
-    d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_, *nlp_dims_->nx);
-    printf("\n--- utraj ---\n");
-    d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_, *nlp_dims_->nu);
+    std::fputs("\n--- xtraj ---\n", stdout);
+    d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_.get(), *nlp_dims_->nx);
+    std::fputs("\n--- utraj ---\n", stdout);
+    d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.get(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
 }
