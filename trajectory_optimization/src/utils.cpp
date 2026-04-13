@@ -383,7 +383,7 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
  * @param x_trajectory The trajectory of the ego vehicle. As represented in the OCP.
  * @param model_name The name of the acados model used in the OCP.
  */
-void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const std::string& model_name) {
+void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name) {
   if (!ego_circles_pub_) return;
 
   double ego_length = 0.0, ego_width = 0.0;
@@ -408,7 +408,7 @@ void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const
 
   visualization_msgs::msg::MarkerArray marker_array;
 
-  if (!x_trajectory || n_ego_circles <= 0) {
+  if (x_trajectory.empty() || n_ego_circles <= 0) {
     visualization_msgs::msg::Marker delete_marker;
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
     marker_array.markers.push_back(delete_marker);
@@ -424,10 +424,10 @@ void TrajectoryOptimizationNode::vizEgoCircles(const double* x_trajectory, const
 
   int marker_id = 0;
   for (int stage = 0; stage <= n_shots_; ++stage) {
-    const double* state = &x_trajectory[stage * state_dim];
-    const double base_x = state[0];
-    const double base_y = state[1];
-    const double psi = state[5];
+    const size_t state_offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
+    const double base_x = x_trajectory[state_offset + 0];
+    const double base_y = x_trajectory[state_offset + 1];
+    const double psi = x_trajectory[state_offset + 5];
 
     const double ego_center_x = base_x + offset_x * std::cos(psi) - offset_y * std::sin(psi);
     const double ego_center_y = base_y + offset_x * std::sin(psi) + offset_y * std::cos(psi);
@@ -510,9 +510,9 @@ void TrajectoryOptimizationNode::printSolution(int status) {
 
   if (verbose_) {
     std::fputs("\n--- xtraj ---\n", stdout);
-    d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_.get(), *nlp_dims_->nx);
+    d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_.data(), *nlp_dims_->nx);
     std::fputs("\n--- utraj ---\n", stdout);
-    d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.get(), *nlp_dims_->nu);
+    d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.data(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
   }
 }

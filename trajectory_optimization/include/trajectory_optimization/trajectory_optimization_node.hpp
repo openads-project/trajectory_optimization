@@ -5,9 +5,9 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
-#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <vector>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // definitions
@@ -108,7 +108,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> discretizeBB2Circles(
       const double x, const double y, const double yaw, const double length, const double width);
   void vizCircles(const std::vector<double>& obstacles);
-  void vizEgoCircles(const double* x_trajectory, const std::string& model_name);
+  void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
                          const std::vector<Eigen::Vector2d>& right_boundary_points,
                          bool is_intersection = false);
@@ -197,8 +197,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ocp_nlp_solver* nlp_solver_;
   void* nlp_opts_;
 
-  std::unique_ptr<double[]> xtraj_;
-  std::unique_ptr<double[]> utraj_;
+  std::vector<double> xtraj_;
+  std::vector<double> utraj_;
 };
 
 }  // namespace trajectory_optimization

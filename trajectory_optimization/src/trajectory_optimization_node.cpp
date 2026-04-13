@@ -303,8 +303,8 @@ void TrajectoryOptimizationNode::setupSolver() {
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", x_init.data());
 
-  xtraj_ = std::unique_ptr<double[]>(new double[*nlp_dims_->nx * (n_shots_ + 1)]);
-  utraj_ = std::unique_ptr<double[]>(new double[*nlp_dims_->nu * n_shots_]);
+  xtraj_.resize(*nlp_dims_->nx * (n_shots_ + 1));
+  utraj_.resize(*nlp_dims_->nu * n_shots_);
 }
 
 /**
@@ -317,8 +317,8 @@ void TrajectoryOptimizationNode::setupSolver() {
  */
 void TrajectoryOptimizationNode::freeSolver() {
   // deallocate memory
-  xtraj_.reset();
-  utraj_.reset();
+  std::vector<double>().swap(xtraj_);
+  std::vector<double>().swap(utraj_);
 
   // free solver
   int status = trajectory_optimization::acados_free(ocp_capsule_);
@@ -416,7 +416,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   printSolution(status);
   if (debug_viz_) {
     vizCircles(viz_circles_);
-    vizEgoCircles(xtraj_.get(), model_name_);
+    vizEgoCircles(xtraj_, model_name_);
   }
 
   if (status == 1 || status == 3 || status == 4) {
