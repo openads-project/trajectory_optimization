@@ -507,7 +507,7 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
     global_params.insert(global_params.end(), ref.begin(),
                          ref.begin() + static_cast<std::vector<double>::difference_type>(n_ref_states));
   } else {
-    // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity
+    // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity  // NOLINT(google-readability-todo)
     global_params.insert(global_params.end(), ref.begin(), ref.end());
     global_params.insert(global_params.end(), n_ref_states - ref.size(), std::numeric_limits<double>::infinity());
   }
@@ -547,7 +547,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
       std::vector<double> TIME, X, Y, YAW;
-      // TODO: should not be done for each shooting interval. Could be improved.
+      // TODO: should not be done for each shooting interval. Could be improved.  // NOLINT(google-readability-todo)
       TIME.push_back(static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
@@ -588,7 +588,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       }
     }
     // fill up with dummy "ghost" obstacle circles at (10000, 10000) to avoid NaNs in the optimization problem
-    // TODO: improve this
+    // TODO: improve this  // NOLINT(google-readability-todo)
     while (circles.size() < static_cast<size_t>(n)) {
       std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
       circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());

@@ -25,6 +25,7 @@ consistency:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
+    - apt-get update && apt-get install -y doxygen
     - python3 -m pip install -r .openads-dev-environment/scripts/requirements.txt
   script:
     - python3 .openads-dev-environment/scripts/check_repository_consistency.py

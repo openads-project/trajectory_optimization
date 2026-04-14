@@ -3,6 +3,8 @@
 
 #pragma once
 
+// NOLINTBEGIN(clang-diagnostic-gnu-zero-variadic-macro-arguments)
+
 // acados
 #include <acados/utils/math.h>
 #include <acados/utils/print.h>
@@ -170,3 +172,5 @@ inline void* acados_get_nlp_opts(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(
 inline ocp_nlp_dims* acados_get_nlp_dims(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_dims); }
 
 }  // namespace trajectory_optimization
+
+// NOLINTEND(clang-diagnostic-gnu-zero-variadic-macro-arguments)
