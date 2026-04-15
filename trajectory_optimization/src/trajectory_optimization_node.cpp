@@ -290,10 +290,6 @@ void TrajectoryOptimizationNode::setupSolver() {
 }
 
 void TrajectoryOptimizationNode::freeSolver() {
-  // deallocate memory
-  std::vector<double>().swap(xtraj_);
-  std::vector<double>().swap(utraj_);
-
   // free solver
   int status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status) {
