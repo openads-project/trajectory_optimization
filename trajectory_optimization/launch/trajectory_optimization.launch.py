@@ -15,6 +15,7 @@ from tracetools_launch.action import Trace
 
 
 def generate_launch_description_with_resolved_launch_args(launch_context):
+    """Generate launch description with resolved launch arguments."""
 
     # get the driving mode from the launch context
     driving_mode = LaunchConfiguration("driving_mode").perform(launch_context)
@@ -78,6 +79,7 @@ def generate_launch_description_with_resolved_launch_args(launch_context):
 
 
 def generate_launch_description():
+    """Generate the launch description for trajectory optimization."""
 
     return LaunchDescription(
         [

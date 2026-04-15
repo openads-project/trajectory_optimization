@@ -1,29 +1,61 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from casadi import fmax, fmin, tan
-from acados_template import AcadosOcp
-from constants import *
 import casadi as ca
+from acados_template import AcadosOcp
+from constants import (
+    P_REF_PATH_INDEX_D_BOUND_LEFT,
+    P_REF_PATH_INDEX_D_BOUND_RIGHT,
+    P_REF_PATH_INDEX_PSI,
+    P_REF_PATH_INDEX_V,
+    P_REF_PATH_INDEX_X,
+    P_REF_PATH_INDEX_Y,
+    STATE_INDEX_PSI,
+    STATE_INDEX_X,
+    STATE_INDEX_Y,
+)
+
 
 def stable_tan(rad):
+    """Computes the tangent function with numerical stability bounds.
+
+    Args:
+        rad: The input angle in radians.
+
+    Returns:
+        The tangent value clamped to the range [-100, 100].
+    """
     # for numerical stability of the tangent function
-    return fmax(-100, fmin(100, tan(rad)))
+    return ca.fmax(-100, ca.fmin(100, ca.tan(rad)))
+
 
 def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, x_position: ca.MX, y_position: ca.MX) -> ca.MX:
-    """
-    Determines the spacially matched reference path point for the current state.
+    """Determines the spatially matched reference path point for a given position (current state).
+
     This is done by calculating the closest point on the reference path to the current state.
     The reference path is given as a parameter p_ref_path.
+
+    Args:
+        config: Configuration dictionary containing p_ref_path_shape.
+        p_ref_path: Reference path containing psi, x, y, v, and boundary values.
+        x_position: X-coordinate of the current position.
+        y_position: Y-coordinate of the current position.
+
+    Returns:
+        A dictionary with interpolated reference path point containing psi, x, y, v, and boundary values.
     """
     ref_path_state_dim = config["p_ref_path_shape"][1]
     # p_ref_path shuold be sortet like this: (psi1, x1, y1, v1, psi2, x2, y2, v2, ...)
-    psi_ref_path = p_ref_path[P_REF_PATH_INDEX_PSI::ref_path_state_dim] # every 6th element starting from index 0
-    x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim] # every 6th element starting from index 1
-    y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim] # every 6th element starting from index 2
-    v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim] # every 6th element starting from index 3
-    d_left_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_LEFT::ref_path_state_dim] # every 6th element starting from index 4
-    d_right_boundary_ref_path = p_ref_path[P_REF_PATH_INDEX_D_BOUND_RIGHT::ref_path_state_dim] # every 6th element starting from index 5
+    psi_ref_path = p_ref_path[P_REF_PATH_INDEX_PSI::ref_path_state_dim]  # every 6th element starting from index 0
+    x_ref_path = p_ref_path[P_REF_PATH_INDEX_X::ref_path_state_dim]  # every 6th element starting from index 1
+    y_ref_path = p_ref_path[P_REF_PATH_INDEX_Y::ref_path_state_dim]  # every 6th element starting from index 2
+    v_ref_path = p_ref_path[P_REF_PATH_INDEX_V::ref_path_state_dim]  # every 6th element starting from index 3
+    d_left_boundary_ref_path = p_ref_path[
+        P_REF_PATH_INDEX_D_BOUND_LEFT::ref_path_state_dim
+    ]  # every 6th element starting from index 4
+    d_right_boundary_ref_path = p_ref_path[
+        P_REF_PATH_INDEX_D_BOUND_RIGHT::ref_path_state_dim
+    ]  # every 6th element starting from index 5
 
     n_ref_path_points = config["p_ref_path_shape"][0]
     # initialize closest distances to path sample with a large value
@@ -38,17 +70,36 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
         closest_distance = ca.if_else(c < closest_distance, c, closest_distance)
 
     # find nearest adjacent sample on reference path
-    condition_begin = (idx_min == 0)
-    condition_end = (idx_min == n_ref_path_points-1)
+    condition_begin = idx_min == 0
+    condition_end = idx_min == n_ref_path_points - 1
     condition_intermediate = ca.logic_and(ca.logic_not(condition_begin), ca.logic_not(condition_end))
-    dist_1 = ca.if_else(condition_intermediate, ca.sqrt(ca.power(x_ref_path[idx_min-1] - x_position, 2) + ca.power(y_ref_path[idx_min-1] - y_position, 2)), ca.inf, True)
-    dist_2 = ca.if_else(condition_intermediate, ca.sqrt(ca.power(x_ref_path[idx_min+1] - x_position, 2) + ca.power(y_ref_path[idx_min+1] - y_position, 2)), ca.inf, True)
-    condition_dist = (dist_1 < dist_2)
-    next_idx_min = ca.if_else(condition_begin, idx_min+1, ca.if_else(condition_end, idx_min-1, ca.if_else(condition_dist, idx_min-1, idx_min+1, True), True), True)
+    dist_1 = ca.if_else(
+        condition_intermediate,
+        ca.sqrt(ca.power(x_ref_path[idx_min - 1] - x_position, 2) + ca.power(y_ref_path[idx_min - 1] - y_position, 2)),
+        ca.inf,
+        True,
+    )
+    dist_2 = ca.if_else(
+        condition_intermediate,
+        ca.sqrt(ca.power(x_ref_path[idx_min + 1] - x_position, 2) + ca.power(y_ref_path[idx_min + 1] - y_position, 2)),
+        ca.inf,
+        True,
+    )
+    condition_dist = dist_1 < dist_2
+    next_idx_min = ca.if_else(
+        condition_begin,
+        idx_min + 1,
+        ca.if_else(condition_end, idx_min - 1, ca.if_else(condition_dist, idx_min - 1, idx_min + 1, True), True),
+        True,
+    )
 
     # compute the shortest distance between the state-point and a line segment idx_min---next_idx_min
-    # extend the segment to a complete line first; determine point with shortest distance to state-point (https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line), but formulate as parameter lambda
-    # values [0, 1] for lambda mean the nearest point is on the segment and the computed distance is perpendicular to the line segment
+    # extend the segment to a complete line first and determine the point with
+    # shortest distance to the state point, following
+    # https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line, but
+    # formulate it as parameter lambda
+    # values [0, 1] for lambda mean the nearest point is on the segment
+    # and the computed distance is perpendicular to the line segment
     # note that lambda must be >=0 due to the way we defined the line segment
     psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]
@@ -78,22 +129,33 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     psi_ref_inter = psi1 + lmd * wrap_angle(psi2 - psi1)
     v_ref_inter = v1 + lmd * (v2 - v1)
 
-    interpolated_ref_path_point = {"psi": psi_ref_inter,
-                                   "x": x_ref_inter,
-                                   "y": y_ref_inter,
-                                   "v": v_ref_inter,
-                                   "d_left_boundary": d_left_boundary_inter,
-                                   "d_right_boundary": d_right_boundary_inter
-                                   }
+    interpolated_ref_path_point = {
+        "psi": psi_ref_inter,
+        "x": x_ref_inter,
+        "y": y_ref_inter,
+        "v": v_ref_inter,
+        "d_left_boundary": d_left_boundary_inter,
+        "d_right_boundary": d_right_boundary_inter,
+    }
     return interpolated_ref_path_point
 
+
 def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
+    """Approximates the ego vehicle geometry as a set of circles.
+
+    Args:
+        ocp: The ACADOS OCP object containing the vehicle model.
+        config: Configuration dictionary with parameters like length, width, n_ego_circles, and offset2geocenter.
+
+    Returns:
+        A dictionary containing circle positions (x, y), offsets (x_offset, y_offset), and radius.
+    """
     # rectangular ego-vehicle approximation with n_circles circles
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
     ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
     ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
     # Calculate the radius using symbolic operations
-    radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"]/ 2.0), 2))
+    radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"] / 2.0), 2))
 
     # Initialize an empty list for circle centers coordinates
     circle_position_x = []
@@ -117,11 +179,15 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
             circle_offset_x.append(x_offset)
             circle_offset_y.append(y_offset)
 
-    return {"x": circle_position_x, "y": circle_position_y, "x_offset": circle_offset_x, "y_offset": circle_offset_y, "radius": radius}
+    return {
+        "x": circle_position_x,
+        "y": circle_position_y,
+        "x_offset": circle_offset_x,
+        "y_offset": circle_offset_y,
+        "radius": radius,
+    }
 
 
 def wrap_angle(angle: ca.MX) -> ca.MX:
-    """
-    Wraps an angle to the interval [-pi, pi]
-    """
-    return angle - 2*ca.pi * ca.floor((angle + ca.pi) / (2 * ca.pi))
+    """Wraps an angle to the interval [-pi, pi]."""
+    return angle - 2 * ca.pi * ca.floor((angle + ca.pi) / (2 * ca.pi))

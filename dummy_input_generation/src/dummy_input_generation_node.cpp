@@ -26,28 +26,46 @@ namespace dummy_input_generation {
 DummyInputGenerationNode::DummyInputGenerationNode(const rclcpp::NodeOptions& options)
     : Node("dummy_input_generation_node", options) {
   // declare and load node parameters; setup node
-  this->declareAndLoadParameter("publish_frequency", publish_frequency_, "Publish frequency in Hz", true, true, false, 0.01, 100.0, 0.01);
+  this->declareAndLoadParameter("publish_frequency", publish_frequency_, "Publish frequency in Hz", true, true, false, 0.01,
+                                100.0, 0.01);
   this->declareAndLoadParameter("message_frame_id", message_frame_id_, "Common frame ID for all published messages");
 
-  this->declareAndLoadParameter("ego_state_model", ego_state_model_, "Ego state model used for published EgoData", true, false, false, std::nullopt, std::nullopt, std::nullopt, "Valid values: ackermann, rws");
-  this->declareAndLoadParameter("ego_vel_lon", ego_vel_lon_, "Ego longitudinal velocity [m/s]", true, false, false, -20.0, 40.0, 0.1);
-  this->declareAndLoadParameter("ego_acc_lon", ego_acc_lon_, "Ego longitudinal acceleration [m/s^2]", true, false, false, -10.0, 10.0, 0.1);
-  this->declareAndLoadParameter("ego_steering_angle_ack", ego_steering_angle_ack_, "Ackermann steering angle [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
-  this->declareAndLoadParameter("ego_steering_angle_front", ego_steering_angle_front_, "Front steering angle for RWS [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
-  this->declareAndLoadParameter("ego_steering_angle_rear", ego_steering_angle_rear_, "Rear steering angle for RWS [rad]", true, false, false, -3.14/2, 3.14/2, 0.01);
-  this->declareAndLoadParameter("ego_translation_to_geometric_center", ego_translation_to_geometric_center_, "Translation from ego reference point to geometric center [x, y, z]");
+  this->declareAndLoadParameter("ego_state_model", ego_state_model_, "Ego state model used for published EgoData", true, false,
+                                false, std::nullopt, std::nullopt, std::nullopt, "Valid values: ackermann, rws");
+  this->declareAndLoadParameter("ego_vel_lon", ego_vel_lon_, "Ego longitudinal velocity [m/s]", true, false, false, -20.0, 40.0,
+                                0.1);
+  this->declareAndLoadParameter("ego_acc_lon", ego_acc_lon_, "Ego longitudinal acceleration [m/s^2]", true, false, false, -10.0,
+                                10.0, 0.1);
+  this->declareAndLoadParameter("ego_steering_angle_ack", ego_steering_angle_ack_, "Ackermann steering angle [rad]", true, false,
+                                false, -3.14 / 2, 3.14 / 2, 0.01);
+  this->declareAndLoadParameter("ego_steering_angle_front", ego_steering_angle_front_, "Front steering angle for RWS [rad]", true,
+                                false, false, -3.14 / 2, 3.14 / 2, 0.01);
+  this->declareAndLoadParameter("ego_steering_angle_rear", ego_steering_angle_rear_, "Rear steering angle for RWS [rad]", true,
+                                false, false, -3.14 / 2, 3.14 / 2, 0.01);
+  this->declareAndLoadParameter("ego_translation_to_geometric_center", ego_translation_to_geometric_center_,
+                                "Translation from ego reference point to geometric center [x, y, z]");
 
-  this->declareAndLoadParameter("reference_n_states", reference_n_states_, "Number of reference trajectory states", true, true, false, 2.0, 500.0, 1.0);
-  this->declareAndLoadParameter("reference_trajectory_horizon", reference_trajectory_horizon_, "Reference trajectory horizon in seconds", true, true, false, 0.1, 60.0, 0.1);
-  this->declareAndLoadParameter("reference_standstill", reference_standstill_, "Publish reference trajectory with standstill flag");
-  this->declareAndLoadParameter("reference_x0", reference_x0_, "Initial x position of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("reference_y0", reference_y0_, "Initial y position of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("reference_v0", reference_v0_, "Initial velocity of reference trajectory", true, false, false, -10.0, 10.0, 0.5);
-  this->declareAndLoadParameter("reference_a", reference_a_, "Acceleration of reference trajectory", true, false, false, -5.0, 5.0, 0.5);
-  this->declareAndLoadParameter("reference_theta0", reference_theta0_, "Initial heading angle of reference trajectory [deg]", true, false, false, -180.0, 180.0, 10.0);
-  this->declareAndLoadParameter("reference_omega", reference_omega_, "Angular velocity of reference trajectory [deg/s]", true, false, false, -45.0, 45.0, 5.0);
+  this->declareAndLoadParameter("reference_n_states", reference_n_states_, "Number of reference trajectory states", true, true,
+                                false, 2.0, 500.0, 1.0);
+  this->declareAndLoadParameter("reference_trajectory_horizon", reference_trajectory_horizon_,
+                                "Reference trajectory horizon in seconds", true, true, false, 0.1, 60.0, 0.1);
+  this->declareAndLoadParameter("reference_standstill", reference_standstill_,
+                                "Publish reference trajectory with standstill flag");
+  this->declareAndLoadParameter("reference_x0", reference_x0_, "Initial x position of reference trajectory", true, false, false,
+                                -5.0, 5.0, 0.5);
+  this->declareAndLoadParameter("reference_y0", reference_y0_, "Initial y position of reference trajectory", true, false, false,
+                                -5.0, 5.0, 0.5);
+  this->declareAndLoadParameter("reference_v0", reference_v0_, "Initial velocity of reference trajectory", true, false, false,
+                                -10.0, 10.0, 0.5);
+  this->declareAndLoadParameter("reference_a", reference_a_, "Acceleration of reference trajectory", true, false, false, -5.0,
+                                5.0, 0.5);
+  this->declareAndLoadParameter("reference_theta0", reference_theta0_, "Initial heading angle of reference trajectory [deg]",
+                                true, false, false, -180.0, 180.0, 10.0);
+  this->declareAndLoadParameter("reference_omega", reference_omega_, "Angular velocity of reference trajectory [deg/s]", true,
+                                false, false, -45.0, 45.0, 5.0);
 
-  this->declareAndLoadParameter("object_count", object_count_, "Number of objects in object list", true, false, false, 0.0, 100.0, 1.0);
+  this->declareAndLoadParameter("object_count", object_count_, "Number of objects in object list", true, false, false, 0.0, 100.0,
+                                1.0);
   this->declareAndLoadParameter("object_delta_x", object_delta_x_, "Delta x between objects");
   this->declareAndLoadParameter("object_delta_y", object_delta_y_, "Delta y between objects");
   this->declareAndLoadParameter("object_length", object_length_, "Object length [m]", true, false, false, 0.1, 20.0, 0.1);
@@ -59,16 +77,15 @@ DummyInputGenerationNode::DummyInputGenerationNode(const rclcpp::NodeOptions& op
 
 template <typename T>
 void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
-                                                         T& param,
-                                                         const std::string& description,
-                                                         const bool add_to_auto_reconfigurable_params,
-                                                         const bool is_required,
-                                                         const bool read_only,
-                                                         const std::optional<double>& from_value,
-                                                         const std::optional<double>& to_value,
-                                                         const std::optional<double>& step_value,
-                                                         const std::string& additional_constraints) {
-
+                                                       T& param,
+                                                       const std::string& description,
+                                                       const bool add_to_auto_reconfigurable_params,
+                                                       const bool is_required,
+                                                       const bool read_only,
+                                                       const std::optional<double>& from_value,
+                                                       const std::optional<double>& to_value,
+                                                       const std::optional<double>& step_value,
+                                                       const std::string& additional_constraints) {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
   param_desc.description = description;
   param_desc.additional_constraints = additional_constraints;
@@ -77,12 +94,12 @@ void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
   auto type = rclcpp::ParameterValue(param).get_type();
 
   if (from_value.has_value() && to_value.has_value()) {
-    if constexpr(std::is_integral_v<T>) {
+    if constexpr (std::is_integral_v<T>) {
       rcl_interfaces::msg::IntegerRange range;
       range.set__from_value(static_cast<T>(from_value.value())).set__to_value(static_cast<T>(to_value.value()));
       if (step_value.has_value()) range.set__step(static_cast<T>(step_value.value()));
       param_desc.integer_range = {range};
-    } else if constexpr(std::is_floating_point_v<T>) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       rcl_interfaces::msg::FloatingPointRange range;
       range.set__from_value(static_cast<T>(from_value.value())).set__to_value(static_cast<T>(to_value.value()));
       if (step_value.has_value()) range.set__step(static_cast<T>(step_value.value()));
@@ -98,7 +115,7 @@ void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
     param = this->get_parameter(name).get_value<T>();
     std::stringstream ss;
     ss << "Loaded parameter '" << name << "': ";
-    if constexpr(is_vector_v<T>) {
+    if constexpr (is_vector_v<T>) {
       ss << "[";
       for (const auto& element : param) ss << element << (&element != &param.back() ? ", " : "");
       ss << "]";
@@ -113,7 +130,7 @@ void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
     } else {
       std::stringstream ss;
       ss << "Missing parameter '" << name << "', using default value: ";
-      if constexpr(is_vector_v<T>) {
+      if constexpr (is_vector_v<T>) {
         ss << "[";
         for (const auto& element : param) ss << element << (&element != &param.back() ? ", " : "");
         ss << "]";
@@ -126,9 +143,7 @@ void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
   }
 
   if (add_to_auto_reconfigurable_params) {
-    std::function<void(const rclcpp::Parameter&)> setter = [&param](const rclcpp::Parameter& p) {
-      param = p.get_value<T>();
-    };
+    std::function<void(const rclcpp::Parameter&)> setter = [&param](const rclcpp::Parameter& p) { param = p.get_value<T>(); };
     auto_reconfigurable_params_.push_back(std::make_tuple(name, setter));
   }
 }
@@ -139,12 +154,14 @@ void DummyInputGenerationNode::declareAndLoadParameter(const std::string& name,
  * @param parameters parameters
  * @return parameter change result
  */
-rcl_interfaces::msg::SetParametersResult DummyInputGenerationNode::parametersCallback(const std::vector<rclcpp::Parameter>& parameters) {
+rcl_interfaces::msg::SetParametersResult DummyInputGenerationNode::parametersCallback(
+    const std::vector<rclcpp::Parameter>& parameters) {
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
         std::get<1>(auto_reconfigurable_param)(param);
-        RCLCPP_INFO(this->get_logger(), "Reconfigured parameter '%s' to: %s", param.get_name().c_str(), param.value_to_string().c_str());
+        RCLCPP_INFO(this->get_logger(), "Reconfigured parameter '%s' to: %s", param.get_name().c_str(),
+                    param.value_to_string().c_str());
         break;
       }
     }
@@ -164,10 +181,9 @@ rcl_interfaces::msg::SetParametersResult DummyInputGenerationNode::parametersCal
  *
  */
 void DummyInputGenerationNode::setup() {
-
   // create a callback for dynamic parameter configuration
-  parameters_callback_ = this->add_on_set_parameters_callback(
-      std::bind(&DummyInputGenerationNode::parametersCallback, this, std::placeholders::_1));
+  parameters_callback_ =
+      this->add_on_set_parameters_callback(std::bind(&DummyInputGenerationNode::parametersCallback, this, std::placeholders::_1));
 
   // set up publishers
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/reference_trajectory", 10);
@@ -197,7 +213,6 @@ void DummyInputGenerationNode::createPlanningTimer() {
  *
  */
 void DummyInputGenerationNode::publish() {
-
   // --- publish ego data ---
 
   perception_msgs::msg::EgoData::UniquePtr egodata = std::make_unique<perception_msgs::msg::EgoData>();
@@ -215,7 +230,8 @@ void DummyInputGenerationNode::publish() {
     perception_msgs::object_access::setSteeringAngleFront(*egodata, ego_steering_angle_front_);
     perception_msgs::object_access::setSteeringAngleRear(*egodata, ego_steering_angle_rear_);
   } else {
-    RCLCPP_FATAL(this->get_logger(), "Invalid ego_state_model '%s'. Valid values are 'ackermann' and 'rws'.", ego_state_model_.c_str());
+    RCLCPP_FATAL(this->get_logger(), "Invalid ego_state_model '%s'. Valid values are 'ackermann' and 'rws'.",
+                 ego_state_model_.c_str());
     exit(EXIT_FAILURE);
   }
   egodata->length = EGO_LENGTH;
@@ -230,8 +246,7 @@ void DummyInputGenerationNode::publish() {
 
   // --- publish trajectory ---
 
-  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory =
-      std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
+  trajectory_planning_msgs::msg::Trajectory::UniquePtr trajectory = std::make_unique<trajectory_planning_msgs::msg::Trajectory>();
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(
       *trajectory, trajectory_planning_msgs::msg::REFERENCE::TYPE_ID, reference_n_states_);
 
@@ -249,7 +264,6 @@ void DummyInputGenerationNode::publish() {
   trajectory_planning_msgs::trajectory_access::setState(*trajectory, state0, 0);
 
   for (int i = 1; i < reference_n_states_; i++) {
-
     double theta_rad = theta * M_PI / 180.0;
     double vx = v * std::cos(theta_rad);
     double vy = v * std::sin(theta_rad);

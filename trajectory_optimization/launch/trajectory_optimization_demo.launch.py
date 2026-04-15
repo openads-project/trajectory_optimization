@@ -13,6 +13,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """Generate launch description for trajectory optimization demo."""
 
     trajectory_optimization_launch_file = os.path.join(
         get_package_share_directory("trajectory_optimization"), "launch", "trajectory_optimization.launch.py"

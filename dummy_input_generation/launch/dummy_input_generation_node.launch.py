@@ -15,6 +15,7 @@ from tracetools_launch.action import Trace
 
 
 def generate_launch_description():
+    """Generate launch description for dummy input generation node."""
 
     remappable_topics = [
         DeclareLaunchArgument("ego_data_topic", default_value="~/ego_data"),

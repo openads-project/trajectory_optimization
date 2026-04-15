@@ -4,21 +4,11 @@
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
 namespace trajectory_optimization {
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input ego data
- */
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received ego data");
   ego_data_ = *msg;
 }
 
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input object list
- */
 void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::ObjectList::ConstSharedPtr msg) {
   if (consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS) {
     RCLCPP_DEBUG(this->get_logger(), "Received object list");
@@ -29,11 +19,6 @@ void TrajectoryOptimizationNode::objectListCallback(const perception_msgs::msg::
   }
 }
 
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input reference trajectory
- */
 void TrajectoryOptimizationNode::referenceTrajectoryCallback(
     const trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Received reference trajectory");
@@ -43,11 +28,6 @@ void TrajectoryOptimizationNode::referenceTrajectoryCallback(
   }
 }
 
-/**
- * @brief This callback is invoked when the subscriber receives a message
- *
- * @param[in] msg   input route
- */
 void TrajectoryOptimizationNode::routeCallback(const route_planning_msgs::msg::Route::ConstSharedPtr msg) {
   if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
     RCLCPP_DEBUG(this->get_logger(), "Received route");

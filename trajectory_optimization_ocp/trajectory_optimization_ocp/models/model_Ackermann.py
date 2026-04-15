@@ -3,46 +3,56 @@
 
 import numpy as np
 from acados_template import AcadosModel
-from constants import *
-from casadi import MX, vertcat, sin, cos
+from casadi import cos, MX, sin, vertcat
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_J_T,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+)
 from utils import stable_tan
 
+
 def set_model(ocp, config):
-    """
-    Set up kinematic bicycle model with Ackermann steering
-    referenced at the center of the rear axle
+    """Set up kinematic bicycle model with Ackermann steering, referenced at the center of the rear axle.
+
+    Args:
+        ocp: The optimal control problem instance to configure.
+        config: Configuration dictionary containing model parameters and shapes.
     """
     model = AcadosModel()
 
     # set model_name
-    model.name = config['model_name']
+    model.name = config["model_name"]
 
     # set constants
-    l = config['wheelbase']
+    wheelbase = config["wheelbase"]
 
     # set up states
-    x       = MX.sym('x')
-    y       = MX.sym('y')
-    s       = MX.sym('s')
-    v_t     = MX.sym('v_t')
-    a_t     = MX.sym('a_t')
-    psi     = MX.sym('psi')
-    delta_f = MX.sym('delta_f')
+    x = MX.sym("x")
+    y = MX.sym("y")
+    s = MX.sym("s")
+    v_t = MX.sym("v_t")
+    a_t = MX.sym("a_t")
+    psi = MX.sym("psi")
+    delta_f = MX.sym("delta_f")
     state = vertcat(x, y, s, v_t, a_t, psi, delta_f)
 
     # set up controls
-    j_t     = MX.sym('j_t')
-    alpha_f = MX.sym('alpha_f')
+    j_t = MX.sym("j_t")
+    alpha_f = MX.sym("alpha_f")
     u = vertcat(j_t, alpha_f)
 
     # derivatives
-    x_dot = MX.sym('x_dot')
-    y_dot = MX.sym('y_dot')
-    s_dot = MX.sym('s_dot')
-    v_t_dot = MX.sym('v_t_dot')
-    a_t_dot = MX.sym('a_t_dot')
-    psi_dot = MX.sym('psi_dot')
-    delta_f_dot = MX.sym('delta_f_dot')
+    x_dot = MX.sym("x_dot")
+    y_dot = MX.sym("y_dot")
+    s_dot = MX.sym("s_dot")
+    v_t_dot = MX.sym("v_t_dot")
+    a_t_dot = MX.sym("a_t_dot")
+    psi_dot = MX.sym("psi_dot")
+    delta_f_dot = MX.sym("delta_f_dot")
     state_dot = vertcat(x_dot, y_dot, s_dot, v_t_dot, a_t_dot, psi_dot, delta_f_dot)
 
     # dynamics
@@ -51,7 +61,7 @@ def set_model(ocp, config):
     f_s_dot = state[STATE_INDEX_V_T]
     f_v_t_dot = state[STATE_INDEX_A_T]
     f_a_t_dot = u[CONTROL_INDEX_J_T]
-    f_psi_dot = state[STATE_INDEX_V_T] / l * stable_tan(state[STATE_INDEX_DELTA_F])
+    f_psi_dot = state[STATE_INDEX_V_T] / wheelbase * stable_tan(state[STATE_INDEX_DELTA_F])
     f_delta_f_dot = u[CONTROL_INDEX_ALPHA_F]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_t_dot, f_a_t_dot, f_psi_dot, f_delta_f_dot)
 
@@ -63,15 +73,19 @@ def set_model(ocp, config):
     model.u = u
 
     # parameters
-    p_dynamic_weight = MX.sym('dynamic_weight', np.prod(config['p_dynamic_weight_shape'])) # 1
-    p_obstacles = MX.sym('obstacles', np.prod(config['p_obstacle_circles_shape'])) # (nObstacleCircles x (x, y, radius))
+    p_dynamic_weight = MX.sym("dynamic_weight", np.prod(config["p_dynamic_weight_shape"]))  # 1
+    p_obstacles = MX.sym("obstacles", np.prod(config["p_obstacle_circles_shape"]))  # (nObstacleCircles x (x, y, radius))
     params = vertcat(p_dynamic_weight, p_obstacles)
     model.p = params
 
     # global parameters
-    p_cost_weights = MX.sym('cost_weights', np.prod(config['p_cost_weights_shape'])) # (nCosts x 1)
-    p_cost_params = MX.sym('cost_params', np.prod(config['p_cost_params_shape'])) # (thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat) -> 4
-    p_ref_path = MX.sym('ref_path', np.prod(config['p_ref_path_shape'])) # (N x (psi, x, y, v, d_bound_left, d_bound_right)) -> (N x 6)
+    p_cost_weights = MX.sym("cost_weights", np.prod(config["p_cost_weights_shape"]))  # (nCosts x 1)
+    p_cost_params = MX.sym(
+        "cost_params", np.prod(config["p_cost_params_shape"])
+    )  # (thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat) -> 4
+    p_ref_path = MX.sym(
+        "ref_path", np.prod(config["p_ref_path_shape"])
+    )  # (N x (psi, x, y, v, d_bound_left, d_bound_right)) -> (N x 6)
     global_params = vertcat(p_cost_weights, p_cost_params, p_ref_path)
     model.p_global = global_params
 

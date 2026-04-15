@@ -15,9 +15,8 @@ docker-ros:
     BASE_IMAGE: rwthika/ros2:jazzy
     RMW_IMPLEMENTATION: rmw_zenoh_cpp
     COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
-    ENABLE_RECURSIVE_VCS_IMPORT: 'false'
     ENABLE_INDUSTRIAL_CI: 'true'
-    TARGET_CMAK_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
+    TARGET_CMAKE_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
 
 consistency:
   stage: consistency
@@ -26,6 +25,7 @@ consistency:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
+    - apt-get update && apt-get install -y doxygen
     - python3 -m pip install -r .openads-dev-environment/scripts/requirements.txt
   script:
     - python3 .openads-dev-environment/scripts/check_repository_consistency.py

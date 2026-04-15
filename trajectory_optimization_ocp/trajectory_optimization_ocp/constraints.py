@@ -1,11 +1,26 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from acados_template import AcadosOcpConstraints, AcadosOcp
 import casadi as ca
-from utils import stable_tan, determine_spacially_matched_ref_path_point, approximate_ego_geometry
-from constants import *
 import numpy as np
+from acados_template import AcadosOcp, AcadosOcpConstraints
+from constants import (
+    CONTROL_INDEX_ALPHA_F,
+    CONTROL_INDEX_ALPHA_R,
+    CONTROL_INDEX_J_T,
+    P_OBSTACLES_INDEX_RADIUS,
+    P_OBSTACLES_INDEX_X,
+    P_OBSTACLES_INDEX_Y,
+    STATE_INDEX_A_T,
+    STATE_INDEX_DELTA_F,
+    STATE_INDEX_DELTA_R,
+    STATE_INDEX_PSI,
+    STATE_INDEX_V_T,
+    STATE_INDEX_X,
+    STATE_INDEX_Y,
+)
+from utils import approximate_ego_geometry, determine_spacially_matched_ref_path_point, stable_tan
+
 
 def _expand_slack_weights(values, count, name):
     arr = np.asarray(values, dtype=float).reshape(-1)
@@ -15,11 +30,17 @@ def _expand_slack_weights(values, count, name):
         raise ValueError(f"Slack weight '{name}' has length {arr.size}, expected {count}.")
     return arr
 
-def set_constraints(ocp: AcadosOcp, config):
 
+def set_constraints(ocp: AcadosOcp, config):
+    """Set up constraints for the optimal control problem.
+
+    Args:
+        ocp: The AcadosOcp object to configure constraints for.
+        config: Configuration dictionary containing constraint parameters.
+    """
     cons = AcadosOcpConstraints()
 
-    ########## static constraints on state ##########
+    # === Static constraints on state ===
     # set v_min < v < v_max [m/s]
     # set a_min < a < a_max [m/s^2]
     # set -delta_max < delta_f < delta_max [rad]
@@ -29,17 +50,17 @@ def set_constraints(ocp: AcadosOcp, config):
     # initial state
     cons.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-    if config['model_type'] == 'RWS':
+    if config["model_type"] == "RWS":
         cons.x0 = np.concatenate((cons.x0, [0.0]))
 
     # constraints on intermediate shooting nodes
-    cons.lbx = np.array([config['v_min'], config['acceleration_t_min'], -config['delta_max']])
-    cons.ubx = np.array([config['v_max'], config['acceleration_t_max'], config['delta_max']])
+    cons.lbx = np.array([config["v_min"], config["acceleration_t_min"], -config["delta_max"]])
+    cons.ubx = np.array([config["v_max"], config["acceleration_t_max"], config["delta_max"]])
     cons.idxbx = np.array([STATE_INDEX_V_T, STATE_INDEX_A_T, STATE_INDEX_DELTA_F])
 
-    if config['model_type'] == 'RWS':
-        cons.lbx = np.concatenate((cons.lbx, [-config['delta_max']]))
-        cons.ubx = np.concatenate((cons.ubx, [config['delta_max']]))
+    if config["model_type"] == "RWS":
+        cons.lbx = np.concatenate((cons.lbx, [-config["delta_max"]]))
+        cons.ubx = np.concatenate((cons.ubx, [config["delta_max"]]))
         cons.idxbx = np.concatenate((cons.idxbx, [STATE_INDEX_DELTA_R]))
 
     # constraints on terminal shooting node
@@ -47,8 +68,7 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.ubx_e = cons.ubx
     cons.idxbx_e = cons.idxbx
 
-
-    ########## static constraints on control ##########
+    # === Static constraints on control ===
     # set j_min < j < j_max [m/s^3]
     # set -alpha_max < alpha_f < alpha_max [rad]
     # RWS: set -alpha_max < alpha_r < alpha_max [rad]
@@ -56,13 +76,12 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.ubu = np.array([config["jerk_max"], config["alpha_max"]])
     cons.idxbu = np.array([CONTROL_INDEX_J_T, CONTROL_INDEX_ALPHA_F])
 
-    if config['model_type'] == 'RWS':
-        cons.lbu = np.concatenate((cons.lbu, [-config['alpha_max']]))
-        cons.ubu = np.concatenate((cons.ubu, [config['alpha_max']]))
+    if config["model_type"] == "RWS":
+        cons.lbu = np.concatenate((cons.lbu, [-config["alpha_max"]]))
+        cons.ubu = np.concatenate((cons.ubu, [config["alpha_max"]]))
         cons.idxbu = np.concatenate((cons.idxbu, [CONTROL_INDEX_ALPHA_R]))
 
-
-    ########## nonlinear constraints ##########
+    # === Nonlinear constraints ===
     ocp.model.con_h_expr = ca.vertcat()  # initialize empty expression for nonlinear constraints
     cons.lh = np.array([])  # initialize empty lower bounds for nonlinear constraints
     cons.uh = np.array([])  # initialize empty upper bounds for nonlinear constraints
@@ -72,21 +91,31 @@ def set_constraints(ocp: AcadosOcp, config):
     ego_radius = ego_approximation["radius"]
     n_ego_circles = config["n_ego_circles"]
 
-    ### route boundaries ###
+    # --- Route boundaries ---
 
     # get ref path with boundaries from global parameters
     idx_global_params = 0
-    p_cost_weights = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_weights_shape"]))] # not used in constraints
-    p_cost_params = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_cost_params_shape"]))]
-    p_ref_path = ocp.model.p_global[idx_global_params:(idx_global_params := idx_global_params + np.prod(config["p_ref_path_shape"]))]
-    assert idx_global_params == np.prod(config["p_cost_weights_shape"]) + np.prod(config["p_cost_params_shape"]) + np.prod(config["p_ref_path_shape"])
+    _ = ocp.model.p_global[
+        idx_global_params : (idx_global_params := idx_global_params + np.prod(config["p_cost_weights_shape"]))
+    ]  # cost weights, not used in constraints
+    p_cost_params = ocp.model.p_global[
+        idx_global_params : (idx_global_params := idx_global_params + np.prod(config["p_cost_params_shape"]))
+    ]
+    p_ref_path = ocp.model.p_global[
+        idx_global_params : (idx_global_params := idx_global_params + np.prod(config["p_ref_path_shape"]))
+    ]
+    assert idx_global_params == np.prod(config["p_cost_weights_shape"]) + np.prod(config["p_cost_params_shape"]) + np.prod(
+        config["p_ref_path_shape"]
+    )
     p_thw = p_cost_params[0]
     d_min_obstacle_long = p_cost_params[1]
     d_min_obstacle_lat = p_cost_params[2]
     d_min_boundary_lat = p_cost_params[3]
 
     # calc normal vector from interpolated reference point to the current position
-    ref_inter = determine_spacially_matched_ref_path_point(config, p_ref_path, ocp.model.x[STATE_INDEX_X], ocp.model.x[STATE_INDEX_Y])
+    ref_inter = determine_spacially_matched_ref_path_point(
+        config, p_ref_path, ocp.model.x[STATE_INDEX_X], ocp.model.x[STATE_INDEX_Y]
+    )
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
 
     # calc signed lateral offset from interpolated reference path to current position
@@ -116,11 +145,13 @@ def set_constraints(ocp: AcadosOcp, config):
         cons.lh = np.concatenate((cons.lh, [-MAX_BOUNDARY_CONSTRAINT, -MAX_BOUNDARY_CONSTRAINT]))
         cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
-    ### obstacle avoidance ###
+    # --- Obstacle avoidance ---
     # get obstacles from parameters
     idx_params = 0
-    p_dynamic_weight = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))] # not used in constraints
-    p_obstacles = ocp.model.p[idx_params:(idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
+    _ = ocp.model.p[
+        idx_params : (idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))
+    ]  # dynamic weights, not used in constraints
+    p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
     assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 
     MAX_OBSTACLE_CONSTRAINT = 1e9  # large value to "disable" obstacle constraints without pushing JSON to inf
@@ -159,44 +190,52 @@ def set_constraints(ocp: AcadosOcp, config):
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_CONSTRAINT]))
 
-    ### a_abs_squared, psi_dot, steering_mode_constraint ###
+    # --- a_abs_squared, psi_dot, steering_mode_constraint ---
     # Ackermann: psi_dot = v / l * tan(delta_f)
     # RWS: psi_dot = v * cos(beta) * (tan(delta_f) - tan(delta_r)) / (L_f + L_r)
     # beta = atan((L_r / (L_f + L_r)) * tan(delta_f) + (L_f / (L_f + L_r)) * tan(delta_r))
     psi_dot = None
-    if config['model_type'] == 'RWS':
-        L_f = config['distance_cg_front_axle']
-        L_r = config['distance_cg_rear_axle']
-        beta = ca.atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
-        psi_dot = ocp.model.x[STATE_INDEX_V_T] * ca.cos(beta) * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])) / (L_f + L_r)
+    if config["model_type"] == "RWS":
+        L_f = config["distance_cg_front_axle"]
+        L_r = config["distance_cg_rear_axle"]
+        beta = ca.atan(
+            (L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
+            + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])
+        )
+        psi_dot = (
+            ocp.model.x[STATE_INDEX_V_T]
+            * ca.cos(beta)
+            * (stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) - stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
+            / (L_f + L_r)
+        )
     else:
-        l = config['wheelbase']
-        psi_dot = ocp.model.x[STATE_INDEX_V_T] / l * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
+        wheelbase = config["wheelbase"]
+        psi_dot = ocp.model.x[STATE_INDEX_V_T] / wheelbase * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
 
     # compute normal acceleration
     a_n = ocp.model.x[STATE_INDEX_V_T] * psi_dot
 
     # Set boundaries for nonlinear constraints
     # a_abs_squared < a_max_squared
-    #-psi_dot_max < psi_dot < psi_dot_max
-    #-beta_max < beta < beta_max TODO: check if this would improve stability
+    # -psi_dot_max < psi_dot < psi_dot_max
+    # -beta_max < beta < beta_max TODO: check if this would improve stability
 
     # compute absolute acceleration
-    a_abs_squared = ocp.model.x[STATE_INDEX_A_T]**2 + (a_n)**2
+    a_abs_squared = ocp.model.x[STATE_INDEX_A_T] ** 2 + (a_n) ** 2
     ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, a_n, a_abs_squared)
-    a_max_squared = config['acceleration_max']**2
-    cons.lh = np.concatenate((cons.lh, [-config['acceleration_n_max']], [0.0]))
-    cons.uh = np.concatenate((cons.uh, [config['acceleration_n_max']], [a_max_squared]))
+    a_max_squared = config["acceleration_max"] ** 2
+    cons.lh = np.concatenate((cons.lh, [-config["acceleration_n_max"]], [0.0]))
+    cons.uh = np.concatenate((cons.uh, [config["acceleration_n_max"]], [a_max_squared]))
 
-    if config['model_type'] == 'RWS':
+    if config["model_type"] == "RWS":
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, psi_dot)
-        cons.lh = np.concatenate((cons.lh, [-config['psi_dot_max']]))
-        cons.uh = np.concatenate((cons.uh, [config['psi_dot_max']]))
+        cons.lh = np.concatenate((cons.lh, [-config["psi_dot_max"]]))
+        cons.uh = np.concatenate((cons.uh, [config["psi_dot_max"]]))
 
         # nonlinear constraints for steering mode
         steering_mode_constraints = {
             "in-phase": ocp.model.x[STATE_INDEX_DELTA_F] - ocp.model.x[STATE_INDEX_DELTA_R],
-            "anti-phase": ocp.model.x[STATE_INDEX_DELTA_F] + ocp.model.x[STATE_INDEX_DELTA_R]
+            "anti-phase": ocp.model.x[STATE_INDEX_DELTA_F] + ocp.model.x[STATE_INDEX_DELTA_R],
         }
         if config["steering_mode_constraint"] in steering_mode_constraints:
             ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, steering_mode_constraints[config["steering_mode_constraint"]])
@@ -210,7 +249,7 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.lh_e = cons.lh
     cons.uh_e = cons.uh
 
-    ########## soft constraints ##########
+    # === Soft constraints ===
 
     slack_indices = []
     slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}
@@ -220,34 +259,42 @@ def set_constraints(ocp: AcadosOcp, config):
     if config["enable_boundary_slack"]:
         slack_indices.extend(range(0, boundary_constraints))
         boundary_weights = config["boundary_slack_weights"]
-        slack_weights["zl"].append(_expand_slack_weights(boundary_weights["linear_lower"], boundary_constraints, "boundary_slack_weights.linear_lower"))
-        slack_weights["zu"].append(_expand_slack_weights(boundary_weights["linear_upper"], boundary_constraints, "boundary_slack_weights.linear_upper"))
-        slack_weights["Zl"].append(_expand_slack_weights(boundary_weights["quadratic_lower"], boundary_constraints, "boundary_slack_weights.quadratic_lower"))
-        slack_weights["Zu"].append(_expand_slack_weights(boundary_weights["quadratic_upper"], boundary_constraints, "boundary_slack_weights.quadratic_upper"))
+        slack_weights["zl"].append(
+            _expand_slack_weights(boundary_weights["linear_lower"], boundary_constraints, "boundary_slack_weights.linear_lower")
+        )
+        slack_weights["zu"].append(
+            _expand_slack_weights(boundary_weights["linear_upper"], boundary_constraints, "boundary_slack_weights.linear_upper")
+        )
+        slack_weights["Zl"].append(
+            _expand_slack_weights(
+                boundary_weights["quadratic_lower"], boundary_constraints, "boundary_slack_weights.quadratic_lower"
+            )
+        )
+        slack_weights["Zu"].append(
+            _expand_slack_weights(
+                boundary_weights["quadratic_upper"], boundary_constraints, "boundary_slack_weights.quadratic_upper"
+            )
+        )
 
     if config["enable_obstacle_slack"]:
         slack_indices.extend(range(boundary_constraints, boundary_constraints + obstacle_constraints))
         obstacle_weights = config["obstacle_slack_weights"]
-        slack_weights["zl"].append(_expand_slack_weights(
-            obstacle_weights["linear_lower"],
-            obstacle_constraints,
-            "obstacle_slack_weights.linear_lower"
-        ))
-        slack_weights["zu"].append(_expand_slack_weights(
-            obstacle_weights["linear_upper"],
-            obstacle_constraints,
-            "obstacle_slack_weights.linear_upper"
-        ))
-        slack_weights["Zl"].append(_expand_slack_weights(
-            obstacle_weights["quadratic_lower"],
-            obstacle_constraints,
-            "obstacle_slack_weights.quadratic_lower"
-        ))
-        slack_weights["Zu"].append(_expand_slack_weights(
-            obstacle_weights["quadratic_upper"],
-            obstacle_constraints,
-            "obstacle_slack_weights.quadratic_upper"
-        ))
+        slack_weights["zl"].append(
+            _expand_slack_weights(obstacle_weights["linear_lower"], obstacle_constraints, "obstacle_slack_weights.linear_lower")
+        )
+        slack_weights["zu"].append(
+            _expand_slack_weights(obstacle_weights["linear_upper"], obstacle_constraints, "obstacle_slack_weights.linear_upper")
+        )
+        slack_weights["Zl"].append(
+            _expand_slack_weights(
+                obstacle_weights["quadratic_lower"], obstacle_constraints, "obstacle_slack_weights.quadratic_lower"
+            )
+        )
+        slack_weights["Zu"].append(
+            _expand_slack_weights(
+                obstacle_weights["quadratic_upper"], obstacle_constraints, "obstacle_slack_weights.quadratic_upper"
+            )
+        )
 
     if slack_indices:
         cons.idxsh = np.array(slack_indices, dtype=int)
@@ -271,18 +318,20 @@ def set_constraints(ocp: AcadosOcp, config):
 
     ocp.constraints = cons
 
+
 def compute_side_slip_angle(ocp: AcadosOcp, config: dict) -> ca.MX:
-    """
-    Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector)
-    Ackermann:
-    beta = 0.0
-    RWS:
-    beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
+    """Computes the vehicle side slip (angle between vehicle frame and absolute velocity vector).
+
+    Ackermann: beta = 0.0
+    RWS: beta = atan( L_r / (L_f + L_r) * delta_f +  L_f / (L_f + L_r) * delta_r)
     """
     if config["model_type"] == "Ackermann":
         return 0.0
     # RWS
     L_f = config["distance_cg_front_axle"]
     L_r = config["distance_cg_rear_axle"]
-    beta = ca.atan((L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F]) + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R]))
+    beta = ca.atan(
+        (L_r / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_F])
+        + (L_f / (L_f + L_r)) * stable_tan(ocp.model.x[STATE_INDEX_DELTA_R])
+    )
     return beta

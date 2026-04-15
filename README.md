@@ -15,12 +15,12 @@
 
 <img src="./assets/logo.svg" align="right" height="120" alt="trajectory_optimization logo">
 <p align="justify">
-This repository contains a ROS 2 node for periodically solving a nonlinear optimal control problem (OCP) to generate optimized trajectories for automated driving. The goal of the OCP is to follow a "reference trajectory" while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a "drivable trajectory" that fulfils all these requirements.
+This repository provides a ROS 2 node for periodically solving a nonlinear optimal control problem to generate optimized trajectories for automated driving. The goal of the OCP is to follow a <i>reference trajectory</i> while respecting the dynamics of a given vehicle model and optimizing with respect to a configured cost function, all while not violating defined constraints such as collision avoidance and road boundaries. This results in a <i>drivable trajectory</i> that fulfils all these requirements.
 </p>
 
-The open-source framework [acados](https://github.com/acados/acados) is used to define OCP and generate the libraries for solving it online in the ROS 2 node. Key features:
-- **Vehicle models**: single-track model with ackermann steering (and optionally rear-wheel steering).
-- **Cost function**: minimizing tracking error to reference trajectory, acceleration, jerk, and steering actuation (with configurable weights).
+The open-source framework [acados](https://github.com/acados/acados) is used to define the OCP and generate the libraries for solving it online in the ROS 2 node. Key features:
+- **Vehicle models**: single-track model with ackermann steering and optionally rear-wheel steering.
+- **Cost function**: minimizing tracking error to reference trajectory, acceleration, jerk, and steering actuation with configurable weights.
 - **Constraints**: dynamic obstacles, route boundaries, state/control/dynamics constraints.
 
 The ROS 2 node uses the open-source ROS 2 message definitions [perception_interfaces](https://github.com/ika-rwth-aachen/perception_interfaces) and [planning_interfaces](https://github.com/ika-rwth-aachen/planning_interfaces) for all inputs and outputs, making it easy to integrate into a larger ROS 2-based system. The node is designed to be flexible and configurable, with support for different driving modes, model variants, and execution modes.
@@ -35,7 +35,7 @@ The ROS 2 node uses the open-source ROS 2 message definitions [perception_interf
 
 ## 🚀 Quick Start
 
-Run the ready-made demo setup from [`demo`](./demo), which starts the trajectory optimization together with the dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the running nodes and see the effect on the generated trajectories in RViz.
+Run the ready-made demo setup from [`demo`](./demo), which starts the trajectory optimization together with dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the running nodes and see the effect on the generated trajectories in RViz.
 
 1. Launch a container of the pre-built runtime image in the provided demo [Docker Compose](demo/docker-compose.yml) setup.
     ```bash

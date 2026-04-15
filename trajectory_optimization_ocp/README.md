@@ -1,6 +1,6 @@
 # `trajectory_optimization_ocp`
 
-`trajectory_optimization_ocp` is a ROS 2 wrapper package that generates acados OCP solver code at build time and exports it as a normal CMake/ament dependency.
+Defines the OCP for trajectory optimization and generates the corresponding C code headers/libraries, which are then used by `trajectory_optimization`.
 
 It is used by [`trajectory_optimization`](../README.md).
 
