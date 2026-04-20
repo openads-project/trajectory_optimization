@@ -32,6 +32,7 @@ The ROS 2 node uses the open-source ROS 2 message definitions [perception_interf
 > [!IMPORTANT]
 > This repository is part of [***OpenADS***](https://github.com/openads-project), the *Open Automated Driving Stack*. *OpenADS* and its modules have been initiated and are currently being maintained by the [**Institute for Automotive Engineering (ika) at RWTH Aachen University**](https://www.ika.rwth-aachen.de/de/).
 
+
 ## 🚀 Quick Start
 
 Run the ready-made demo setup from [`demo`](./demo), which starts the trajectory optimization together with dummy input generation, RViz and RQt. You can use the dynamic reconfigure options in RQt to change the parameters of the running nodes and see the effect on the generated trajectories in RViz.
