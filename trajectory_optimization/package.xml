@@ -3,7 +3,7 @@
 <package format="3">
 
   <name>trajectory_optimization</name>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <description>Periodically solves a nonlinear OCP to generate optimized trajectories for automated driving.</description>
 
   <maintainer email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</maintainer>

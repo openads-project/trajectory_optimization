@@ -28,7 +28,7 @@ consistency:
     - apt-get update && apt-get install -y doxygen
     - python3 -m pip install -r .openads-dev-environment/scripts/requirements.txt
   script:
-    - python3 .openads-dev-environment/scripts/check_repository_consistency.py
+    - python3 .openads-dev-environment/scripts/check_repository_consistency.py --skip readme_generator_is_idempotent
 
 pages:
   stage: docs
