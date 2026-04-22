@@ -408,6 +408,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double d_min_obstacle_long_ = 5.0;
   double d_min_obstacle_lat_ = 0.5;
   double d_min_boundary_lat_ = 0.0;
+  double min_prediction_probability_ = 0.0;
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!

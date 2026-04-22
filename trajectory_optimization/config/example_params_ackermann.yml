@@ -11,6 +11,7 @@
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     add_x_init_to_ref: False        # add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle
     consider_objects: 2             # consider objects in optimization: 0 = no, 1 = static (no prediction), 2 = dynamic (with prediction)
+    min_prediction_probability: 0.0 # consider only predictions with probability > this threshold
     consider_boundaries: 1          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)

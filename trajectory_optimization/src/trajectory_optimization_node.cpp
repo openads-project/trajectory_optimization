@@ -54,6 +54,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter(
       "consider_objects", consider_objects_,
       "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
+  this->declareAndLoadParameter("min_prediction_probability", min_prediction_probability_,
+                                "Minimum probability for predicted object states to be considered", true, false, false, 0.0, 1.0);
   this->declareAndLoadParameter(
       "consider_boundaries", consider_boundaries_,
       "consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space");
@@ -541,45 +543,61 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
-      double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
       std::vector<double> TIME, X, Y, YAW;
+      std::vector<std::tuple<double, double, double>> target_states;
       // TODO: should not be done for each shooting interval. Could be improved.  // NOLINT(google-readability-todo)
       TIME.push_back(static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
-      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && object_list.objects[j].state_predictions.size() > 0) {
-        for (auto& predicted_state : object_list.objects[j].state_predictions[0].states) {
-          TIME.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
-          X.push_back(perception_msgs::object_access::getX(predicted_state));
-          Y.push_back(perception_msgs::object_access::getY(predicted_state));
-          YAW.push_back(perception_msgs::object_access::getYaw(predicted_state));
+      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && !object_list.objects[j].state_predictions.empty()) {
+        for (const auto& state_prediction : object_list.objects[j].state_predictions) {
+          if (state_prediction.probability <= min_prediction_probability_) {
+            continue;
+          }
+
+          std::vector<double> prediction_time = TIME;
+          std::vector<double> prediction_x = X;
+          std::vector<double> prediction_y = Y;
+          std::vector<double> prediction_yaw = YAW;
+          for (const auto& predicted_state : state_prediction.states) {
+            prediction_time.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
+            prediction_x.push_back(perception_msgs::object_access::getX(predicted_state));
+            prediction_y.push_back(perception_msgs::object_access::getY(predicted_state));
+            prediction_yaw.push_back(perception_msgs::object_access::getYaw(predicted_state));
+          }
+          double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
+          double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
+          linearInterpolation(prediction_time, prediction_x, des_time, x_tgt);
+          linearInterpolation(prediction_time, prediction_y, des_time, y_tgt);
+          linearInterpolation(prediction_time, prediction_yaw, des_time, yaw_tgt, true);
+          target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
         }
-        double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
-        linearInterpolation(TIME, X, des_time, x_tgt);
-        linearInterpolation(TIME, Y, des_time, y_tgt);
-        linearInterpolation(TIME, YAW, des_time, yaw_tgt, true);
       } else {
-        x_tgt = X.front();
-        y_tgt = Y.front();
-        yaw_tgt = YAW.front();
+        target_states.emplace_back(X.front(), Y.front(), YAW.front());
       }
-      // ensure that x_tgt and y_tgt represent the geometric center of the object
+
       double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y,
                                 object_list.objects[j].state.reference_point.translation_to_geometric_center.x);
-      double beta = wrap_angle_rad(yaw_tgt - alpha);
       double a = std::sqrt(std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.x, 2) +
                            std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, 2));
-      x_tgt += a * std::cos(beta);
-      y_tgt += a * std::sin(beta);
+      for (auto& [x_tgt, y_tgt, yaw_tgt] : target_states) {
+        // ensure that x_tgt and y_tgt represent the geometric center of the object
+        double beta = wrap_angle_rad(yaw_tgt - alpha);
+        x_tgt += a * std::cos(beta);
+        y_tgt += a * std::sin(beta);
 
-      std::vector<double> obj_circles =
-          discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt, perception_msgs::object_access::getLength(object_list.objects[j]),
-                               perception_msgs::object_access::getWidth(object_list.objects[j]));
+        std::vector<double> obj_circles =
+            discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt, perception_msgs::object_access::getLength(object_list.objects[j]),
+                                 perception_msgs::object_access::getWidth(object_list.objects[j]));
 
-      circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
+        circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
+        if (circles.size() >= static_cast<size_t>(n)) {
+          circles.resize(n);
+          break;
+        }
+      }
       if (circles.size() >= static_cast<size_t>(n)) {
-        circles.resize(n);
         break;
       }
     }
