@@ -551,7 +551,8 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
       if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && !object_list.objects[j].state_predictions.empty()) {
-        for (const auto& state_prediction : object_list.objects[j].state_predictions) {
+        for (size_t prediction_idx = 0; prediction_idx < object_list.objects[j].state_predictions.size(); ++prediction_idx) {
+          const auto& state_prediction = object_list.objects[j].state_predictions[prediction_idx];
           if (state_prediction.probability <= min_prediction_probability_) {
             continue;
           }
@@ -568,9 +569,23 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
           }
           double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
           double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
-          linearInterpolation(prediction_time, prediction_x, des_time, x_tgt);
-          linearInterpolation(prediction_time, prediction_y, des_time, y_tgt);
-          linearInterpolation(prediction_time, prediction_yaw, des_time, yaw_tgt, true);
+          if (des_time > prediction_time.back()) {
+            const double relative_des_time = des_time - prediction_time.front();
+            const double relative_max_time = prediction_time.back() - prediction_time.front();
+            RCLCPP_WARN(this->get_logger(),
+                        "Prediction horizon shorter than requested interpolation time. "
+                        "object=%zu prediction=%zu probability=%.3f desired_rel=%.3f s max_rel=%.3f s n_states=%zu. "
+                        "Using last prediction state.",
+                        j, prediction_idx, state_prediction.probability, relative_des_time, relative_max_time,
+                        state_prediction.states.size());
+            x_tgt = prediction_x.back();
+            y_tgt = prediction_y.back();
+            yaw_tgt = prediction_yaw.back();
+          } else {
+            linearInterpolation(prediction_time, prediction_x, des_time, x_tgt);
+            linearInterpolation(prediction_time, prediction_y, des_time, y_tgt);
+            linearInterpolation(prediction_time, prediction_yaw, des_time, yaw_tgt, true);
+          }
           target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
         }
       } else {
