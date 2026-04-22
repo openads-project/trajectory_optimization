@@ -551,12 +551,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
       if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && !object_list.objects[j].state_predictions.empty()) {
-        for (size_t prediction_idx = 0; prediction_idx < object_list.objects[j].state_predictions.size(); ++prediction_idx) {
-          const auto& state_prediction = object_list.objects[j].state_predictions[prediction_idx];
-          if (state_prediction.probability <= min_prediction_probability_) {
-            continue;
-          }
-
+        auto appendPredictionTargetState = [&](const auto& state_prediction, size_t prediction_idx) {
           std::vector<double> prediction_time = TIME;
           std::vector<double> prediction_x = X;
           std::vector<double> prediction_y = Y;
@@ -587,6 +582,19 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
             linearInterpolation(prediction_time, prediction_yaw, des_time, yaw_tgt, true);
           }
           target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
+        };
+
+        bool has_prediction_above_threshold = false;
+        for (size_t prediction_idx = 0; prediction_idx < object_list.objects[j].state_predictions.size(); ++prediction_idx) {
+          const auto& state_prediction = object_list.objects[j].state_predictions[prediction_idx];
+          if (state_prediction.probability <= min_prediction_probability_) {
+            continue;
+          }
+          has_prediction_above_threshold = true;
+          appendPredictionTargetState(state_prediction, prediction_idx);
+        }
+        if (!has_prediction_above_threshold) {
+          appendPredictionTargetState(object_list.objects[j].state_predictions[0], 0);
         }
       } else {
         target_states.emplace_back(X.front(), Y.front(), YAW.front());
