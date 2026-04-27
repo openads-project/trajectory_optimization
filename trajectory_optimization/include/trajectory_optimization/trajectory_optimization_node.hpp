@@ -250,6 +250,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
 
   /**
+   * @brief Writes runtime-configurable slack weights into the OCP.
+   */
+  void setOcpSlackWeights();
+
+  /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
    *
    * @param[in] reference_trajectory Reference trajectory in optimizer frame.
@@ -409,6 +414,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double d_min_obstacle_lat_ = 0.5;
   double d_min_boundary_lat_ = 0.0;
   double min_prediction_probability_ = 0.0;
+  double boundary_slack_linear_ = 200.0;
+  double boundary_slack_quadratic_ = 5000.0;
+  double obstacle_slack_linear_ = 200.0;
+  double obstacle_slack_quadratic_ = 5000.0;
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
@@ -418,12 +427,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;
-  ocp_nlp_config* nlp_config_;
-  ocp_nlp_dims* nlp_dims_;
-  ocp_nlp_in* nlp_in_;
-  ocp_nlp_out* nlp_out_;
-  ocp_nlp_solver* nlp_solver_;
-  void* nlp_opts_;
+  ocp_nlp_config* nlp_config_ = nullptr;
+  ocp_nlp_dims* nlp_dims_ = nullptr;
+  ocp_nlp_in* nlp_in_ = nullptr;
+  ocp_nlp_out* nlp_out_ = nullptr;
+  ocp_nlp_solver* nlp_solver_ = nullptr;
+  void* nlp_opts_ = nullptr;
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
