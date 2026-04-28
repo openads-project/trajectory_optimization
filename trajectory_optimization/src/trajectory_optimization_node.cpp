@@ -554,6 +554,8 @@ void TrajectoryOptimizationNode::setOcpSlackWeights() {
   const int constraints_per_ego_circle = 2 + n_obstacle_circles;
 
   for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+    // acados exposes stage-wise dimensions as C arrays.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const int n_slacks = nlp_dims_->ns[stage];
     if (n_slacks == 0) {
       continue;
