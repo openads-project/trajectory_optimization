@@ -480,6 +480,12 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
   std::vector<double> global_params;
 
   // cost weights
+  const auto expected_cost_weights_size = static_cast<size_t>(p_cost_weights_shape_[0] * p_cost_weights_shape_[1]);
+  if (cost_weights.size() != expected_cost_weights_size) {
+    RCLCPP_ERROR(this->get_logger(), "Size of cost_weights (%zu) does not match expected size (%zu).", cost_weights.size(),
+                 expected_cost_weights_size);
+    throw std::runtime_error("Size of cost_weights does not match expected size.");
+  }
   global_params.insert(global_params.end(), cost_weights.begin(), cost_weights.end());
 
   // other cost params

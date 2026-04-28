@@ -38,15 +38,16 @@
     cost_weights:
       - 5.0  # dlat (0)
       - 1.0  # psi (1)      (considered if RWS model is used)
-      - 3.0  # v_inter (2)
-      - 0.1  # a_n (3)
-      - 0.5  # a_t_pos (4)
-      - 0.5  # a_t_neg (5)
-      - 0.05 # j_n (6)
-      - 0.1  # j_t_pos (7)
-      - 0.05 # j_t_neg (8)
-      - 0.1  # alpha_f/alpha_r (9)
-      - 1.0  # endYaw (10)
+      - 4.0  # overspeed (2)
+      - 1.0  # underspeed (3)
+      - 0.1  # a_n (4)
+      - 0.5  # a_t_pos (5)
+      - 0.5  # a_t_neg (6)
+      - 0.05 # j_n (7)
+      - 0.1  # j_t_pos (8)
+      - 0.05 # j_t_neg (9)
+      - 0.1  # alpha_f/alpha_r (10)
+      - 1.0  # endYaw (11)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
