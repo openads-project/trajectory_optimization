@@ -39,3 +39,5 @@ services:
           boundary_marker_topic:=$${BOUNDARY_MARKER_TOPIC} \
           ego_circles_topic:=$${EGO_CIRCLES_TOPIC} \
           object_circles_topic:=$${OBJECT_CIRCLES_TOPIC}
+    # volumes:
+    #   - ./params.yml:/docker-ros/ws/install/trajectory_optimization/share/trajectory_optimization/config/params.yml
