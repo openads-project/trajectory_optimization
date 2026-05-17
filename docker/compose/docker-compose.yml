@@ -1,6 +1,6 @@
 services:
 
-  planning.trajectory-optimization:
+  planning-trajectory-optimization:
     image: ghcr.io/openads-project/trajectory_optimization:v1.2.0
     environment:
       # --- name ------
