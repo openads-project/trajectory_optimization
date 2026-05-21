@@ -7,6 +7,7 @@
   <a href="https://github.com/openads-project/trajectory_optimization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/openads-project/trajectory_optimization"/></a>
   <br>
   <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docker-ros.yml/badge.svg"/></a>
+  <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/compose-oci.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/compose-oci.yml/badge.svg"/></a>
   <a href="https://openads-project.github.io/trajectory_optimization"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/docs.yml/badge.svg"/></a>
   <a href="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml"><img src="https://github.com/openads-project/trajectory_optimization/actions/workflows/consistency.yml/badge.svg"/></a>
 </p>
