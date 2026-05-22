@@ -89,7 +89,7 @@ flowchart LR
 | `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |
 | `log_level` | `"info"` | ROS logging level (debug, info, warn, error, fatal) |
 | `use_sim_time` | `"false"` | use simulation clock |
-| `trace` | `"false"` | enable tracing |
+| `ros_tracing` | `"false"` | enable tracing |
 | `driving_mode` | `"ackermann"` | driving mode, which determines the model and cost function configuration used for optimization [ackermann, rws] |
 
 ### [`trajectory_optimization_demo.launch.py`](launch/trajectory_optimization_demo.launch.py)
