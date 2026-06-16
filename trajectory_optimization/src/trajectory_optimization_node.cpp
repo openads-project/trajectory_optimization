@@ -551,6 +551,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
       YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
       if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && !object_list.objects[j].state_predictions.empty()) {
+        // build one target state for a single prediction hypothesis at the current shooting interval
         auto appendPredictionTargetState = [&](const auto& state_prediction, size_t prediction_idx) {
           std::vector<double> prediction_time = TIME;
           std::vector<double> prediction_x = X;
@@ -584,6 +585,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
           target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
         };
 
+        // consider all prediction hypotheses whose probability exceeds the configured threshold
         bool has_prediction_above_threshold = false;
         for (size_t prediction_idx = 0; prediction_idx < object_list.objects[j].state_predictions.size(); ++prediction_idx) {
           const auto& state_prediction = object_list.objects[j].state_predictions[prediction_idx];
@@ -594,9 +596,11 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
           appendPredictionTargetState(state_prediction, prediction_idx);
         }
         if (!has_prediction_above_threshold) {
+          // always keep at least one prediction hypothesis for predicted objects
           appendPredictionTargetState(object_list.objects[j].state_predictions[0], 0);
         }
       } else {
+        // static object handling or missing predictions: use the current object state
         target_states.emplace_back(X.front(), Y.front(), YAW.front());
       }
 
