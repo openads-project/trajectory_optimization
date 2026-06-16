@@ -53,7 +53,7 @@ flowchart LR
 | `verbose` | `bool` | `false` | Print solver statistics |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
-| `cost_weights` | `float[]` | `std::vector<double>(15, 1.0)` | Cost function weights |
+| `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
 | `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |

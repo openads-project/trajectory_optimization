@@ -72,15 +72,16 @@ def set_costs(ocp: AcadosOcp, config):
     # cost term weights
     w_lat = p_cost_weights[0]
     w_psi = p_cost_weights[1]
-    w_v_t_inter = p_cost_weights[2]
-    w_a_n = p_cost_weights[3]
-    w_a_t_pos = p_cost_weights[4]
-    w_a_t_neg = p_cost_weights[5]
-    w_j_n = p_cost_weights[6]
-    w_j_t_pos = p_cost_weights[7]
-    w_j_t_neg = p_cost_weights[8]
-    w_alpha = p_cost_weights[9]
-    w_end_yaw = p_cost_weights[10]
+    w_overspeed = p_cost_weights[2]
+    w_underspeed = p_cost_weights[3]
+    w_a_n = p_cost_weights[4]
+    w_a_t_pos = p_cost_weights[5]
+    w_a_t_neg = p_cost_weights[6]
+    w_j_n = p_cost_weights[7]
+    w_j_t_pos = p_cost_weights[8]
+    w_j_t_neg = p_cost_weights[9]
+    w_alpha = p_cost_weights[10]
+    w_end_yaw = p_cost_weights[11]
 
     # === External cost function ===
 
@@ -97,7 +98,8 @@ def set_costs(ocp: AcadosOcp, config):
     # --- Define costs at intermediate nodes ---
     # reference path costs
     ocp.model.cost_expr_ext_cost = p_dynamic_weight * w_lat * ref_path_costs["dlat"]
-    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_v_t_inter * ref_path_costs["v_t_inter"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_overspeed * ref_path_costs["overspeed"]
+    ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_underspeed * ref_path_costs["underspeed"]
     # acceleration costs
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_t_pos * a_costs["a_t_pos"]
     ocp.model.cost_expr_ext_cost += p_dynamic_weight * w_a_t_neg * a_costs["a_t_neg"]
@@ -128,8 +130,7 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, ref_inter: dict) -> dict:
         ref_inter: Interpolated reference state at the current position.
 
     Returns:
-        Dictionary with normalized terms for lateral error, yaw error, and
-        intermediate velocity error.
+        Dictionary with normalized terms for lateral error, yaw error, and velocity errors for over- and underspeeding.
     """
 
     # lateral deviation term
@@ -144,12 +145,15 @@ def calc_ref_path_cost(ocp: AcadosOcp, config: dict, ref_inter: dict) -> dict:
     # we define the scaling value of v to v_ref: a velocity deviation of v_ref leads to a cost of 1
     # for numeric stability (low reference speeds) we ensure that v_scale > V_SCALE_MIN > 0
     v_scale = ca.fmax(v_ref, V_SCALE_MIN)
-    v_term = ca.power((v_ref - ocp.model.x[STATE_INDEX_V_T]), 2) / ca.power(v_scale, 2)
+    v_dev = v_ref - ocp.model.x[STATE_INDEX_V_T]
+    v_term = ca.power(v_dev, 2) / ca.power(v_scale, 2)
+    overspeed_term = ca.if_else(v_dev < 0, v_term, 0.0)
+    underspeed_term = ca.if_else(v_dev > 0, v_term, 0.0)
 
     # psi deviation term
     psi_term = ca.power(wrap_angle(ocp.model.x[STATE_INDEX_PSI] - ref_inter["psi"]), 2) / ca.power(config["c_psi"], 2)
 
-    cost_terms = {"dlat": dlat_term, "psi": psi_term, "v_t_inter": v_term}
+    cost_terms = {"dlat": dlat_term, "psi": psi_term, "overspeed": overspeed_term, "underspeed": underspeed_term}
     return cost_terms
 
 
