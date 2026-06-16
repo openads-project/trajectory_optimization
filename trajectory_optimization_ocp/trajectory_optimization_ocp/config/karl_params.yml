@@ -35,13 +35,13 @@ c_j_n: 3.0            # distance to scale the normal jerk costs [m/s³]
 c_alpha: 0.35         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
-enable_boundary_slack: True                # activate slack weights for soft constraints (route boundaries)
+enable_boundary_slack: False                # activate slack weights for soft constraints (route boundaries)
 boundary_slack_weights:                     # scalar or list (length 2 * n_ego_circles)
   linear_lower: 10.0
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
-enable_obstacle_slack: True                # activate slack weights for obstacle constraints
+enable_obstacle_slack: False                # activate slack weights for obstacle constraints
 obstacle_slack_weights:                     # scalar or list (length n_obstacles * n_ego_circles)
   linear_lower: 50.0
   linear_upper: 50.0
