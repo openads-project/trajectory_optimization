@@ -386,7 +386,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool add_x_init_to_ref_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
-  bool init_as_ref_ = false;
   bool run_as_callback_ = false;
 
   // common bi-level thresholds
@@ -397,6 +396,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
+  bool has_valid_trajectory_ = false;
 
   // visualization
   std::vector<double> viz_circles_;

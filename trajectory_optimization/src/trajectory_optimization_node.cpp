@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -66,9 +67,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
-  this->declareAndLoadParameter(
-      "init_as_ref", init_as_ref_,
-      "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
   this->setup();
 }
 
@@ -334,6 +332,7 @@ void TrajectoryOptimizationNode::planningCycle() {
       return;
     }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
+    has_valid_trajectory_ = false;
     trajectory_pub_->publish(std::move(trajectory));
     resetSolver();
     return;
@@ -341,11 +340,11 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // set initial state
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
-  if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
+  if (has_valid_trajectory_) {
     x_init = high_level_stabilization_ ? getHighLevelX0(ego_data_) : getBiLevelX0(ego_data_);
   } else {
     RCLCPP_WARN(this->get_logger(),
-                "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
+                "No valid moving last trajectory available. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
   }
 
@@ -383,6 +382,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   if (status == 1 || status == 3 || status == 4) {
     RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
+    has_valid_trajectory_ = false;
     resetSolver();
     return;
   }
@@ -405,6 +405,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   latest_valid_trajectory_ = *trajectory;
+  has_valid_trajectory_ = true;
   trajectory_pub_->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 }
@@ -448,14 +449,14 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     return false;
   }
 
-  if (init_as_ref_ && trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
-    // set initial guess
+  // Only seed a new initial guess if there is no valid warm start from the previous solve.
+  if (!has_valid_trajectory_) {
     std::vector<double> initial_guess(*nlp_dims_->nx, 0.0);
     for (int i = 0; i <= n_shots_; ++i) {
       int idx = std::min(i, trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory) - 1);
       initial_guess[0] = trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, idx);
       initial_guess[1] = trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, idx);
-      initial_guess[3] = trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, idx);
+      initial_guess[3] = perception_msgs::object_access::getVelLon(ego_data);
       initial_guess[5] = trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, idx);
       ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, i, "x", initial_guess.data());
     }
