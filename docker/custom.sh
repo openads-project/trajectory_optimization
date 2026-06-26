@@ -9,7 +9,9 @@ cmake -DCMAKE_BUILD_TYPE=Release .. # -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_QOR
 make install -j8
 
 # install acados python interface
-pip install -e /opt/acados/interfaces/acados_template
+# The base image can provide numpy through apt; --ignore-installed avoids
+# pip trying to uninstall Debian-managed packages that do not have a RECORD.
+pip install --ignore-installed -e /opt/acados/interfaces/acados_template
 
 # install t_renderer
 rm -f /opt/acados/bin/t_renderer
