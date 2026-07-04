@@ -54,7 +54,7 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
    * @param[in] v Velocity vector.
    * @return Longitudinal acceleration along the velocity direction.
    */
-  double projectVectorAonV(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& v);
+  static double projectVectorAonV(const geometry_msgs::msg::Vector3& a, const geometry_msgs::msg::Vector3& v);
 
   /**
    * @brief Computes the kinematic vehicle slip angle from front and rear steering angles.
@@ -63,7 +63,7 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
    * @param[in] delta_rear Rear steering angle.
    * @return Vehicle slip angle in radians.
    */
-  double computeVehicleSlipAngle(const double& delta_front, const double& delta_rear);
+  double computeVehicleSlipAngle(const double& delta_front, const double& delta_rear) const;
 
   // parameters
   double distance_front_axle_ = 1.7;

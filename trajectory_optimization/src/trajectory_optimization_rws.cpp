@@ -131,7 +131,7 @@ void TrajectoryOptimizationRWSNode::convertToTrajectoryMsg(trajectory_planning_m
   }
 }
 
-double TrajectoryOptimizationRWSNode::computeVehicleSlipAngle(const double& delta_front, const double& delta_rear) {
+double TrajectoryOptimizationRWSNode::computeVehicleSlipAngle(const double& delta_front, const double& delta_rear) const {
   double wheel_base = distance_front_axle_ + distance_rear_axle_;
   double slip_angle =
       atan(distance_rear_axle_ / wheel_base * tan(delta_front) + distance_front_axle_ / wheel_base * tan(delta_rear));
