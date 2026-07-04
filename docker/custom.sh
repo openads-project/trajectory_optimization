@@ -9,7 +9,7 @@ cmake -DCMAKE_BUILD_TYPE=Release .. # -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_QOR
 make install -j8
 
 # install acados python interface
-pip install -e /opt/acados/interfaces/acados_template
+pip install -e /opt/acados/interfaces/acados_template --ignore-installed
 
 # install t_renderer
 rm -f /opt/acados/bin/t_renderer
