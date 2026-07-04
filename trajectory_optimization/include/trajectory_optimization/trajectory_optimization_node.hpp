@@ -163,7 +163,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in] max_val Upper bound of the target interval.
    * @return Wrapped angle in radians.
    */
-  double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
+  static double wrap_angle_rad(double angle_rad, double min_val = -M_PI, double max_val = M_PI);
 
   /**
    * @brief Interpolates a value from sampled data and optionally handles angle wrap-around.
@@ -265,7 +265,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in,out] object_list Object list to filter.
    * @param[in] n_objects Maximum number of objects to retain.
    */
-  void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
+  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
 
   /**
    * @brief Approximates an oriented bounding box with a set of obstacle circles.

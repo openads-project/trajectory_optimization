@@ -263,7 +263,7 @@ void TrajectoryOptimizationNode::setupSolver() {
     status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
   }
 
-  if (status) {
+  if (status != 0) {
     RCLCPP_INFO(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(),
                 status);
     exit(1);
@@ -294,12 +294,12 @@ void TrajectoryOptimizationNode::setupSolver() {
 void TrajectoryOptimizationNode::freeSolver() {
   // free solver
   int status = trajectory_optimization::acados_free(ocp_capsule_);
-  if (status) {
+  if (status != 0) {
     RCLCPP_ERROR(this->get_logger(), "%s_acados_free() returned status %d.", model_name_.c_str(), status);
   }
   // free solver capsule
   status = trajectory_optimization::acados_free_capsule(ocp_capsule_);
-  if (status) {
+  if (status != 0) {
     RCLCPP_ERROR(this->get_logger(), "%s_acados_free_capsule() returned status %d.", model_name_.c_str(), status);
   }
 }

@@ -171,7 +171,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   boundaries.left_boundary_intersections.reserve(ref_sample_size);
   boundaries.right_boundary_intersections.reserve(ref_sample_size);
 
-  if (remaining_route.size() < 1) {
+  if (remaining_route.empty()) {
     RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
     for (int i = 0; i < ref_sample_size; ++i) {
       boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE);
@@ -303,11 +303,11 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
   };
 
   if (is_intersection) {
-    addMarkers(left_boundary_points, "left_intersection_points", 0.5f, 0.0f, 1.0f);
-    addMarkers(right_boundary_points, "right_intersection_points", 0.0f, 0.5f, 1.0f);
+    addMarkers(left_boundary_points, "left_intersection_points", 0.5F, 0.0F, 1.0F);
+    addMarkers(right_boundary_points, "right_intersection_points", 0.0F, 0.5F, 1.0F);
   } else {
-    addMarkers(left_boundary_points, "left_boundary_points", 0.0f, 1.0f, 0.0f);
-    addMarkers(right_boundary_points, "right_boundary_points", 1.0f, 0.0f, 0.0f);
+    addMarkers(left_boundary_points, "left_boundary_points", 0.0F, 1.0F, 0.0F);
+    addMarkers(right_boundary_points, "right_boundary_points", 1.0F, 0.0F, 0.0F);
   }
 
   boundary_pub_->publish(marker_array);
@@ -369,7 +369,7 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
     return;
   }
 
-  const double offset_x = ego_offset2geocenter.size() > 0 ? ego_offset2geocenter[0] : 0.0;
+  const double offset_x = !ego_offset2geocenter.empty() ? ego_offset2geocenter[0] : 0.0;
   const double offset_y = ego_offset2geocenter.size() > 1 ? ego_offset2geocenter[1] : 0.0;
 
   const double radius = std::sqrt(std::pow(ego_length / (2.0 * n_ego_circles), 2) + std::pow(ego_width / 2.0, 2));
@@ -406,9 +406,9 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
       marker.scale.y = radius * 2.0;
       marker.scale.z = 0.05;
       marker.color.a = 0.4;
-      marker.color.r = 0.0f;
-      marker.color.g = 0.6f;
-      marker.color.b = 1.0f;
+      marker.color.r = 0.0F;
+      marker.color.g = 0.6F;
+      marker.color.b = 1.0F;
       marker_array.markers.push_back(marker);
     }
   }
