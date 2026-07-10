@@ -14,6 +14,7 @@
     min_prediction_probability: 0.0 # consider only predictions with probability > this threshold
     consider_boundaries: 1          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
+    performance_logging: False      # write one CSV record for each completed solver run
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 

@@ -14,6 +14,19 @@
  */
 namespace trajectory_optimization {
 
+namespace {
+using SteadyClock = std::chrono::steady_clock;
+
+double elapsedMilliseconds(const SteadyClock::time_point& start) {
+  return std::chrono::duration<double, std::milli>(SteadyClock::now() - start).count();
+}
+
+double elapsedMilliseconds(const SteadyClock::time_point& start, const SteadyClock::time_point& end) {
+  return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+}  // namespace
+
 TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_name, const rclcpp::NodeOptions& options)
     : rclcpp::Node(node_name, options) {
   // declare and load node parameters
@@ -31,6 +44,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
+  this->declareAndLoadParameter("performance_logging", performance_logging_,
+                                "Write one CSV record for every completed solver run", false, false, true);
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
@@ -69,6 +84,14 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter(
       "init_as_ref", init_as_ref_,
       "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
+  if (performance_logging_) {
+    try {
+      performance_logger_ = std::make_unique<PerformanceLogger>(get_name());
+      RCLCPP_INFO(get_logger(), "Writing performance data to '%s'.", performance_logger_->path().c_str());
+    } catch (const std::exception& error) {
+      RCLCPP_ERROR(get_logger(), "Could not initialize performance logging: %s", error.what());
+    }
+  }
   this->setup();
 }
 
@@ -310,6 +333,7 @@ void TrajectoryOptimizationNode::resetSolver() {
 }
 
 void TrajectoryOptimizationNode::planningCycle() {
+  const auto cycle_start = SteadyClock::now();
   if (debug_viz_) viz_circles_.clear();
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
     RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
@@ -339,6 +363,16 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
+  PerformanceMetrics metrics;
+  metrics.cycle = ++performance_cycle_;
+  metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
+  metrics.objects = static_cast<int>(object_list_.objects.size());
+  auto logCompletedCycle = [&]() {
+    metrics.cycle_ms = elapsedMilliseconds(cycle_start);
+    metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
+    logPerformance(metrics);
+  };
+
   // set initial state
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
   if (!trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
@@ -365,7 +399,20 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   // solve the optimization problem
-  int status = trajectory_optimization::acados_solve(ocp_capsule_);
+  const auto solve_start = SteadyClock::now();
+  metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
+  metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
+  const auto solve_end = SteadyClock::now();
+  metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
+
+  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_);
+
+  if (metrics.status == ACADOS_NAN_DETECTED || metrics.status == ACADOS_MINSTEP || metrics.status == ACADOS_QP_FAILURE) {
+    printSolution(metrics);
+    resetSolver();
+    logCompletedCycle();
+    return;
+  }
 
   // get solution
   for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
@@ -375,16 +422,10 @@ void TrajectoryOptimizationNode::planningCycle() {
     ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
   }
 
-  printSolution(status);
+  printSolution(metrics);
   if (debug_viz_) {
     vizCircles(viz_circles_);
     vizEgoCircles(xtraj_, model_name_);
-  }
-
-  if (status == 1 || status == 3 || status == 4) {
-    RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
-    resetSolver();
-    return;
   }
 
   // convert output into trajectory message
@@ -401,11 +442,14 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // transform trajectory to output frame
   if (!trajectory2outputFrame(*trajectory)) {
+    logCompletedCycle();
     return;
   }
 
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
+  metrics.published = true;
+  logCompletedCycle();
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 }
 

@@ -31,6 +31,7 @@
 
 // acados
 #include <trajectory_optimization/ocp_model_handler.hpp>
+#include <trajectory_optimization/performance_logger.hpp>
 
 namespace trajectory_optimization {
 
@@ -141,11 +142,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   /**
-   * @brief Logs solver status, timing and optional debug statistics for the last optimization run.
-   *
-   * @param[in] status acados solver status code.
+   * @brief Logs solver status and optional debug statistics for the last optimization run.
    */
-  void printSolution(int status);
+  void printSolution(const PerformanceMetrics& metrics);
+
+  /**
+   * @brief Emits one machine-readable performance record when performance logging is enabled.
+   */
+  void logPerformance(const PerformanceMetrics& metrics);
 
   /**
    * @brief Transforms the planned trajectory into the configured output frame (trajectory_frame_id_) if required.
@@ -380,6 +384,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   int n_shots_ = 50;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  bool performance_logging_ = false;
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
@@ -427,6 +432,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
+  uint64_t performance_cycle_ = 0;
+  std::unique_ptr<PerformanceLogger> performance_logger_;
 };
 
 }  // namespace trajectory_optimization

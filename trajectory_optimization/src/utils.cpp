@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -416,7 +417,7 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
   ego_circles_pub_->publish(marker_array);
 }
 
-void TrajectoryOptimizationNode::printSolution(int status) {
+void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics) {
   // Status codes:
   // 0: Success (ACADOS_SUCCESS)
   // 1: NaN detected (ACADOS_NAN_DETECTED)
@@ -426,39 +427,33 @@ void TrajectoryOptimizationNode::printSolution(int status) {
   // 5: Solver created (ACADOS_READY)
   // 6: Problem unbounded (ACADOS_UNBOUNDED)
   // 7: Solver timeout (ACADOS_TIMEOUT)
-  if (status == ACADOS_SUCCESS) {
+  if (metrics.status == ACADOS_SUCCESS && verbose_) {
     RCLCPP_INFO(get_logger(), "\033[1;32mOptimization: SUCCESS!\033[0m");
-  } else if (status == ACADOS_MAXITER) {
-    RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", status);
-  } else if (status == ACADOS_TIMEOUT) {
-    RCLCPP_WARN(get_logger(), "\033[38;5;214mOptimization failed with status %d (timeout).\033[0m", status);
-  } else {
-    RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), status);
+  } else if (metrics.status == ACADOS_MAXITER) {
+    RCLCPP_WARN(get_logger(), "Optimization failed with status %d (max iterations).", metrics.status);
+  } else if (metrics.status == ACADOS_TIMEOUT) {
+    RCLCPP_WARN(get_logger(), "\033[38;5;214mOptimization failed with status %d (timeout).\033[0m", metrics.status);
+  } else if (metrics.status != ACADOS_SUCCESS) {
+    RCLCPP_ERROR(get_logger(), "%s_acados_solve() failed with status %d.", model_name_.c_str(), metrics.status);
   }
 
-  // print duration, KKT, and number of SQP iterations
-  double elapsed_time = 0.0, kkt_norm_inf = 0.0;
-  int sqp_iter = 0;
-  ocp_nlp_get(nlp_solver_, "time_tot", &elapsed_time);
-  ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, 0, "kkt_norm_inf", &kkt_norm_inf);
-  ocp_nlp_get(nlp_solver_, "sqp_iter", &sqp_iter);
-  RCLCPP_INFO(get_logger(), "Optimization took \033[1m%f ms.\033[0m (SQP iter: \033[1m%2d\033[0m; KKT: \033[1m%e\033[0m)",
-              elapsed_time * 1000, sqp_iter, kkt_norm_inf);
-
-  // print cost value and residuals
-  double cost_value = 0.0, nlp_res = 0.0;
-  ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
-  ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
-  ocp_nlp_get(nlp_solver_, "cost_value", &cost_value);
-  ocp_nlp_get(nlp_solver_, "nlp_res", &nlp_res);
-  RCLCPP_INFO(get_logger(), "cost_value: \033[1m%f\033[0m; nlp_res: \033[1m%f\033[0m", cost_value, nlp_res);
-
   if (verbose_) {
+    RCLCPP_INFO(get_logger(), "Optimization took %.3f ms (SQP iter: %d; QP iter: %d; KKT: %e)", metrics.acados_total_ms,
+                metrics.sqp_iter, metrics.qp_iter, metrics.kkt_norm_inf);
+    RCLCPP_INFO(get_logger(), "cost_value: %f; residuals: stat=%e eq=%e ineq=%e comp=%e", metrics.cost_value, metrics.res_stat,
+                metrics.res_eq, metrics.res_ineq, metrics.res_comp);
+
     std::fputs("\n--- xtraj ---\n", stdout);
     d_print_exp_tran_mat(*nlp_dims_->nx, n_shots_ + 1, xtraj_.data(), *nlp_dims_->nx);
     std::fputs("\n--- utraj ---\n", stdout);
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.data(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
+  }
+}
+
+void TrajectoryOptimizationNode::logPerformance(const PerformanceMetrics& metrics) {
+  if (performance_logger_) {
+    performance_logger_->write(metrics);
   }
 }
 
