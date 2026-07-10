@@ -1,8 +1,6 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-from acados_template import AcadosOcpOptions
-
 
 def set_opts(ocp, config):
     """Set ACADOS OCP solver options based on configuration.
@@ -11,7 +9,7 @@ def set_opts(ocp, config):
         ocp: ACADOS OCP object to configure.
         config: Configuration dictionary containing optimization settings.
     """
-    opts = AcadosOcpOptions()
+    opts = ocp.solver_options
 
     # set options
     opts.qp_solver = "PARTIAL_CONDENSING_HPIPM"
@@ -50,13 +48,14 @@ def set_opts(ocp, config):
     opts.sim_method_num_steps = 2  # default 1. Not sure what this does, but 2 seems to make it slightly faster
     opts.globalization = "FIXED_STEP"  # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0  # default. 1 could help to solve the problem if 0 fails, but will be slower
-    opts.line_search_use_sufficient_descent = 0  # default. 1 could help to solve the problem if 0 fails, but will be slower
+    opts.globalization_line_search_use_sufficient_descent = (
+        0  # default. 1 could help to solve the problem if 0 fails, but will be slower
+    )
     # opts.globalization_line_search_use_sufficient_descent = 1
     opts.levenberg_marquardt = 0.05  # default. Larger values could help to solve the problem if 0 fails, but will be slower
     # opts.nlp_solver_warm_start_first_qp = True
     # opts.nlp_solver_warm_start_first_qp_from_nlp = True
 
-    # set prediction horizon in s
+    # set prediction horizon
+    opts.N_horizon = config["n_shots"]
     opts.tf = config["optimization_horizon"]
-
-    ocp.solver_options = opts

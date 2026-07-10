@@ -7,7 +7,7 @@ import os
 import sys
 
 import yaml
-from acados_template import AcadosOcp, AcadosOcpSolver, builders
+from acados_template import AcadosOcp, AcadosOcpSolver, ocp_get_default_cmake_builder
 
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "models")
@@ -17,7 +17,6 @@ for import_path in (CURRENT_DIR_PATH, MODELS_DIR_PATH):
 
 constraints = importlib.import_module("constraints")
 costs = importlib.import_module("costs")
-dims = importlib.import_module("dims")
 model_Ackermann = importlib.import_module("model_Ackermann")
 model_RWS = importlib.import_module("model_RWS")
 opts = importlib.import_module("opts")
@@ -63,16 +62,14 @@ def main():
         raise ValueError("Unknown model type. Choose between 'Ackermann' or 'RWS'.")
     costs.set_costs(ocp, parameters)
     constraints.set_constraints(ocp, parameters)  # Set constraints AFTER costs as soft constraints need to modify cost
-    dims.set_dims(ocp, parameters)
     opts.set_opts(ocp, parameters)
-    ocp.code_export_directory = os.path.join(CURRENT_DIR_PATH, "c_generated_code")
+    ocp.code_gen_options.code_export_directory = os.path.join(CURRENT_DIR_PATH, "c_generated_code")
+    ocp.code_gen_options.json_file = f"{parameters['model_name']}.json"
 
-    builder = builders.CMakeBuilder()
-    builder.options_on = ["BUILD_ACADOS_SOLVER_LIB", "BUILD_ACADOS_OCP_SOLVER_LIB"]
+    builder = ocp_get_default_cmake_builder()
+    builder.options_on.append("BUILD_ACADOS_SOLVER_LIB")
 
-    _ = AcadosOcpSolver(
-        ocp, json_file=f"{parameters['model_name']}.json", simulink_opts=None, build=True, generate=True, cmake_builder=builder
-    )
+    _ = AcadosOcpSolver(ocp, build=True, generate=True, cmake_builder=builder)
 
 
 if __name__ == "__main__":
