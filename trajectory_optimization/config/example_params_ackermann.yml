@@ -45,6 +45,12 @@
       - 1.0  # endYaw (11)
     dynamic_weight: 1.0         # base for exponential weight
 
+    #### slack weights for soft constraints
+    boundary_slack_linear: 200.0
+    boundary_slack_quadratic: 5000.0
+    obstacle_slack_linear: 200.0
+    obstacle_slack_quadratic: 5000.0
+
     # other cost params
     thw: 2.0                    # time headway [s]
     d_min_obstacle_long: 5.0    # minimum distance to keep to obstacles in longitudinal direction [m]

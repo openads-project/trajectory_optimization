@@ -43,6 +43,14 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Minimum distance to keep to obstacle in lateral direction [m]");
   this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
                                 "Minimum distance to keep to boundary in lateral direction [m]");
+  this->declareAndLoadParameter("boundary_slack_linear", boundary_slack_linear_,
+                                "Linear upper slack weight for boundary constraints");
+  this->declareAndLoadParameter("boundary_slack_quadratic", boundary_slack_quadratic_,
+                                "Quadratic upper slack weight for boundary constraints");
+  this->declareAndLoadParameter("obstacle_slack_linear", obstacle_slack_linear_,
+                                "Linear lower slack weight for obstacle constraints");
+  this->declareAndLoadParameter("obstacle_slack_quadratic", obstacle_slack_quadratic_,
+                                "Quadratic lower slack weight for obstacle constraints");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
                                 "Threshold for standstill detection [m/s]. If the velocities of all states are below this "
                                 "threshold, publish standstill trajectory");
@@ -149,6 +157,7 @@ void TrajectoryOptimizationNode::declareAndLoadParameter(const std::string& name
 
 rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersCallback(
     const std::vector<rclcpp::Parameter>& parameters) {
+  bool slack_weights_changed = false;
   for (const auto& param : parameters) {
     for (auto& auto_reconfigurable_param : auto_reconfigurable_params_) {
       if (param.get_name() == std::get<0>(auto_reconfigurable_param)) {
@@ -157,6 +166,9 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
                     param.value_to_string().c_str());
         break;
       }
+    }
+    if (param.get_name().find("_slack_") != std::string::npos) {
+      slack_weights_changed = true;
     }
     // handle special cases
     if (param.get_name() == "run_as_callback") {
@@ -170,6 +182,10 @@ rcl_interfaces::msg::SetParametersResult TrajectoryOptimizationNode::parametersC
         RCLCPP_WARN(this->get_logger(), "OCP runs now on reference trajectory callback");
       }
     }
+  }
+  if (slack_weights_changed) {
+    RCLCPP_INFO(this->get_logger(), "Slack weights changed, updating solver configuration");
+    setOcpSlackWeights();
   }
   // mark parameter change successful
   rcl_interfaces::msg::SetParametersResult result;
@@ -289,6 +305,8 @@ void TrajectoryOptimizationNode::setupSolver() {
 
   xtraj_.resize(*nlp_dims_->nx * (n_shots_ + 1));
   utraj_.resize(*nlp_dims_->nu * n_shots_);
+
+  setOcpSlackWeights();
 }
 
 void TrajectoryOptimizationNode::freeSolver() {
@@ -525,6 +543,51 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
                                                                            static_cast<int>(global_params.size()));
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
   RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
+}
+
+void TrajectoryOptimizationNode::setOcpSlackWeights() {
+  if (!nlp_config_ || !nlp_dims_ || !nlp_in_) {
+    return;
+  }
+
+  const int n_obstacle_circles = static_cast<int>(p_obstacle_circles_shape_[0]);
+  const int constraints_per_ego_circle = 2 + n_obstacle_circles;
+
+  for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+    // acados exposes stage-wise dimensions as C arrays.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const int n_slacks = nlp_dims_->ns[stage];
+    if (n_slacks == 0) {
+      continue;
+    }
+    if (constraints_per_ego_circle <= 0 || n_slacks % constraints_per_ego_circle != 0) {
+      RCLCPP_WARN(this->get_logger(), "Unexpected slack layout at stage %d: n_slacks=%d, obstacle_circles=%d. Skipping update.",
+                  stage, n_slacks, n_obstacle_circles);
+      continue;
+    }
+
+    const int n_ego_circles = n_slacks / constraints_per_ego_circle;
+    const int n_boundary_slacks = 2 * n_ego_circles;
+
+    // Boundary constraints are formulated as h <= 0, so only upper slack is penalized.
+    // Obstacle constraints are formulated as h >= 0, so only lower slack is penalized.
+    std::vector<double> zl(n_slacks, obstacle_slack_linear_);
+    std::vector<double> zu(n_slacks, 0.0);
+    std::vector<double> Zl(n_slacks, obstacle_slack_quadratic_);
+    std::vector<double> Zu(n_slacks, 0.0);
+
+    for (int i = 0; i < n_boundary_slacks; ++i) {
+      zl[i] = 0.0;
+      zu[i] = boundary_slack_linear_;
+      Zl[i] = 0.0;
+      Zu[i] = boundary_slack_quadratic_;
+    }
+
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, stage, "zl", zl.data());
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, stage, "zu", zu.data());
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, stage, "Zl", Zl.data());
+    ocp_nlp_cost_model_set(nlp_config_, nlp_dims_, nlp_in_, stage, "Zu", Zu.data());
+  }
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
