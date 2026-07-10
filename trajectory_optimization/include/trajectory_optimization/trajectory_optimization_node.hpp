@@ -127,7 +127,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setup();
 
   /**
-   * @brief Recreates the optimizer after releasing the current solver instance.
+   * @brief Resets the optimizer memory while retaining the generated solver instance.
    */
   void resetSolver();
 

@@ -91,6 +91,17 @@ inline int acados_free(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_fre
 inline int acados_solve(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_solve); }
 
 /**
+ * @brief Resets selected solver memory without freeing and recreating the capsule.
+ */
+inline int acados_reset(ocp_model_capsule_t capsule,
+                        int reset_qp_solver_mem,
+                        int reset_numerical_values,
+                        int reset_solver_options,
+                        int reset_x_to_x0_bar) {
+  ACADOS_DISPATCH(acados_reset, reset_qp_solver_mem, reset_numerical_values, reset_solver_options, reset_x_to_x0_bar);
+}
+
+/**
  * @brief Wrapper around the generated sparse parameter update function.
  *
  * @param[in] capsule Variant holding the model-specific acados capsule.

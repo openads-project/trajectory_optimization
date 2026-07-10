@@ -272,23 +272,21 @@ void TrajectoryOptimizationNode::setup() {
 }
 
 void TrajectoryOptimizationNode::setupSolver() {
-  // setup acados solver
-  ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
-  int status = trajectory_optimization::acados_create(ocp_capsule_);
-  nlp_dims_ = trajectory_optimization::acados_get_nlp_dims(ocp_capsule_);
   if (n_shots_ <= 0) {
     RCLCPP_FATAL(this->get_logger(), "n_shots must be > 0, got %d", n_shots_);
     exit(1);
-  } else if (n_shots_ != nlp_dims_->N) {
-    std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
-    RCLCPP_INFO(this->get_logger(), "Recreate OCP with: horizon = %f, n_shots = %d, dt = %f", optimization_horizon_, n_shots_,
-                new_time_steps.front());
-    status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
   }
 
-  if (status != 0) {
-    RCLCPP_INFO(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(),
-                status);
+  // Create exactly once. This also supports a runtime horizon that differs from the generated default.
+  ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
+  RCLCPP_INFO(this->get_logger(), "Create OCP with: horizon = %f, n_shots = %d, dt = %f", optimization_horizon_, n_shots_,
+              new_time_steps.front());
+  int status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
+
+  if (status != ACADOS_SUCCESS) {
+    RCLCPP_FATAL(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(),
+                 status);
     exit(1);
   }
 
@@ -298,6 +296,10 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
   nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
+  if (nlp_dims_->N != n_shots_) {
+    RCLCPP_FATAL(this->get_logger(), "Created solver has N=%d, expected n_shots=%d. Exiting.", nlp_dims_->N, n_shots_);
+    exit(1);
+  }
 
   // initialization of state and control values; set all to zero
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -328,8 +330,12 @@ void TrajectoryOptimizationNode::freeSolver() {
 }
 
 void TrajectoryOptimizationNode::resetSolver() {
-  freeSolver();
-  setupSolver();
+  const int status = trajectory_optimization::acados_reset(ocp_capsule_, 1, 0, 0, 0);
+  if (status != ACADOS_SUCCESS) {
+    RCLCPP_ERROR(this->get_logger(), "%s_acados_reset() returned status %d. Recreating solver.", model_name_.c_str(), status);
+    freeSolver();
+    setupSolver();
+  }
 }
 
 void TrajectoryOptimizationNode::planningCycle() {
@@ -492,6 +498,11 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     return false;
   }
 
+  if (trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory) <= 0) {
+    RCLCPP_ERROR(this->get_logger(), "Reference trajectory contains no sample points.");
+    return false;
+  }
+
   if (init_as_ref_ && trajectory_planning_msgs::trajectory_access::getStandstill(latest_valid_trajectory_)) {
     // set initial guess
     std::vector<double> initial_guess(*nlp_dims_->nx, 0.0);
@@ -555,9 +566,13 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
     global_params.insert(global_params.end(), ref.begin(),
                          ref.begin() + static_cast<std::vector<double>::difference_type>(n_ref_states));
   } else {
-    // TODO: what to do here? Currently just copy the whole reference trajectory and rest is filled with infinity  // NOLINT(google-readability-todo)
+    // Repeat the final valid state. Infinity padding can propagate NaNs through closest-point calculations.
     global_params.insert(global_params.end(), ref.begin(), ref.end());
-    global_params.insert(global_params.end(), n_ref_states - ref.size(), std::numeric_limits<double>::infinity());
+    const size_t state_width = static_cast<size_t>(p_ref_path_shape_[1]);
+    while (global_params.size() < expected_cost_weights_size + 4 + n_ref_states) {
+      global_params.insert(global_params.end(), ref.end() - static_cast<std::vector<double>::difference_type>(state_width),
+                           ref.end());
+    }
   }
 
   if (global_params.size() != static_cast<size_t>(nlp_dims_->np_global)) {
@@ -565,8 +580,11 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
                  nlp_dims_->np_global);
     throw std::runtime_error("Size of global parameters does not match expected size.");
   }
-  trajectory_optimization::acados_set_p_global_and_precompute_dependencies(ocp_capsule_, global_params.data(),
-                                                                           static_cast<int>(global_params.size()));
+  const int status = trajectory_optimization::acados_set_p_global_and_precompute_dependencies(
+      ocp_capsule_, global_params.data(), static_cast<int>(global_params.size()));
+  if (status != ACADOS_SUCCESS) {
+    throw std::runtime_error("acados global parameter update failed with status " + std::to_string(status));
+  }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
   RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
@@ -584,7 +602,11 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_dynamic_weight(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_dynamic_weight.data(), &floating_dynamic_weight, n);
+    int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_dynamic_weight.data(),
+                                                                      &floating_dynamic_weight, n);
+    if (status != ACADOS_SUCCESS) {
+      throw std::runtime_error("acados dynamic-weight update failed with status " + std::to_string(status));
+    }
     floating_dynamic_weight *= dynamic_weight_;
 
     // obstacles
@@ -595,7 +617,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
       std::vector<double> TIME, X, Y, YAW;
       std::vector<std::tuple<double, double, double>> target_states;
-      // TODO: should not be done for each shooting interval. Could be improved.  // NOLINT(google-readability-todo)
+      // TODO(ika): Build prediction arrays once per object outside the shooting-interval loop.
       TIME.push_back(static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9);
       X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
       Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
@@ -693,7 +715,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<int> idx_obstacles(n);
     // fill vector with values from idx to idx + n
     std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    if (status != ACADOS_SUCCESS) {
+      throw std::runtime_error("acados obstacle update failed with status " + std::to_string(status));
+    }
   }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
   RCLCPP_DEBUG(this->get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
