@@ -7,6 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(acados REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(perception_msgs REQUIRED)
 find_package(perception_msgs_utils REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -56,6 +57,7 @@ target_compile_features(${TARGET_NAME} PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(${TARGET_NAME}
   acados
+  diagnostic_updater
   perception_msgs
   perception_msgs_utils
   rclcpp

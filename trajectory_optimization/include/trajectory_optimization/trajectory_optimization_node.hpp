@@ -29,6 +29,9 @@
 #include <tf2_route_planning_msgs/tf2_route_planning_msgs.hpp>
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
+// diagnostics
+#include <trajectory_optimization/trajectory_optimization_diagnostics.hpp>
+
 // acados
 #include <trajectory_optimization/ocp_model_handler.hpp>
 
@@ -427,6 +430,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
+
+  // diagnostics
+  TrajectoryOptimizationDiagnostics diagnostics_{this};
 };
 
 }  // namespace trajectory_optimization

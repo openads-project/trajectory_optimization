@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -69,6 +70,31 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter(
       "init_as_ref", init_as_ref_,
       "Boolean that enables initialization of trajectory states as reference states under certain set of conditions");
+
+  // diagnostic parameters
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_frequency", diagnostics_.ego_data_diagnostic_config.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_frequency", diagnostics_.ego_data_diagnostic_config.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.min_acceptable_timestamp_delta", diagnostics_.ego_data_diagnostic_config.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.ego_data_diagnostic.max_acceptable_timestamp_delta", diagnostics_.ego_data_diagnostic_config.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_frequency", diagnostics_.object_list_diagnostic_config.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_frequency", diagnostics_.object_list_diagnostic_config.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.min_acceptable_timestamp_delta", diagnostics_.object_list_diagnostic_config.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.object_list_diagnostic.max_acceptable_timestamp_delta", diagnostics_.object_list_diagnostic_config.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_frequency", diagnostics_.route_diagnostic_config.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_frequency", diagnostics_.route_diagnostic_config.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.min_acceptable_timestamp_delta", diagnostics_.route_diagnostic_config.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.route_diagnostic.max_acceptable_timestamp_delta", diagnostics_.route_diagnostic_config.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_frequency", diagnostics_.reference_trajectory_diagnostic_config.min_frequency, "Minimum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_frequency", diagnostics_.reference_trajectory_diagnostic_config.max_frequency, "Maximum frequency for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.min_acceptable_timestamp_delta", diagnostics_.reference_trajectory_diagnostic_config.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.reference_trajectory_diagnostic.max_acceptable_timestamp_delta", diagnostics_.reference_trajectory_diagnostic_config.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for incoming messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_frequency", diagnostics_.trajectory_diagnosed_publisher_config.min_frequency, "Minimum frequency for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_frequency", diagnostics_.trajectory_diagnosed_publisher_config.max_frequency, "Maximum frequency for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.min_acceptable_timestamp_delta", diagnostics_.trajectory_diagnosed_publisher_config.min_acceptable_timestamp_delta, "Minimum acceptable timestamp delta for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.trajectory_diagnosed_publisher.max_acceptable_timestamp_delta", diagnostics_.trajectory_diagnosed_publisher_config.max_acceptable_timestamp_delta, "Maximum acceptable timestamp delta for outgoing messages");
+  this->declareAndLoadParameter("diagnostic_updater.ocp_duration_window_sec", diagnostics_.ocp_duration_window_sec,
+                                "Window size in seconds for rolling OCP duration statistics.");
+
   this->setup();
 }
 
@@ -186,27 +212,91 @@ void TrajectoryOptimizationNode::setup() {
   parameters_callback_ = this->add_on_set_parameters_callback(
       std::bind(&TrajectoryOptimizationNode::parametersCallback, this, std::placeholders::_1));
 
+  // set up diagnostic updater
+  diagnostics_.updater.setHardwareID("none");
+  diagnostics_.updater.add("Health", &diagnostics_, &TrajectoryOptimizationDiagnostics::health);
+  diagnostics_.setHealth(diagnostic_msgs::msg::DiagnosticStatus::STALE, "Waiting for first planning cycle.");
+
+  if (diagnostics_.ocp_duration_window_sec <= 0.0) {
+    RCLCPP_WARN(this->get_logger(),
+                "Parameter 'diagnostic_updater.ocp_duration_window_sec' must be > 0.0. Falling back to 10.0 s.");
+    diagnostics_.ocp_duration_window_sec = 10.0;
+  }
+
+  auto getFrequencyWindowSize = [](const double expected_min_frequency_hz, const double updater_period_sec) {
+    if (expected_min_frequency_hz <= 0.0 || updater_period_sec <= 0.0) return 5;
+    return std::max(1, static_cast<int>(std::ceil(5.0 / (updater_period_sec * expected_min_frequency_hz))));
+  };
+
   // set up subscriber for input topics
+  // add diagnostic task for monitoring topic subscription with a moving average over min. 5 incoming messages based on expected minimum frequency
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
       "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
+  const int ego_data_diagnostic_frequency_window_size = getFrequencyWindowSize(
+      diagnostics_.ego_data_diagnostic_config.min_frequency, diagnostics_.updater.getPeriod().seconds());
+  diagnostics_.ego_data_diagnostic = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+    kEgoDataTopic,
+    diagnostics_.updater,
+    diagnostic_updater::FrequencyStatusParam(&diagnostics_.ego_data_diagnostic_config.min_frequency, &diagnostics_.ego_data_diagnostic_config.max_frequency, 0.0, ego_data_diagnostic_frequency_window_size),
+    diagnostic_updater::TimeStampStatusParam(diagnostics_.ego_data_diagnostic_config.min_acceptable_timestamp_delta, diagnostics_.ego_data_diagnostic_config.max_acceptable_timestamp_delta)
+  );
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
       "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
+  if (consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS) {
+    const int object_list_diagnostic_frequency_window_size = getFrequencyWindowSize(
+        diagnostics_.object_list_diagnostic_config.min_frequency, diagnostics_.updater.getPeriod().seconds());
+    diagnostics_.object_list_diagnostic = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+      kObjectListTopic,
+      diagnostics_.updater,
+      diagnostic_updater::FrequencyStatusParam(&diagnostics_.object_list_diagnostic_config.min_frequency, &diagnostics_.object_list_diagnostic_config.max_frequency, 0.0, object_list_diagnostic_frequency_window_size),
+      diagnostic_updater::TimeStampStatusParam(diagnostics_.object_list_diagnostic_config.min_acceptable_timestamp_delta, diagnostics_.object_list_diagnostic_config.max_acceptable_timestamp_delta)
+    );
+  }
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
       "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
+  if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
+    const int route_diagnostic_frequency_window_size = getFrequencyWindowSize(
+        diagnostics_.route_diagnostic_config.min_frequency, diagnostics_.updater.getPeriod().seconds());
+    diagnostics_.route_diagnostic = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+      kRouteTopic,
+      diagnostics_.updater,
+      diagnostic_updater::FrequencyStatusParam(&diagnostics_.route_diagnostic_config.min_frequency, &diagnostics_.route_diagnostic_config.max_frequency, 0.0, route_diagnostic_frequency_window_size),
+      diagnostic_updater::TimeStampStatusParam(diagnostics_.route_diagnostic_config.min_acceptable_timestamp_delta, diagnostics_.route_diagnostic_config.max_acceptable_timestamp_delta)
+    );
+  }
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
       "~/reference_trajectory", 1,
       std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
+  const int reference_trajectory_diagnostic_frequency_window_size = getFrequencyWindowSize(
+      diagnostics_.reference_trajectory_diagnostic_config.min_frequency, diagnostics_.updater.getPeriod().seconds());
+  diagnostics_.reference_trajectory_diagnostic = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+    kReferenceTrajectoryTopic,
+    diagnostics_.updater,
+    diagnostic_updater::FrequencyStatusParam(&diagnostics_.reference_trajectory_diagnostic_config.min_frequency, &diagnostics_.reference_trajectory_diagnostic_config.max_frequency, 0.0, reference_trajectory_diagnostic_frequency_window_size),
+    diagnostic_updater::TimeStampStatusParam(diagnostics_.reference_trajectory_diagnostic_config.min_acceptable_timestamp_delta, diagnostics_.reference_trajectory_diagnostic_config.max_acceptable_timestamp_delta)
+  );
 
   // set up publisher for output topics
+  // add diagnostic task for monitoring topic publisher with a moving average over min. 5 incoming messages based on expected minimum frequency
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/trajectory", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
+  const int trajectory_diagnosed_publisher_frequency_window_size = getFrequencyWindowSize(
+      diagnostics_.trajectory_diagnosed_publisher_config.min_frequency, diagnostics_.updater.getPeriod().seconds());
+  diagnostics_.trajectory_diagnosed_publisher = std::make_unique<diagnostic_updater::DiagnosedPublisher<trajectory_planning_msgs::msg::Trajectory>>(
+    trajectory_pub_,
+    diagnostics_.updater,
+    diagnostic_updater::FrequencyStatusParam(&diagnostics_.trajectory_diagnosed_publisher_config.min_frequency, &diagnostics_.trajectory_diagnosed_publisher_config.max_frequency, 0.0, trajectory_diagnosed_publisher_frequency_window_size),
+    diagnostic_updater::TimeStampStatusParam(diagnostics_.trajectory_diagnosed_publisher_config.min_acceptable_timestamp_delta, diagnostics_.trajectory_diagnosed_publisher_config.max_acceptable_timestamp_delta)
+  );
+
+  // debug visualization publishers
   circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/object_circles", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
   ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/ego_circles", 1);
@@ -313,6 +403,10 @@ void TrajectoryOptimizationNode::planningCycle() {
   if (debug_viz_) viz_circles_.clear();
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
     RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
+    const double ego_age_sec = (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp)).seconds();
+    diagnostics_.setHealthWithOcpData(
+        diagnostic_msgs::msg::DiagnosticStatus::WARN, "Ego data outdated. Skipping planning cycle.",
+        {{"ego_data_age_sec", TrajectoryOptimizationDiagnostics::formatDiagnosticDouble(ego_age_sec)}});
     return;
   }
   // init trajectory message and set header
@@ -334,7 +428,10 @@ void TrajectoryOptimizationNode::planningCycle() {
       return;
     }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
-    trajectory_pub_->publish(std::move(trajectory));
+    diagnostics_.trajectory_diagnosed_publisher->publish(std::move(trajectory));
+    diagnostics_.setHealthWithOcpData(
+        diagnostic_msgs::msg::DiagnosticStatus::OK,
+        "Reference trajectory is standstill. Published standstill trajectory.");
     resetSolver();
     return;
   }
@@ -361,6 +458,10 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_, x_init)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
+    diagnostics_.setHealthWithOcpData(
+        diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Failed to update OCP inputs.",
+        {{"ocp_input_error", diagnostics_.last_ocp_input_error.empty() ? "unknown"
+                                                                        : diagnostics_.last_ocp_input_error}});
     return;
   }
 
@@ -382,7 +483,6 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   if (status == 1 || status == 3 || status == 4) {
-    RCLCPP_ERROR(this->get_logger(), "Solver failed with status %d.", status);
     resetSolver();
     return;
   }
@@ -405,7 +505,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   latest_valid_trajectory_ = *trajectory;
-  trajectory_pub_->publish(std::move(trajectory));
+  diagnostics_.trajectory_diagnosed_publisher->publish(std::move(trajectory));
   RCLCPP_INFO(this->get_logger(), "Published trajectory");
 }
 
@@ -445,6 +545,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     }
   } catch (tf2::TransformException& ex) {
     RCLCPP_WARN(this->get_logger(), "Transformation is not available. Ex: %s", ex.what());
+    diagnostics_.last_ocp_input_error = std::string("tf transform exception: ") + ex.what();
     return false;
   }
 
@@ -467,9 +568,11 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     this->setOcpParameters(ego_data, tf_object_list);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
+    diagnostics_.last_ocp_input_error = std::string("set OCP parameters exception: ") + e.what();
     return false;
   }
 
+  diagnostics_.last_ocp_input_error.clear();
   return true;
 }
 
