@@ -173,7 +173,9 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   boundaries.right_boundary_intersections.reserve(ref_sample_size);
 
   if (remaining_route.empty()) {
-    RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
+    if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
+      RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
+    }
     for (int i = 0; i < ref_sample_size; ++i) {
       boundaries.min_normal_distances.emplace_back(NO_BOUNDARY_DISTANCE, NO_BOUNDARY_DISTANCE);
     }
@@ -347,7 +349,7 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
   // define vehicle geometry based on model name (should match the OCP definition)
   if (model_name == "karl") {
     ego_length = 5.173;
-    ego_width = 2.252;
+    ego_width = 1.94;
     ego_offset2geocenter = {1.4895, 0.0};
     n_ego_circles = 5;
   } else if (model_name == "shuttle") {

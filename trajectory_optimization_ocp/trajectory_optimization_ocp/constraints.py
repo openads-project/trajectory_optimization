@@ -118,12 +118,6 @@ def set_constraints(ocp: AcadosOcp, config):
     )
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
 
-    # calc signed lateral offset from interpolated reference path to current position
-    vec_x = ocp.model.x[STATE_INDEX_X] - ref_inter["x"]
-    vec_y = ocp.model.x[STATE_INDEX_Y] - ref_inter["y"]
-    ref_diff = ca.vertcat(vec_x, vec_y)
-    d_normal = ca.dot(ref_diff, normal_vec)
-
     # calc offset to boundaries for each ego circle
     MAX_BOUNDARY_CONSTRAINT = 1e9
     # limit the requested extra clearance to what the current lane geometry allows
@@ -131,11 +125,9 @@ def set_constraints(ocp: AcadosOcp, config):
     right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - ego_radius, 0.0))
     for i in range(n_ego_circles):
 
-        # circle offset from current position
-        circle_offset = ca.vertcat(ego_approximation["x_offset"][i], ego_approximation["y_offset"][i])
-
-        # distance to reference from each ego circle center
-        d_circle_center_ref_path = d_normal + ca.dot(circle_offset, normal_vec)
+        # signed lateral distance from the reference path to the actual circle center
+        circle_ref_diff = ca.vertcat(ego_approximation["x"][i] - ref_inter["x"], ego_approximation["y"][i] - ref_inter["y"])
+        d_circle_center_ref_path = ca.dot(circle_ref_diff, normal_vec)
 
         # boundary constraint: circl_center_to_ref + ego_radius + margin < d_boundary (note: offset to right is negative!)
         left_constraint = d_circle_center_ref_path + ego_radius + left_margin_required - ref_inter["d_left_boundary"]

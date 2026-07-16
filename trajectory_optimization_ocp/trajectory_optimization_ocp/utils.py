@@ -148,42 +148,37 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
         config: Configuration dictionary with parameters like length, width, n_ego_circles, and offset2geocenter.
 
     Returns:
-        A dictionary containing circle positions (x, y), offsets (x_offset, y_offset), and radius.
+        A dictionary containing circle positions (x, y) and their radius.
     """
     # rectangular ego-vehicle approximation with n_circles circles
+    psi = ocp.model.x[STATE_INDEX_PSI]
+    cos_psi = ca.cos(psi)
+    sin_psi = ca.sin(psi)
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
-    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
-    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * cos_psi
+    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * sin_psi
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"] / 2.0), 2))
 
     # Initialize an empty list for circle centers coordinates
     circle_position_x = []
     circle_position_y = []
-    circle_offset_x = []
-    circle_offset_y = []
 
     if config["n_ego_circles"] == 1:
         circle_position_x.append(ego_center_x)
         circle_position_y.append(ego_center_y)
-        circle_offset_x.append(0.0)
-        circle_offset_y.append(0.0)
     else:
         # Loop to compute the centers of each circle
         for i in range(config["n_ego_circles"]):
             lon_offset = -config["length"] / 2 + (2 * i + 1) * config["length"] / (2 * config["n_ego_circles"])
-            x_offset = lon_offset * ca.cos(ocp.model.x[STATE_INDEX_PSI])
-            y_offset = lon_offset * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+            x_offset = lon_offset * cos_psi
+            y_offset = lon_offset * sin_psi
             circle_position_x.append(ego_center_x + x_offset)
             circle_position_y.append(ego_center_y + y_offset)
-            circle_offset_x.append(x_offset)
-            circle_offset_y.append(y_offset)
 
     return {
         "x": circle_position_x,
         "y": circle_position_y,
-        "x_offset": circle_offset_x,
-        "y_offset": circle_offset_y,
         "radius": radius,
     }
 
