@@ -100,7 +100,6 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     # formulate it as parameter lambda
     # values [0, 1] for lambda mean the nearest point is on the segment
     # and the computed distance is perpendicular to the line segment
-    # note that lambda must be >=0 due to the way we defined the line segment
     psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]
     y1 = y_ref_path[idx_min]
@@ -116,18 +115,19 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     d_right_boundary2 = d_right_boundary_ref_path[next_idx_min]
 
     dxy_sq = ca.power(x2 - x1, 2) + ca.power(y2 - y1, 2)
-    lmd = ca.if_else((dxy_sq == 0), 0, ((x_position - x1) * (x2 - x1) + (y_position - y1) * (y2 - y1)) / dxy_sq)
+    raw_lmd = ca.if_else((dxy_sq == 0), 0, ((x_position - x1) * (x2 - x1) + (y_position - y1) * (y2 - y1)) / dxy_sq)
     # allow extrapolation for beginning of reference but not at the end (to penalize overshooting)
-    lmd = ca.if_else(condition_begin, lmd, ca.fmin(ca.fmax(lmd, 0), 1))
-    x_ref_inter = x1 + lmd * (x2 - x1)
-    y_ref_inter = y1 + lmd * (y2 - y1)
-    d_left_boundary_inter = d_left_boundary1 + lmd * (d_left_boundary2 - d_left_boundary1)
-    d_right_boundary_inter = d_right_boundary1 + lmd * (d_right_boundary2 - d_right_boundary1)
+    position_lmd = ca.if_else(condition_begin, raw_lmd, ca.fmin(ca.fmax(raw_lmd, 0), 1))
+    x_ref_inter = x1 + position_lmd * (x2 - x1)
+    y_ref_inter = y1 + position_lmd * (y2 - y1)
 
-    # interpolate psi and v without extrapolation at the beginning
-    lmd = ca.fmin(ca.fmax(lmd, 0), 1)
-    psi_ref_inter = psi1 + lmd * wrap_angle(psi2 - psi1)
-    v_ref_inter = v1 + lmd * (v2 - v1)
+    # Boundary distances, heading, and velocity are only defined at the provided
+    # reference samples and must not be extrapolated with the reference line.
+    bounded_lmd = ca.fmin(ca.fmax(position_lmd, 0), 1)
+    d_left_boundary_inter = d_left_boundary1 + bounded_lmd * (d_left_boundary2 - d_left_boundary1)
+    d_right_boundary_inter = d_right_boundary1 + bounded_lmd * (d_right_boundary2 - d_right_boundary1)
+    psi_ref_inter = psi1 + bounded_lmd * wrap_angle(psi2 - psi1)
+    v_ref_inter = v1 + bounded_lmd * (v2 - v1)
 
     interpolated_ref_path_point = {
         "psi": psi_ref_inter,
