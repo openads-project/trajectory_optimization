@@ -154,11 +154,14 @@ std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(
 std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundaryDistance(
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route) {
   const double NO_BOUNDARY_DISTANCE = 1e6;  // should be smaller than MAX_BOUNDARY_CONSTRAINT from ocp
+  constexpr double MAX_ROUTE_S_DIFFERENCE = 20.0;
 
   struct Boundaries {
     std::vector<std::pair<double, double>> min_normal_distances;
     std::vector<Eigen::Vector2d> left_boundary_points;
     std::vector<Eigen::Vector2d> right_boundary_points;
+    std::vector<double> left_boundary_route_s;
+    std::vector<double> right_boundary_route_s;
     std::vector<Eigen::Vector2d> left_boundary_intersections;
     std::vector<Eigen::Vector2d> right_boundary_intersections;
   };
@@ -168,6 +171,8 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   const int ref_sample_size = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
   boundaries.left_boundary_points.reserve(remaining_route.size());
   boundaries.right_boundary_points.reserve(remaining_route.size());
+  boundaries.left_boundary_route_s.reserve(remaining_route.size());
+  boundaries.right_boundary_route_s.reserve(remaining_route.size());
   boundaries.min_normal_distances.reserve(ref_sample_size);
   boundaries.left_boundary_intersections.reserve(ref_sample_size);
   boundaries.right_boundary_intersections.reserve(ref_sample_size);
@@ -190,6 +195,8 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
         boundaries.left_boundary_points.emplace_back(suggested_lane.left_boundary.point.x, suggested_lane.left_boundary.point.y);
         boundaries.right_boundary_points.emplace_back(suggested_lane.right_boundary.point.x,
                                                       suggested_lane.right_boundary.point.y);
+        boundaries.left_boundary_route_s.push_back(route_element.s);
+        boundaries.right_boundary_route_s.push_back(route_element.s);
       } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::INCLUDING_ADJACENT) {
         const auto& lane_elements = route_element.lane_elements;
         if (!lane_elements.empty()) {
@@ -197,21 +204,26 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
                                                        lane_elements.front().left_boundary.point.y);
           boundaries.right_boundary_points.emplace_back(lane_elements.back().right_boundary.point.x,
                                                         lane_elements.back().right_boundary.point.y);
+          boundaries.left_boundary_route_s.push_back(route_element.s);
+          boundaries.right_boundary_route_s.push_back(route_element.s);
         }
       } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::DRIVABLE_SPACE) {
         boundaries.left_boundary_points.emplace_back(route_element.left_boundary.x, route_element.left_boundary.y);
         boundaries.right_boundary_points.emplace_back(route_element.right_boundary.x, route_element.right_boundary.y);
+        boundaries.left_boundary_route_s.push_back(route_element.s);
+        boundaries.right_boundary_route_s.push_back(route_element.s);
       }
     }
   }
 
   // Helper lambda to find intersection
-  auto findIntersection = [](const Eigen::Vector2d& ref_pos, double sin_yaw, double cos_yaw,
-                             const std::vector<Eigen::Vector2d>& boundary_points,
-                             bool isLeft) -> std::pair<double, Eigen::Vector2d> {
+  auto findIntersection = [&](const Eigen::Vector2d& ref_pos, double sin_yaw, double cos_yaw, double expected_route_s,
+                              const std::vector<Eigen::Vector2d>& boundary_points, const std::vector<double>& boundary_route_s,
+                              bool isLeft) -> std::pair<double, Eigen::Vector2d> {
     std::pair<double, Eigen::Vector2d> intersection_result = {
         std::numeric_limits<double>::infinity(),
         Eigen::Vector2d(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())};
+    double best_route_s_difference = std::numeric_limits<double>::infinity();
 
     const Eigen::Vector2d normal_dir = isLeft ? Eigen::Vector2d(-sin_yaw, cos_yaw) : Eigen::Vector2d(sin_yaw, -cos_yaw);
     const auto cross2d = [](const Eigen::Vector2d& u, const Eigen::Vector2d& v) { return u.x() * v.y() - u.y() * v.x(); };
@@ -233,9 +245,14 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
       if (s >= 0.0 && s <= 1.0 && t >= 0.0) {
         Eigen::Vector2d intersection = a + s * seg;
         double euklidean_distance = (ref_pos - intersection).norm();
-        if (euklidean_distance < intersection_result.first) {
-          intersection_result.first = euklidean_distance;
-          intersection_result.second = intersection;
+        const double intersection_route_s = boundary_route_s[i] + s * (boundary_route_s[i + 1] - boundary_route_s[i]);
+        const double route_s_difference = std::abs(intersection_route_s - expected_route_s);
+
+        if (route_s_difference <= MAX_ROUTE_S_DIFFERENCE &&
+            (route_s_difference < best_route_s_difference ||
+             (std::abs(route_s_difference - best_route_s_difference) < 1e-9 && euklidean_distance < intersection_result.first))) {
+          best_route_s_difference = route_s_difference;
+          intersection_result = {euklidean_distance, intersection};
         }
       }
     }
@@ -243,15 +260,24 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   };
 
   // Loop over trajectory points and compute intersections
+  double reference_progress = 0.0;
+  Eigen::Vector2d previous_ref_pos = Eigen::Vector2d::Zero();
+  const double current_route_s = remaining_route.front().s;
   for (int i = 0; i < ref_sample_size; ++i) {
     Eigen::Vector2d ref_pos(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i),
                             trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i));
+    reference_progress += (ref_pos - previous_ref_pos).norm();
+    previous_ref_pos = ref_pos;
+    const double expected_route_s = current_route_s + reference_progress;
+
     double yaw = trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i);
     const double sin_yaw = std::sin(yaw);
     const double cos_yaw = std::cos(yaw);
 
-    auto left_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, boundaries.left_boundary_points, true);
-    auto right_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, boundaries.right_boundary_points, false);
+    auto left_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, expected_route_s, boundaries.left_boundary_points,
+                                              boundaries.left_boundary_route_s, true);
+    auto right_intersection = findIntersection(ref_pos, sin_yaw, cos_yaw, expected_route_s, boundaries.right_boundary_points,
+                                               boundaries.right_boundary_route_s, false);
     if (left_intersection.first != std::numeric_limits<double>::infinity() &&
         right_intersection.first != std::numeric_limits<double>::infinity()) {
       boundaries.min_normal_distances.emplace_back(left_intersection.first, right_intersection.first);
@@ -266,16 +292,14 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
     }
   }
   if (debug_viz_) {
-    vizBoundaryPoints(boundaries.left_boundary_points, boundaries.right_boundary_points, false);
-    vizBoundaryPoints(boundaries.left_boundary_intersections, boundaries.right_boundary_intersections, true);
+    vizBoundaryPoints(boundaries.left_boundary_intersections, boundaries.right_boundary_intersections);
   }
 
   return boundaries.min_normal_distances;
 }
 
 void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
-                                                   const std::vector<Eigen::Vector2d>& right_boundary_points,
-                                                   bool is_intersection) {
+                                                   const std::vector<Eigen::Vector2d>& right_boundary_points) {
   visualization_msgs::msg::MarkerArray marker_array;
   int id = 0;
 
@@ -305,13 +329,8 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
     }
   };
 
-  if (is_intersection) {
-    addMarkers(left_boundary_points, "left_intersection_points", 0.5F, 0.0F, 1.0F);
-    addMarkers(right_boundary_points, "right_intersection_points", 0.0F, 0.5F, 1.0F);
-  } else {
-    addMarkers(left_boundary_points, "left_boundary_points", 0.0F, 1.0F, 0.0F);
-    addMarkers(right_boundary_points, "right_boundary_points", 1.0F, 0.0F, 0.0F);
-  }
+  addMarkers(left_boundary_points, "left_boundary_constraint", 0.0F, 1.0F, 0.0F);
+  addMarkers(right_boundary_points, "right_boundary_constraint", 1.0F, 0.0F, 0.0F);
 
   boundary_pub_->publish(marker_array);
 }

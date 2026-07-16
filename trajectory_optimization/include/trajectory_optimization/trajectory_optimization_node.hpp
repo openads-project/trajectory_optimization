@@ -300,15 +300,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
 
   /**
-   * @brief Publishes boundary or boundary-intersection points for debugging.
+   * @brief Publishes the boundary intersections corresponding to the distances passed to the OCP.
    *
    * @param[in] left_boundary_points Points on the left side.
    * @param[in] right_boundary_points Points on the right side.
-   * @param[in] is_intersection Whether the supplied points represent normal intersections instead of raw boundaries.
    */
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
-                         const std::vector<Eigen::Vector2d>& right_boundary_points,
-                         bool is_intersection = false);
+                         const std::vector<Eigen::Vector2d>& right_boundary_points);
 
   // virtual functions need to be implemented in derived classes
 
