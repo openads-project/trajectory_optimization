@@ -37,7 +37,7 @@ def set_opts(ocp, config):
     opts.tol = 1e-4  # default 1e-6
     opts.qp_solver_iter_max = 50  # default 50
     opts.qp_solver_warm_start = (
-        2  # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
+        0  # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
     )
     # opts.qp_solver_tol_stat = 1e-4
     # opts.qp_solver_tol_eq = 1e-4
