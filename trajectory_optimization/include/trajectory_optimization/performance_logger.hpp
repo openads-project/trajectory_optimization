@@ -14,6 +14,9 @@ namespace trajectory_optimization {
 
 struct PerformanceMetrics {
   uint64_t cycle = 0;
+  int64_t ego_stamp_ns = 0;
+  int64_t reference_stamp_ns = 0;
+  int64_t route_stamp_ns = 0;
   int status = 0;
   int sqp_iter = 0;
   int qp_iter = 0;

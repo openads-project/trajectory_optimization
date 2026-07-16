@@ -50,8 +50,8 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
   if (!stream_) {
     throw std::runtime_error("could not open '" + path_.string() + "'");
   }
-
-  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,status,published,ref_points,objects,sqp_iter,qp_iter,"
+  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
+             "published,ref_points,objects,sqp_iter,qp_iter,"
              "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
              "acados_sim_ms,acados_qp_ms,"
              "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
@@ -102,15 +102,16 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 3 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.status
-          << ',' << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
-          << metrics.sqp_iter << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ','
-          << metrics.preprocessing_ms << ',' << metrics.solve_wall_ms << ',' << metrics.postprocessing_ms << ','
-          << metrics.acados_total_ms << ',' << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ','
-          << metrics.acados_qp_ms << ',' << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ','
-          << metrics.acados_reg_ms << ',' << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ','
-          << metrics.acados_feedback_ms << ',' << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res
-          << ',' << metrics.res_stat << ',' << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << '\n';
+  stream_ << std::setprecision(17) << 4 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+          << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
+          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ',' << metrics.sqp_iter
+          << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms
+          << ',' << metrics.solve_wall_ms << ',' << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ','
+          << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ',' << metrics.acados_qp_ms << ','
+          << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ',' << metrics.acados_reg_ms << ','
+          << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ',' << metrics.acados_feedback_ms << ','
+          << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res << ',' << metrics.res_stat << ','
+          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();

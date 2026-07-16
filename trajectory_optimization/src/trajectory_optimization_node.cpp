@@ -371,6 +371,9 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   PerformanceMetrics metrics;
   metrics.cycle = ++performance_cycle_;
+  metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
+  metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
+  metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();
   metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
   metrics.objects = static_cast<int>(object_list_.objects.size());
   auto logCompletedCycle = [&]() {
