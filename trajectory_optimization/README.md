@@ -70,7 +70,6 @@ flowchart LR
 | `bi_level_dA` | `float` | `2.0` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2] |
 | `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
 | `bi_level_dYaw` | `float` | `5.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
-| `init_as_ref` | `bool` | `false` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions |
 
 ## Launch Files
 

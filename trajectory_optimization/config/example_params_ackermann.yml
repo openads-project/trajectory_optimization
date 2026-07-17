@@ -6,7 +6,6 @@
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     ego_data_timeout: 1.0           # Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
-    init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     add_x_init_to_ref: False        # add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle

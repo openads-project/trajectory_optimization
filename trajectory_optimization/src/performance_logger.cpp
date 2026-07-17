@@ -35,7 +35,7 @@ int64_t nowNanoseconds() {
 
 PerformanceLogger::PerformanceLogger(const std::string& node_name) {
   const char* configured_directory = std::getenv("TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR");
-  const std::filesystem::path directory = configured_directory != nullptr && configured_directory[0] != '\0'
+  const std::filesystem::path directory = configured_directory != nullptr && *configured_directory != '\0'
                                               ? std::filesystem::path(configured_directory)
                                               : std::filesystem::temp_directory_path() / "trajectory_optimization_benchmarks";
   path_ = directory / (node_name + '_' + timestamp() + ".csv");

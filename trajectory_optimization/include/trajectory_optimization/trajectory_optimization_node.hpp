@@ -132,6 +132,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void resetSolver();
 
   /**
+   * @brief Builds and sets a dynamically consistent NLP initial guess from the current state and cached controls.
+   *
+   * @param[in] x_init Hard initial state of the OCP.
+   * @param[in] stamp Absolute time corresponding to x_init.
+   * @return `true` if the state rollout succeeded.
+   */
+  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp);
+
+  /**
    * @brief Creates the acados solver instance and initializes its state buffers.
    */
   void setupSolver();
@@ -389,7 +398,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool add_x_init_to_ref_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
-  bool init_as_ref_ = false;
   bool run_as_callback_ = false;
 
   // common bi-level thresholds
@@ -400,6 +408,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
+
+  // controls of the latest accepted solution; an empty vector denotes that no warm start is available
+  std::vector<double> control_guess_;
+  rclcpp::Time control_guess_stamp_{0, 0, RCL_ROS_TIME};
 
   // visualization
   std::vector<double> viz_circles_;
