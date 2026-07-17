@@ -514,7 +514,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   trajectory_pub_->publish(std::move(trajectory));
   metrics.published = true;
   logCompletedCycle();
-  RCLCPP_INFO(this->get_logger(), "Published trajectory");
+  const char* cycle_time_color = metrics.cycle_ms <= 100.0 ? "\x1b[32m" : "\x1b[31m";
+  RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
 }
 
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
