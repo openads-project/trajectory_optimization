@@ -1,7 +1,7 @@
 # clone acados repo and build it
-git clone --recurse-submodules https://github.com/acados/acados.git /opt/acados
+git clone --recurse-submodules https://github.com/jpbusch/acados.git /opt/acados
 cd /opt/acados
-git checkout v0.5.5
+git checkout sqp-wfqp-timeout
 git submodule update --init --recursive
 mkdir -p /opt/acados/build
 cd /opt/acados/build
