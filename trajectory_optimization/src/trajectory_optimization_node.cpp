@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -471,21 +472,36 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_);
 
-  if (metrics.status == ACADOS_NAN_DETECTED || metrics.status == ACADOS_MINSTEP || metrics.status == ACADOS_QP_FAILURE) {
+  const bool usable_status =
+      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
+  if (usable_status) {
+    for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
+    }
+    for (int ii = 0; ii < nlp_dims_->N; ++ii) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
+    }
+  }
+
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  const bool finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
+                               std::isfinite(metrics.res_ineq) &&
+                               std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
+                               std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
+  const bool primal_feasible =
+      finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
+
+  if (!primal_feasible) {
     printSolution(metrics);
-    // Keep the last accepted controls; the failed solver output is not added to the cache.
+    RCLCPP_WARN(this->get_logger(),
+                "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
+                metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
+    // Keep the last accepted controls; the rejected solver output is not added to the cache.
     resetSolver();
     logCompletedCycle();
     return;
   }
 
-  // get solution
-  for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
-  }
-  for (int ii = 0; ii < nlp_dims_->N; ++ii) {
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
-  }
   control_guess_ = utraj_;
   control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
 
