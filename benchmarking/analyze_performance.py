@@ -139,6 +139,9 @@ def summarize(records, deadline_ms):
     if not deadline_values:
         deadline_key = timing_key
         deadline_values = timing_values
+    solver_deadline_rate = sum(value <= deadline_ms for value in timing_values) / len(timing_values) if timing_values else None
+    cycle_values = values_for(records, "cycle_ms")
+    cycle_deadline_rate = sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None
 
     return {
         "records": len(records),
@@ -152,6 +155,8 @@ def summarize(records, deadline_ms):
             sum(value <= deadline_ms for value in deadline_values) / len(deadline_values) if deadline_values else None
         ),
         "deadline_key": deadline_key,
+        "solver_deadline_rate": solver_deadline_rate,
+        "cycle_deadline_rate": cycle_deadline_rate,
         "timing_key": timing_key,
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
@@ -219,6 +224,13 @@ def relative_delta(candidate, baseline):
     return (candidate - baseline) / baseline
 
 
+def comparable_deadline_rates(candidate, baseline):
+    """Prefer cycle deadlines, but fall back to solver deadlines for legacy runs."""
+    if candidate["cycle_deadline_rate"] is not None and baseline["cycle_deadline_rate"] is not None:
+        return "cycle deadline rate", candidate["cycle_deadline_rate"], baseline["cycle_deadline_rate"]
+    return "solver deadline rate", candidate["solver_deadline_rate"], baseline["solver_deadline_rate"]
+
+
 def compare(candidate, baseline):
     """Classify candidate using explicit stability and latency thresholds."""
     stability_regressions = []
@@ -228,13 +240,14 @@ def compare(candidate, baseline):
     if candidate["published_rate"] is not None and baseline["published_rate"] is not None:
         if baseline["published_rate"] - candidate["published_rate"] > 0.01:
             stability_regressions.append("published rate decreased by >1 percentage point")
-    if candidate["deadline_rate"] is not None and baseline["deadline_rate"] is not None:
-        if baseline["deadline_rate"] - candidate["deadline_rate"] > 0.02:
+    _, candidate_deadline_rate, baseline_deadline_rate = comparable_deadline_rates(candidate, baseline)
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if baseline_deadline_rate - candidate_deadline_rate > 0.02:
             stability_regressions.append("deadline rate decreased by >2 percentage points")
 
     improvements = []
-    if candidate["deadline_rate"] is not None and baseline["deadline_rate"] is not None:
-        if candidate["deadline_rate"] - baseline["deadline_rate"] > 0.02:
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if candidate_deadline_rate - baseline_deadline_rate > 0.02:
             improvements.append("deadline rate increased by >2 percentage points")
     p95_delta = relative_delta(candidate["timing_p95"], baseline["timing_p95"])
     if p95_delta is not None and p95_delta < -0.05:
@@ -253,12 +266,13 @@ def compare(candidate, baseline):
 def print_comparison(candidate, baseline):
     """Print deltas and the threshold-based overall verdict."""
     print(paint("\nCOMPARISON (candidate relative to baseline)", Color.BOLD + Color.CYAN))
+    deadline_label, candidate_deadline_rate, baseline_deadline_rate = comparable_deadline_rates(candidate, baseline)
     rows = [
         ("success rate", candidate["success_rate"], baseline["success_rate"], "rate", True),
         ("timeout rate", candidate["timeout_rate"], baseline["timeout_rate"], "rate", False),
         ("hard failure rate", candidate["hard_failure_rate"], baseline["hard_failure_rate"], "rate", False),
         ("published rate", candidate["published_rate"], baseline["published_rate"], "rate", True),
-        ("deadline rate", candidate["deadline_rate"], baseline["deadline_rate"], "rate", True),
+        (deadline_label, candidate_deadline_rate, baseline_deadline_rate, "rate", True),
         ("solver p50 [ms]", candidate["timing_p50"], baseline["timing_p50"], "number", False),
         ("solver p95 [ms]", candidate["timing_p95"], baseline["timing_p95"], "number", False),
         ("solver p99 [ms]", candidate["timing_p99"], baseline["timing_p99"], "number", False),

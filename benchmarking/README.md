@@ -34,7 +34,9 @@ The extractor needs the ROS Python environment, including `rosbag2_py`, `rclpy`,
 
 ```bash
 python3 benchmarking/extract_rosout_performance.py \
-  optimization-testing benchmarking/acados-0.5.1.csv
+  rosbag2_2026_05_06-18_57_54 \
+  benchmarking/bag-2026-05-06_objects_legacy.csv \
+  --node planning.trajectory_optimization --exact-node
 ```
 
 The resulting CSV only contains values actually present in the old logs: status, publication outcome, ACADOS total time, iterations, KKT, cost, and NLP residual. Missing values remain empty rather than being interpreted as zero.
@@ -45,15 +47,16 @@ Analyze one run:
 
 ```bash
 python3 benchmarking/analyze_performance.py \
-  benchmarking/acados-0.5.5.csv --skip 10 --deadline-ms 100
+  benchmarking/bag-2026-05-06_objects_baseline.csv \
+  --skip 10 --deadline-ms 100
 ```
 
 Compare a candidate with a baseline:
 
 ```bash
 python3 benchmarking/analyze_performance.py \
-  benchmarking/acados-0.5.5.csv \
-  --compare benchmarking/acados-0.5.1.csv \
+  benchmarking/bag-2026-05-06_objects_baseline.csv \
+  --compare benchmarking/bag-2026-05-06_objects_legacy.csv \
   --skip 10 --deadline-ms 100
 ```
 
