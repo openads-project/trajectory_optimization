@@ -336,22 +336,27 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
     return false;
   }
 
-  // Fall back to zero controls if no sufficiently recent accepted solution is available.
+  // Fall back to zero controls if no sufficiently recent solver output is available.
   std::vector<double> controls(expected_control_size, 0.0);
   if (control_guess_.size() == expected_control_size) {
     const double elapsed = (stamp - control_guess_stamp_).seconds();
     if (elapsed >= 0.0 && elapsed < 0.5 * optimization_horizon_) {
       // Shift the previous controls to the current planning time and interpolate between shooting nodes.
+      std::vector<double> lower_controls(nu);
+      std::vector<double> upper_controls(nu);
       for (int stage = 0; stage < n_shots_; ++stage) {
         const double previous_stage = (elapsed + stage * time_step) / time_step;
         if (previous_stage >= n_shots_) break;
 
         const int lower_stage = static_cast<int>(std::floor(previous_stage));
         const double interpolation_factor = previous_stage - lower_stage;
+        ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, "lbu", lower_controls.data());
+        ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, "ubu", upper_controls.data());
         for (int control = 0; control < nu; ++control) {
           const double lower_value = control_guess_[lower_stage * nu + control];
           const double upper_value = lower_stage + 1 < n_shots_ ? control_guess_[(lower_stage + 1) * nu + control] : 0.0;
-          controls[stage * nu + control] = lower_value + interpolation_factor * (upper_value - lower_value);
+          const double interpolated_control = lower_value + interpolation_factor * (upper_value - lower_value);
+          controls[stage * nu + control] = std::clamp(interpolated_control, lower_controls[control], upper_controls[control]);
         }
       }
     }
