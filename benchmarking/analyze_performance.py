@@ -134,19 +134,29 @@ def summarize(records, deadline_ms):
     if not timing_values:
         timing_key = "solve_wall_ms"
         timing_values = values_for(records, timing_key)
+    deadline_key = "cycle_ms"
+    deadline_values = values_for(records, deadline_key)
+    if not deadline_values:
+        deadline_key = timing_key
+        deadline_values = timing_values
 
     return {
         "records": len(records),
         "status_counts": counts,
+        "status_rates": {status: count / known for status, count in counts.items()} if known else {},
         "success_rate": counts[0] / known if known else None,
         "timeout_rate": counts[7] / known if known else None,
         "hard_failure_rate": sum(count for status, count in counts.items() if hard_failure(status)) / known if known else None,
         "published_rate": statistics.mean(published_values) if published_values else None,
-        "deadline_rate": (sum(value <= deadline_ms for value in timing_values) / len(timing_values) if timing_values else None),
+        "deadline_rate": (
+            sum(value <= deadline_ms for value in deadline_values) / len(deadline_values) if deadline_values else None
+        ),
+        "deadline_key": deadline_key,
         "timing_key": timing_key,
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
         "timing_p99": percentile(timing_values, 0.99),
+        "max_unpublished_streak": longest_streak(published_values, lambda published: published == 0),
         "max_timeout_streak": longest_streak(statuses, lambda status: status == 7),
         "max_status4_streak": longest_streak(statuses, lambda status: status == 4),
         "max_hard_failure_streak": longest_streak(statuses, hard_failure),
@@ -168,16 +178,23 @@ def print_run(path, records, summary, deadline_ms):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
         status_parts.append(paint(f"{status}: {count}", color))
     print(f"records={summary['records']} status_counts={{{', '.join(status_parts)}}}")
+    status_rate_parts = []
+    for status, rate in sorted(summary["status_rates"].items()):
+        color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
+        status_rate_parts.append(paint(f"{status}: {format_rate(rate)}", color))
+    print(f"status_rates={{{', '.join(status_rate_parts)}}}")
     print(
         f"success={paint(format_rate(summary['success_rate']), higher_rate_color(summary['success_rate']))}  "
         f"timeout={paint(format_rate(summary['timeout_rate']), lower_rate_color(summary['timeout_rate']))}  "
         f"hard_failure={paint(format_rate(summary['hard_failure_rate']), lower_rate_color(summary['hard_failure_rate']))}  "
         f"published={paint(format_rate(summary['published_rate']), higher_rate_color(summary['published_rate']))}  "
-        f"within_{deadline_ms:g}ms="
+        f"{summary['deadline_key']}_within_{deadline_ms:g}ms="
         f"{paint(format_rate(summary['deadline_rate']), higher_rate_color(summary['deadline_rate']))}"
     )
     print(
-        f"max_streaks: timeout="
+        f"max_streaks: unpublished="
+        f"{paint(str(summary['max_unpublished_streak']), Color.GREEN if summary['max_unpublished_streak'] == 0 else Color.RED)} "
+        f"timeout="
         f"{paint(str(summary['max_timeout_streak']), Color.GREEN if summary['max_timeout_streak'] == 0 else Color.YELLOW)} "
         f"status4={paint(str(summary['max_status4_streak']), Color.GREEN if summary['max_status4_streak'] == 0 else Color.RED)} "
         f"hard_failure="

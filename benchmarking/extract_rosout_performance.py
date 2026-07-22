@@ -78,6 +78,7 @@ def main():
         default="trajectory_optimization",
         help="only use rosout records whose node name contains this value",
     )
+    parser.add_argument("--exact-node", action="store_true", help="match the complete rosout node name")
     args = parser.parse_args()
 
     reader = rosbag2_py.SequentialReader()
@@ -85,6 +86,7 @@ def main():
         rosbag2_py.StorageOptions(uri=str(args.bag), storage_id=""),
         rosbag2_py.ConverterOptions(input_serialization_format="cdr", output_serialization_format="cdr"),
     )
+    reader.set_filter(rosbag2_py.StorageFilter(topics=["/rosout"]))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     records = []
@@ -113,7 +115,7 @@ def main():
         if topic != "/rosout":
             continue
         message = deserialize_message(serialized, Log)
-        if args.node and args.node not in message.name:
+        if args.node and (message.name != args.node if args.exact_node else args.node not in message.name):
             continue
         text = ANSI_ESCAPE.sub("", message.msg)
         timestamp = stamp_to_nanoseconds(message, bag_timestamp)
