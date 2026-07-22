@@ -496,7 +496,13 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(),
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
-    // Keep the last accepted controls; the rejected solver output is not added to the cache.
+    if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
+      // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.
+      control_guess_ = utraj_;
+      control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
+    } else {
+      control_guess_.clear();
+    }
     resetSolver();
     logCompletedCycle();
     return;
