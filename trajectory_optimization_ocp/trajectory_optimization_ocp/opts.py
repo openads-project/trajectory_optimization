@@ -26,10 +26,11 @@ def set_opts(ocp, config):
     opts.hessian_approx = "GAUSS_NEWTON"
     opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP_WITH_FEASIBLE_QP"
+    opts.search_direction_mode = "BYRD_OMOJOKUN"
     opts.rti_log_residuals = 1
-    opts.timeout_max_time = 100e-3  # default 0 => no timeout [s] # no effect for SQP_WITH_FEASIBLE_QP, but for SQP
+    opts.timeout_max_time = 100e-3  # default 0 => no timeout [s]
     opts.timeout_heuristic = "MAX_CALL"  # default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
-    opts.nlp_solver_max_iter = 20  # default 100. Bound to ensure real-time capability
+    opts.nlp_solver_max_iter = 100  # default 100. Bound to ensure real-time capability
     # opts.nlp_solver_tol_stat = 1e-4
     # opts.nlp_solver_tol_eq = 1e-4
     # opts.nlp_solver_tol_ineq = 1e-4
@@ -39,7 +40,7 @@ def set_opts(ocp, config):
     opts.qp_solver_warm_start = (
         0  # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
     )
-    opts.qp_solver_tol_stat = 1e-3
+    opts.qp_solver_tol_stat = 1e-4
     opts.qp_solver_tol_eq = 1e-4
     opts.qp_solver_tol_ineq = 1e-4
     opts.qp_solver_tol_comp = 1e-4
