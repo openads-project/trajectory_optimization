@@ -51,21 +51,71 @@ struct PerformanceMetrics {
 
 class PerformanceLogger {
  public:
+  /**
+   * @brief Creates a CSV performance log for the given node.
+   *
+   * @param[in] node_name Node name used as part of the log file name.
+   */
   explicit PerformanceLogger(const std::string& node_name);
+
+  /**
+   * @brief Flushes and closes the performance log.
+   */
   ~PerformanceLogger();
 
+  /**
+   * @brief Copy construction is disabled because the logger owns a file stream.
+   */
   PerformanceLogger(const PerformanceLogger&) = delete;
+
+  /**
+   * @brief Copy assignment is disabled because the logger owns a file stream.
+   *
+   * @return Reference to this logger. The operator is deleted.
+   */
   PerformanceLogger& operator=(const PerformanceLogger&) = delete;
+
+  /**
+   * @brief Move construction is disabled to keep the log stream bound to one logger.
+   */
   PerformanceLogger(PerformanceLogger&&) = delete;
+
+  /**
+   * @brief Move assignment is disabled to keep the log stream bound to one logger.
+   *
+   * @return Reference to this logger. The operator is deleted.
+   */
   PerformanceLogger& operator=(PerformanceLogger&&) = delete;
 
+  /**
+   * @brief Appends one set of performance metrics to the CSV log.
+   *
+   * @param[in] metrics Metrics collected for one optimization cycle.
+   */
   void write(const PerformanceMetrics& metrics);
+
+  /**
+   * @brief Reads timing, iteration, cost, and residual statistics from acados.
+   *
+   * @param[out] metrics Metrics structure populated with the solver statistics.
+   * @param[in] solver acados NLP solver instance.
+   * @param[in] config acados NLP configuration.
+   * @param[in] dims acados NLP dimensions.
+   * @param[in] input acados NLP input.
+   * @param[in] output acados NLP output.
+   */
   static void collectSolverStatistics(PerformanceMetrics& metrics,
                                       ocp_nlp_solver* solver,
                                       ocp_nlp_config* config,
                                       ocp_nlp_dims* dims,
                                       ocp_nlp_in* input,
                                       ocp_nlp_out* output);
+
+  /**
+   * @brief Returns the path of the CSV performance log.
+   *
+   * @return Path of the active performance log file.
+   */
   const std::filesystem::path& path() const { return path_; }
 
  private:
