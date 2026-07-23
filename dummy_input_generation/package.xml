@@ -3,7 +3,7 @@
 <package format="3">
 
   <name>dummy_input_generation</name>
-  <version>1.3.1</version>
+  <version>1.4.0</version>
   <description>Generates and publishes dummy input data for testing purposes of the trajectory optimization node.</description>
 
   <maintainer email="jean-pierre.busch@rwth-aachen.de">Jean-Pierre Busch</maintainer>
