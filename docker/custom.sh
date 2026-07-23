@@ -1,7 +1,7 @@
 # clone acados repo and build it
 git clone --recurse-submodules https://github.com/acados/acados.git /opt/acados
 cd /opt/acados
-git checkout v0.5.1
+git checkout v0.5.5
 git submodule update --init --recursive
 mkdir -p /opt/acados/build
 cd /opt/acados/build
@@ -13,8 +13,7 @@ pip install -e /opt/acados/interfaces/acados_template --ignore-installed
 
 # install t_renderer
 rm -f /opt/acados/bin/t_renderer
-curl -L -o /opt/acados/bin/t_renderer https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux
-chmod +x /opt/acados/bin/t_renderer
+ACADOS_SOURCE_DIR=/opt/acados python -c "from acados_template import get_tera; get_tera(force_download=True)"
 
 # write necessary environment variables to .bashrc
 echo "export ACADOS_SOURCE_DIR=/opt/acados" >> /root/.bashrc

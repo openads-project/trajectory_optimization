@@ -100,7 +100,6 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     # formulate it as parameter lambda
     # values [0, 1] for lambda mean the nearest point is on the segment
     # and the computed distance is perpendicular to the line segment
-    # note that lambda must be >=0 due to the way we defined the line segment
     psi1 = psi_ref_path[idx_min]
     x1 = x_ref_path[idx_min]
     y1 = y_ref_path[idx_min]
@@ -116,18 +115,19 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     d_right_boundary2 = d_right_boundary_ref_path[next_idx_min]
 
     dxy_sq = ca.power(x2 - x1, 2) + ca.power(y2 - y1, 2)
-    lmd = ca.if_else((dxy_sq == 0), 0, ((x_position - x1) * (x2 - x1) + (y_position - y1) * (y2 - y1)) / dxy_sq)
+    raw_lmd = ca.if_else((dxy_sq == 0), 0, ((x_position - x1) * (x2 - x1) + (y_position - y1) * (y2 - y1)) / dxy_sq)
     # allow extrapolation for beginning of reference but not at the end (to penalize overshooting)
-    lmd = ca.if_else(condition_begin, lmd, ca.fmin(ca.fmax(lmd, 0), 1))
-    x_ref_inter = x1 + lmd * (x2 - x1)
-    y_ref_inter = y1 + lmd * (y2 - y1)
-    d_left_boundary_inter = d_left_boundary1 + lmd * (d_left_boundary2 - d_left_boundary1)
-    d_right_boundary_inter = d_right_boundary1 + lmd * (d_right_boundary2 - d_right_boundary1)
+    position_lmd = ca.if_else(condition_begin, raw_lmd, ca.fmin(ca.fmax(raw_lmd, 0), 1))
+    x_ref_inter = x1 + position_lmd * (x2 - x1)
+    y_ref_inter = y1 + position_lmd * (y2 - y1)
 
-    # interpolate psi and v without extrapolation at the beginning
-    lmd = ca.fmin(ca.fmax(lmd, 0), 1)
-    psi_ref_inter = psi1 + lmd * wrap_angle(psi2 - psi1)
-    v_ref_inter = v1 + lmd * (v2 - v1)
+    # Boundary distances, heading, and velocity are only defined at the provided
+    # reference samples and must not be extrapolated with the reference line.
+    bounded_lmd = ca.fmin(ca.fmax(position_lmd, 0), 1)
+    d_left_boundary_inter = d_left_boundary1 + bounded_lmd * (d_left_boundary2 - d_left_boundary1)
+    d_right_boundary_inter = d_right_boundary1 + bounded_lmd * (d_right_boundary2 - d_right_boundary1)
+    psi_ref_inter = psi1 + bounded_lmd * wrap_angle(psi2 - psi1)
+    v_ref_inter = v1 + bounded_lmd * (v2 - v1)
 
     interpolated_ref_path_point = {
         "psi": psi_ref_inter,
@@ -148,42 +148,37 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
         config: Configuration dictionary with parameters like length, width, n_ego_circles, and offset2geocenter.
 
     Returns:
-        A dictionary containing circle positions (x, y), offsets (x_offset, y_offset), and radius.
+        A dictionary containing circle positions (x, y) and their radius.
     """
     # rectangular ego-vehicle approximation with n_circles circles
+    psi = ocp.model.x[STATE_INDEX_PSI]
+    cos_psi = ca.cos(psi)
+    sin_psi = ca.sin(psi)
     # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
-    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * ca.cos(ocp.model.x[STATE_INDEX_PSI])
-    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * cos_psi
+    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * sin_psi
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"] / 2.0), 2))
 
     # Initialize an empty list for circle centers coordinates
     circle_position_x = []
     circle_position_y = []
-    circle_offset_x = []
-    circle_offset_y = []
 
     if config["n_ego_circles"] == 1:
         circle_position_x.append(ego_center_x)
         circle_position_y.append(ego_center_y)
-        circle_offset_x.append(0.0)
-        circle_offset_y.append(0.0)
     else:
         # Loop to compute the centers of each circle
         for i in range(config["n_ego_circles"]):
             lon_offset = -config["length"] / 2 + (2 * i + 1) * config["length"] / (2 * config["n_ego_circles"])
-            x_offset = lon_offset * ca.cos(ocp.model.x[STATE_INDEX_PSI])
-            y_offset = lon_offset * ca.sin(ocp.model.x[STATE_INDEX_PSI])
+            x_offset = lon_offset * cos_psi
+            y_offset = lon_offset * sin_psi
             circle_position_x.append(ego_center_x + x_offset)
             circle_position_y.append(ego_center_y + y_offset)
-            circle_offset_x.append(x_offset)
-            circle_offset_y.append(y_offset)
 
     return {
         "x": circle_position_x,
         "y": circle_position_y,
-        "x_offset": circle_offset_x,
-        "y_offset": circle_offset_y,
         "radius": radius,
     }
 

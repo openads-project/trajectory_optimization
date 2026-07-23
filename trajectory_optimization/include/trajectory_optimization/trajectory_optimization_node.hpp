@@ -31,6 +31,7 @@
 
 // acados
 #include <trajectory_optimization/ocp_model_handler.hpp>
+#include <trajectory_optimization/performance_logger.hpp>
 
 namespace trajectory_optimization {
 
@@ -126,9 +127,18 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setup();
 
   /**
-   * @brief Recreates the optimizer after releasing the current solver instance.
+   * @brief Resets the optimizer memory while retaining the generated solver instance.
    */
   void resetSolver();
+
+  /**
+   * @brief Builds and sets a dynamically consistent NLP initial guess from the current state and cached controls.
+   *
+   * @param[in] x_init Hard initial state of the OCP.
+   * @param[in] stamp Absolute time corresponding to x_init.
+   * @return `true` if the state rollout succeeded.
+   */
+  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp);
 
   /**
    * @brief Creates the acados solver instance and initializes its state buffers.
@@ -141,11 +151,18 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void freeSolver();
 
   /**
-   * @brief Logs solver status, timing and optional debug statistics for the last optimization run.
+   * @brief Logs solver status and optional debug statistics for the last optimization run.
    *
-   * @param[in] status acados solver status code.
+   * @param[in] metrics Performance metrics collected for the optimization run.
    */
-  void printSolution(int status);
+  void printSolution(const PerformanceMetrics& metrics);
+
+  /**
+   * @brief Emits one machine-readable performance record when performance logging is enabled.
+   *
+   * @param[in] metrics Performance metrics to write to the log.
+   */
+  void logPerformance(const PerformanceMetrics& metrics);
 
   /**
    * @brief Transforms the planned trajectory into the configured output frame (trajectory_frame_id_) if required.
@@ -296,15 +313,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
 
   /**
-   * @brief Publishes boundary or boundary-intersection points for debugging.
+   * @brief Publishes the boundary intersections corresponding to the distances passed to the OCP.
    *
    * @param[in] left_boundary_points Points on the left side.
    * @param[in] right_boundary_points Points on the right side.
-   * @param[in] is_intersection Whether the supplied points represent normal intersections instead of raw boundaries.
    */
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
-                         const std::vector<Eigen::Vector2d>& right_boundary_points,
-                         bool is_intersection = false);
+                         const std::vector<Eigen::Vector2d>& right_boundary_points);
 
   // virtual functions need to be implemented in derived classes
 
@@ -380,13 +395,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   int n_shots_ = 50;
   double optimization_horizon_ = 1.0;
   bool verbose_ = false;
+  bool performance_logging_ = false;
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   bool add_x_init_to_ref_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
-  bool init_as_ref_ = false;
   bool run_as_callback_ = false;
 
   // common bi-level thresholds
@@ -397,6 +412,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;
+
+  // controls of the latest accepted solution; an empty vector denotes that no warm start is available
+  std::vector<double> control_guess_;
+  rclcpp::Time control_guess_stamp_{0, 0, RCL_ROS_TIME};
 
   // visualization
   std::vector<double> viz_circles_;
@@ -427,6 +446,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
+  uint64_t logging_cycle_ = 0;
+  std::unique_ptr<PerformanceLogger> performance_logger_;
 };
 
 }  // namespace trajectory_optimization

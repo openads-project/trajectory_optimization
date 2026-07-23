@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <array>
+
 // NOLINTBEGIN(clang-diagnostic-gnu-zero-variadic-macro-arguments)
 
 // acados
@@ -89,6 +91,44 @@ inline int acados_free(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_fre
  * @return Status code returned by the generated acados function.
  */
 inline int acados_solve(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_solve); }
+
+/**
+ * @brief Evaluates the explicit model dynamics for a shooting stage.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @param[in] stage Shooting stage whose dynamics function is evaluated.
+ * @param[in] x State vector at which to evaluate the dynamics.
+ * @param[in] u Control vector at which to evaluate the dynamics.
+ * @param[out] x_dot Evaluated state derivative.
+ */
+inline void acados_evaluate_dynamics(ocp_model_capsule_t capsule, int stage, double* x, double* u, double* x_dot) {
+  std::array<ext_fun_arg_t, 2> input_types = {COLMAJ, COLMAJ};
+  std::array<void*, 2> inputs = {x, u};
+  std::array<ext_fun_arg_t, 1> output_types = {COLMAJ};
+  std::array<void*, 1> outputs = {x_dot};
+
+  external_function_external_param_casadi* function = nullptr;
+
+  if (std::holds_alternative<karl_solver_capsule*>(capsule)) {
+    function = &std::get<karl_solver_capsule*>(capsule)->expl_ode_fun[stage];  // NOLINT
+  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {
+    function = &std::get<shuttle_solver_capsule*>(capsule)->expl_ode_fun[stage];  // NOLINT
+  } else {
+    throw std::invalid_argument("Invalid capsule type.");
+  }
+  function->evaluate(function, input_types.data(), inputs.data(), output_types.data(), outputs.data());
+}
+
+/**
+ * @brief Resets selected solver memory without freeing and recreating the capsule.
+ */
+inline int acados_reset(ocp_model_capsule_t capsule,
+                        int reset_qp_solver_mem,
+                        int reset_numerical_values,
+                        int reset_solver_options,
+                        int reset_x_to_x0_bar) {
+  ACADOS_DISPATCH(acados_reset, reset_qp_solver_mem, reset_numerical_values, reset_solver_options, reset_x_to_x0_bar);
+}
 
 /**
  * @brief Wrapper around the generated sparse parameter update function.

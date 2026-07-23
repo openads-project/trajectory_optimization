@@ -51,6 +51,7 @@ flowchart LR
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
 | `verbose` | `bool` | `false` | Print solver statistics |
+| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
@@ -69,7 +70,6 @@ flowchart LR
 | `bi_level_dA` | `float` | `2.0` | Threshold for bi-level stabilization: maximum acceleration difference [m/s^2] |
 | `bi_level_dY` | `float` | `0.1` | Threshold for bi-level stabilization: maximum y-offset [m] |
 | `bi_level_dYaw` | `float` | `5.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
-| `init_as_ref` | `bool` | `false` | Boolean that enables initialization of trajectory states as reference states under certain set of conditions |
 
 ## Launch Files
 

@@ -6,14 +6,14 @@
     fixed_over_time_frame_id: map   # Frame ID of frame that is fixed over time for finding temporal transforms
     ego_data_timeout: 1.0           # Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid.
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
-    init_as_ref: False              # initialize ocp solution using reference trajectory when no valid last solution is available (e.g. standstill situation)
-    standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory
+    standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
     add_x_init_to_ref: False        # add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle
     consider_objects: 2             # consider objects in optimization: 0 = no, 1 = static (no prediction), 2 = dynamic (with prediction)
     min_prediction_probability: 0.0 # consider only predictions with probability > this threshold
     consider_boundaries: 1          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
+    performance_logging: False      # write one CSV record for each completed solver run
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 
@@ -32,9 +32,9 @@
     #### cost weights
     cost_weights:
       - 0.3  # dlat (0)
-      - 0.0  # psi (1)      (considered if RWS model is used)
-      - 0.3 # overspeed (2)
-      - 0.1 # underspeed (3)
+      - 0.0  # psi (1)       (considered if RWS model is used)
+      - 0.3  # overspeed (2)
+      - 0.1  # underspeed (3)
       - 0.2  # a_lat (4)
       - 0.2  # a_lon_pos (5)
       - 0.05 # a_lon_neg (6)
