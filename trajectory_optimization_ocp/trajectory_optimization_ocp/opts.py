@@ -31,20 +31,20 @@ def set_opts(ocp, config):
     opts.timeout_max_time = 100e-3  # default 0 => no timeout [s]
     opts.timeout_heuristic = "MAX_CALL"  # default ZERO. Possible values are MAX_CALL, MAX_OVERALL, LAST, AVERAGE
     opts.nlp_solver_max_iter = 100  # default 100. Bound to ensure real-time capability
-    # opts.nlp_solver_tol_stat = 1e-4
-    # opts.nlp_solver_tol_eq = 1e-4
-    # opts.nlp_solver_tol_ineq = 1e-4
-    # opts.nlp_solver_tol_comp = 1e-4
-    opts.tol = 1e-4  # default 1e-6
+    opts.nlp_solver_tol_stat = 1e-3
+    opts.nlp_solver_tol_eq = 1e-3
+    opts.nlp_solver_tol_ineq = 1e-4
+    opts.nlp_solver_tol_comp = 1e-3
+    # opts.tol = 1e-4  # default 1e-6
     opts.qp_solver_iter_max = 50  # default 50
     opts.qp_solver_warm_start = (
         0  # default 0. 1 (warm: Initialize solver primal w/ last it) faster, 2 (hot: also initialize dual) even faster
     )
-    opts.qp_solver_tol_stat = 1e-4
-    opts.qp_solver_tol_eq = 1e-4
-    opts.qp_solver_tol_ineq = 1e-4
-    opts.qp_solver_tol_comp = 1e-4
-    # opts.qp_tol = 1e-4  # default None
+    # opts.qp_solver_tol_stat = 1e-4
+    # opts.qp_solver_tol_eq = 1e-4
+    # opts.qp_solver_tol_ineq = 1e-4
+    # opts.qp_solver_tol_comp = 1e-4
+    opts.qp_tol = 1e-4
     opts.sim_method_num_stages = 4  # default 4 -> Use Runge Kutta 4
     opts.sim_method_num_steps = 2  # default 1. Not sure what this does, but 2 seems to make it slightly faster
     opts.globalization = "FIXED_STEP"  # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
