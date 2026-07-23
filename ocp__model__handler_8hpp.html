@@ -28,7 +28,7 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.2.0</span>
+   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.3.1</span>
    </div>
   </td>
  </tr>
@@ -105,7 +105,8 @@ $(function(){initNavTree('ocp__model__handler_8hpp.html',''); initResizable(true
   <div class="headertitle"><div class="title">ocp_model_handler.hpp File Reference</div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;acados/utils/math.h&gt;</code><br />
+<div class="textblock"><code>#include &lt;array&gt;</code><br />
+<code>#include &lt;acados/utils/math.h&gt;</code><br />
 <code>#include &lt;acados/utils/print.h&gt;</code><br />
 <code>#include &lt;acados_c/external_function_interface.h&gt;</code><br />
 <code>#include &lt;acados_c/ocp_nlp_interface.h&gt;</code><br />
@@ -151,6 +152,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a17158508d4d85bc9a7da25ae53c20775" id="r_a17158508d4d85bc9a7da25ae53c20775"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetrajectory__optimization.html#a17158508d4d85bc9a7da25ae53c20775">trajectory_optimization::acados_solve</a> (<a class="el" href="namespacetrajectory__optimization.html#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule)</td></tr>
 <tr class="memdesc:a17158508d4d85bc9a7da25ae53c20775"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around the generated acados solve function.  <br /></td></tr>
 <tr class="separator:a17158508d4d85bc9a7da25ae53c20775"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed4341a60834f385364a2eb9cabf735f" id="r_aed4341a60834f385364a2eb9cabf735f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetrajectory__optimization.html#aed4341a60834f385364a2eb9cabf735f">trajectory_optimization::acados_evaluate_dynamics</a> (<a class="el" href="namespacetrajectory__optimization.html#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule, int stage, double *x, double *u, double *x_dot)</td></tr>
+<tr class="memdesc:aed4341a60834f385364a2eb9cabf735f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Evaluates the explicit model dynamics for a shooting stage.  <br /></td></tr>
+<tr class="separator:aed4341a60834f385364a2eb9cabf735f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6ee729d4b54f02ac34eab12d2fb1130" id="r_ab6ee729d4b54f02ac34eab12d2fb1130"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetrajectory__optimization.html#ab6ee729d4b54f02ac34eab12d2fb1130">trajectory_optimization::acados_reset</a> (<a class="el" href="namespacetrajectory__optimization.html#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule, int reset_qp_solver_mem, int reset_numerical_values, int reset_solver_options, int reset_x_to_x0_bar)</td></tr>
+<tr class="memdesc:ab6ee729d4b54f02ac34eab12d2fb1130"><td class="mdescLeft">&#160;</td><td class="mdescRight">Resets selected solver memory without freeing and recreating the capsule.  <br /></td></tr>
+<tr class="separator:ab6ee729d4b54f02ac34eab12d2fb1130"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f2104a50b407d23c0fe9b31d1c1cb6b" id="r_a8f2104a50b407d23c0fe9b31d1c1cb6b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetrajectory__optimization.html#a8f2104a50b407d23c0fe9b31d1c1cb6b">trajectory_optimization::acados_update_params_sparse</a> (<a class="el" href="namespacetrajectory__optimization.html#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule, int stage, int *idx, double *p, int n_update)</td></tr>
 <tr class="memdesc:a8f2104a50b407d23c0fe9b31d1c1cb6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around the generated sparse parameter update function.  <br /></td></tr>
 <tr class="separator:a8f2104a50b407d23c0fe9b31d1c1cb6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -206,15 +213,15 @@ Functions</h2></td></tr>
 <div class="line">    <span class="keywordflow">throw</span> std::invalid_argument(<span class="stringliteral">&quot;Invalid capsule type.&quot;</span>);                                      \</div>
 <div class="line">  }</div>
 </div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="ocp__model__handler_8hpp_source.html#l00040">40</a> of file <a class="el" href="ocp__model__handler_8hpp_source.html">ocp_model_handler.hpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">   40</span><span class="preprocessor">#define ACADOS_DISPATCH(function_name, ...)                                                    \</span></div>
-<div class="line"><span class="lineno">   41</span><span class="preprocessor">  if (std::holds_alternative&lt;karl_solver_capsule*&gt;(capsule)) {                                 \</span></div>
-<div class="line"><span class="lineno">   42</span><span class="preprocessor">    return karl_##function_name(std::get&lt;karl_solver_capsule*&gt;(capsule), ##__VA_ARGS__);       \</span></div>
-<div class="line"><span class="lineno">   43</span><span class="preprocessor">  } else if (std::holds_alternative&lt;shuttle_solver_capsule*&gt;(capsule)) {                       \</span></div>
-<div class="line"><span class="lineno">   44</span><span class="preprocessor">    return shuttle_##function_name(std::get&lt;shuttle_solver_capsule*&gt;(capsule), ##__VA_ARGS__); \</span></div>
-<div class="line"><span class="lineno">   45</span><span class="preprocessor">  } else {                                                                                     \</span></div>
-<div class="line"><span class="lineno">   46</span><span class="preprocessor">    throw std::invalid_argument(&quot;Invalid capsule type.&quot;);                                      \</span></div>
-<div class="line"><span class="lineno">   47</span><span class="preprocessor">  }</span></div>
+<p class="definition">Definition at line <a class="el" href="ocp__model__handler_8hpp_source.html#l00042">42</a> of file <a class="el" href="ocp__model__handler_8hpp_source.html">ocp_model_handler.hpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">   42</span><span class="preprocessor">#define ACADOS_DISPATCH(function_name, ...)                                                    \</span></div>
+<div class="line"><span class="lineno">   43</span><span class="preprocessor">  if (std::holds_alternative&lt;karl_solver_capsule*&gt;(capsule)) {                                 \</span></div>
+<div class="line"><span class="lineno">   44</span><span class="preprocessor">    return karl_##function_name(std::get&lt;karl_solver_capsule*&gt;(capsule), ##__VA_ARGS__);       \</span></div>
+<div class="line"><span class="lineno">   45</span><span class="preprocessor">  } else if (std::holds_alternative&lt;shuttle_solver_capsule*&gt;(capsule)) {                       \</span></div>
+<div class="line"><span class="lineno">   46</span><span class="preprocessor">    return shuttle_##function_name(std::get&lt;shuttle_solver_capsule*&gt;(capsule), ##__VA_ARGS__); \</span></div>
+<div class="line"><span class="lineno">   47</span><span class="preprocessor">  } else {                                                                                     \</span></div>
+<div class="line"><span class="lineno">   48</span><span class="preprocessor">    throw std::invalid_argument(&quot;Invalid capsule type.&quot;);                                      \</span></div>
+<div class="line"><span class="lineno">   49</span><span class="preprocessor">  }</span></div>
 </div><!-- fragment -->
 </div>
 </div>

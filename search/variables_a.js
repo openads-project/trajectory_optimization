@@ -1,10 +1,6 @@
 var searchData=
 [
-  ['n_5fshots_5f_0',['n_shots_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aa08bdf1236e3e439bcf6a8f022e1bbec',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fconfig_5f_1',['nlp_config_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a6dff0e6a6d3dfa057549bb13ac28e946',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fdims_5f_2',['nlp_dims_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aeee87443815e3fadbce070c0bc9c3abd',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fin_5f_3',['nlp_in_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a9293600d315ad34e083ec954054c782c',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fopts_5f_4',['nlp_opts_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a0ecdb0d5535d6b68233a4a703a4e0783',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fout_5f_5',['nlp_out_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a105fab57771562708a779fa0a7bb3d51',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['nlp_5fsolver_5f_6',['nlp_solver_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a6aeb751f66eaafe959067942720653e0',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
+  ['message_5fframe_5fid_5f_0',['message_frame_id_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a8a037949e13058f2cb872395c7616927',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['min_5fprediction_5fprobability_5f_1',['min_prediction_probability_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a5db1f1c42ef0748bce2ab59e79605ebd',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['model_5fname_5f_2',['model_name_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aa830c9ae865ebbcfbb6ed71a869d08c3',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];

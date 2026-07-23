@@ -1,8 +1,25 @@
 var searchData=
 [
-  ['tf2_5fbuffer_5f_0',['tf2_buffer_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a8759d5e72841b9ae521b51d6a0fdceb4',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['tf2_5flistener_5f_1',['tf2_listener_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ae749aad9523f98b48a3b3faabd4d2116',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['thw_5f_2',['thw_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#afd6644a6d9a78e663bfcf5c36026af7e',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['trajectory_5fframe_5fid_5f_3',['trajectory_frame_id_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ab22ca53d37e33208202f7127d2cc6086',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['trajectory_5fpub_5f_4',['trajectory_pub_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a3b1d2ef8b8af5ac0ca3dc0adc63875f5',1,'dummy_input_generation::DummyInputGenerationNode::trajectory_pub_'],['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ae1bd5cd2a3cfb0a0e33730cb827c3d4b',1,'trajectory_optimization::TrajectoryOptimizationNode::trajectory_pub_']]]
+  ['records_5fsince_5fflush_5f_0',['records_since_flush_',['../classtrajectory__optimization_1_1PerformanceLogger.html#ac7d4bfb07573c769dcc1efefc5be7707',1,'trajectory_optimization::PerformanceLogger']]],
+  ['reference_5fa_5f_1',['reference_a_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a7dc09a2ce82e1e5e973e95e2ce3b2b7e',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5fn_5fstates_5f_2',['reference_n_states_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a9f4228c21d084a81128e42e9ccec6524',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5fomega_5f_3',['reference_omega_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a4dfd1f47a3ebc23ba0ae3842536ac2df',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5fpoints_4',['reference_points',['../structtrajectory__optimization_1_1PerformanceMetrics.html#ade7b4b77619661f8d40b8af3c7847c42',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['reference_5fstamp_5fns_5',['reference_stamp_ns',['../structtrajectory__optimization_1_1PerformanceMetrics.html#afd8fec01eb9429018ef25022082acf1c',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['reference_5fstandstill_5f_6',['reference_standstill_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#aef84b93cdf1d229d6f999f1f036eb0d0',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5ftheta0_5f_7',['reference_theta0_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#acaa26361b9fb00b0eed03a0259244e14',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5ftrajectory_5f_8',['reference_trajectory_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a199d9137d23359428b7bd6f1df239149',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['reference_5ftrajectory_5fhorizon_5f_9',['reference_trajectory_horizon_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a80ffcacd133a574287d0c1060f62eced',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5ftrajectory_5fsub_5f_10',['reference_trajectory_sub_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aecceccde82b9cb7818c610f191142099',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['reference_5fv0_5f_11',['reference_v0_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#ae2dd173daad4ccb86661bf9f58b838a7',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5fx0_5f_12',['reference_x0_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#af72ed8a260f14cc7f6ea3c64e09804f5',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['reference_5fy0_5f_13',['reference_y0_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a67c691a71c60f80e8484b553757bbc17',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['res_5fcomp_14',['res_comp',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a4600457e9d3969a11337973de7a44bd5',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['res_5feq_15',['res_eq',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a19542071fcba229207c0c4b210b14819',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['res_5fineq_16',['res_ineq',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a091bc3d1b7c8fab25323b09849b828a4',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['res_5fstat_17',['res_stat',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a45e15283702a4bd0212dbf4d363d85ff',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['route_5f_18',['route_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a84f425d9bb3d78f60b7bb1c2b66577a1',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['route_5fstamp_5fns_19',['route_stamp_ns',['../structtrajectory__optimization_1_1PerformanceMetrics.html#ae7e6af51a1023ab9c903c0002f3fcce4',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['route_5fsub_5f_20',['route_sub_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a907647de845efbb30cdef5e9976b7145',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['run_5fas_5fcallback_5f_21',['run_as_callback_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a026fc409e4296d117cd637ddb7852ad8',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];

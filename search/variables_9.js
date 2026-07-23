@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['message_5fframe_5fid_5f_0',['message_frame_id_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a8a037949e13058f2cb872395c7616927',1,'dummy_input_generation::DummyInputGenerationNode']]],
-  ['model_5fname_5f_1',['model_name_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aa830c9ae865ebbcfbb6ed71a869d08c3',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
+  ['latest_5fvalid_5ftrajectory_5f_0',['latest_valid_trajectory_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a3b61346434e98fa015bedf600b63b485',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['logging_5fcycle_5f_1',['logging_cycle_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a816d61188165d047465614423e5afcef',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];

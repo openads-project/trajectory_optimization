@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['latest_5fvalid_5ftrajectory_5f_0',['latest_valid_trajectory_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a3b61346434e98fa015bedf600b63b485',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
+  ['kkt_5fnorm_5finf_0',['kkt_norm_inf',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a24d46751b221828876f452b4cdb6e76d',1,'trajectory_optimization::PerformanceMetrics']]]
 ];

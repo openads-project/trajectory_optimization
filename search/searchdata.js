@@ -1,11 +1,11 @@
 var indexSectionsWithContent =
 {
   0: "abcdefghiklmnopqrstuvwx~⚖💻📝🙏🚀",
-  1: "dit",
+  1: "dipt",
   2: "dt",
-  3: "cdortu",
+  3: "cdoprtu",
   4: "acdefgiklnoprstuvw~",
-  5: "abcdefhilmnoprstuvx",
+  5: "abcdefhiklmnopqrstuvx",
   6: "o",
   7: "c",
   8: "dinps",

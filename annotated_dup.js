@@ -8,6 +8,8 @@ var annotated_dup =
     [ "trajectory_optimization", "namespacetrajectory__optimization.html", [
       [ "is_vector", "structtrajectory__optimization_1_1is__vector.html", null ],
       [ "is_vector< std::vector< T, A > >", "structtrajectory__optimization_1_1is__vector_3_01std_1_1vector_3_01T_00_01A_01_4_01_4.html", null ],
+      [ "PerformanceLogger", "classtrajectory__optimization_1_1PerformanceLogger.html", "classtrajectory__optimization_1_1PerformanceLogger" ],
+      [ "PerformanceMetrics", "structtrajectory__optimization_1_1PerformanceMetrics.html", "structtrajectory__optimization_1_1PerformanceMetrics" ],
       [ "TrajectoryOptimizationAckermannNode", "classtrajectory__optimization_1_1TrajectoryOptimizationAckermannNode.html", "classtrajectory__optimization_1_1TrajectoryOptimizationAckermannNode" ],
       [ "TrajectoryOptimizationNode", "classtrajectory__optimization_1_1TrajectoryOptimizationNode.html", "classtrajectory__optimization_1_1TrajectoryOptimizationNode" ],
       [ "TrajectoryOptimizationRWSNode", "classtrajectory__optimization_1_1TrajectoryOptimizationRWSNode.html", "classtrajectory__optimization_1_1TrajectoryOptimizationRWSNode" ]

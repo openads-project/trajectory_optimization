@@ -1,9 +1,17 @@
 var searchData=
 [
-  ['p_5fcost_5fweights_5fshape_5f_0',['p_cost_weights_shape_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ae67db13184b4d68427397b09366407ec',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['p_5fobstacle_5fcircles_5fshape_5f_1',['p_obstacle_circles_shape_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aeba1a7ecd6f98559fdeedb4c638e8cc2',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['p_5fref_5fpath_5fshape_5f_2',['p_ref_path_shape_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a2b8f060b27ce498be56843afe95491f3',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['parameters_5fcallback_5f_3',['parameters_callback_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a2390e4c940d2fdddf234118070fb4536',1,'dummy_input_generation::DummyInputGenerationNode::parameters_callback_'],['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a916c5b401cd54e406e6d3fb0aa6c0e4e',1,'trajectory_optimization::TrajectoryOptimizationNode::parameters_callback_']]],
-  ['planning_5ftimer_5f_4',['planning_timer_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a9f464b2733dc5c6238049b72cb002bd6',1,'dummy_input_generation::DummyInputGenerationNode::planning_timer_'],['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a1e2d49aab98ac3f0e523220df861fb47',1,'trajectory_optimization::TrajectoryOptimizationNode::planning_timer_']]],
-  ['publish_5ffrequency_5f_5',['publish_frequency_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a4afc2ca0af7d3dda4fd5b13224354c6a',1,'dummy_input_generation::DummyInputGenerationNode']]]
+  ['object_5fcount_5f_0',['object_count_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a27659e34f391b9427238a983f74f5893',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5fdelta_5fx_5f_1',['object_delta_x_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a516e23fd0677c2735b93518fbee121d3',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5fdelta_5fy_5f_2',['object_delta_y_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a6be0628550310df0a1a4513af12e5319',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5fheight_3',['OBJECT_HEIGHT',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a793addfb8c06d0370013486b4a5e4eea',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5flength_5f_4',['object_length_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#abed3d1c8c3247e8270a6b902c5787e5b',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5flist_5f_5',['object_list_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ab1d5ae80292cbf6f195756e11edd329e',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['object_5flist_5fpub_5f_6',['object_list_pub_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a9f32a71a62422679f1c12159f28e53b0',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5flist_5fsub_5f_7',['object_list_sub_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#ac6b9124774753ee2a92103c85d66b6b3',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['object_5fwidth_5f_8',['object_width_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a00edbbaaa40438f13c4afaee0d3a48a3',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['object_5fyaw_5f_9',['object_yaw_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a03bd5309cfabd6fe8551d13f9384fe94',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['objects_10',['objects',['../structtrajectory__optimization_1_1PerformanceMetrics.html#aa326b7299df25da5b003f5fcdf4b7217',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['ocp_5fcapsule_5f_11',['ocp_capsule_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aadc26d5fc9fc9018761382fb7c74d962',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['optimization_5ffreq_5f_12',['optimization_freq_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a791d4c38742848ce1dcd1f832f56ffad',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['optimization_5fhorizon_5f_13',['optimization_horizon_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a1d3e04fc8a4bddc9736bec197cd2deaa',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];
