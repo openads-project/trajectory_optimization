@@ -92,6 +92,15 @@ inline int acados_free(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_fre
  */
 inline int acados_solve(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_solve); }
 
+/**
+ * @brief Evaluates the explicit model dynamics for a shooting stage.
+ *
+ * @param[in] capsule Variant holding the model-specific acados capsule.
+ * @param[in] stage Shooting stage whose dynamics function is evaluated.
+ * @param[in] x State vector at which to evaluate the dynamics.
+ * @param[in] u Control vector at which to evaluate the dynamics.
+ * @param[out] x_dot Evaluated state derivative.
+ */
 inline void acados_evaluate_dynamics(ocp_model_capsule_t capsule, int stage, double* x, double* u, double* x_dot) {
   std::array<ext_fun_arg_t, 2> input_types = {COLMAJ, COLMAJ};
   std::array<void*, 2> inputs = {x, u};

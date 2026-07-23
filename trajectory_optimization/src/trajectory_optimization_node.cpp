@@ -85,9 +85,9 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   if (performance_logging_) {
     try {
       performance_logger_ = std::make_unique<PerformanceLogger>(get_name());
-      RCLCPP_INFO(get_logger(), "Writing performance data to '%s'.", performance_logger_->path().c_str());
+      RCLCPP_INFO(get_logger(), "Writing benchmark logs to '%s'.", performance_logger_->path().c_str());
     } catch (const std::exception& error) {
-      RCLCPP_ERROR(get_logger(), "Could not initialize performance logging: %s", error.what());
+      RCLCPP_ERROR(get_logger(), "Could not initialize benchmark logging: %s", error.what());
     }
   }
   this->setup();
@@ -327,6 +327,7 @@ void TrajectoryOptimizationNode::resetSolver() {
 }
 
 bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp) {
+  constexpr double MAX_CONTROL_GUESS_AGE_FACTOR = 0.5;
   const int nx = *nlp_dims_->nx;
   const int nu = *nlp_dims_->nu;
   const double time_step = optimization_horizon_ / n_shots_;
@@ -340,7 +341,7 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
   std::vector<double> controls(expected_control_size, 0.0);
   if (control_guess_.size() == expected_control_size) {
     const double elapsed = (stamp - control_guess_stamp_).seconds();
-    if (elapsed >= 0.0 && elapsed < 0.5 * optimization_horizon_) {
+    if (elapsed >= 0.0 && elapsed < MAX_CONTROL_GUESS_AGE_FACTOR * optimization_horizon_) {
       // Shift the previous controls to the current planning time and interpolate between shooting nodes.
       std::vector<double> lower_controls(nu);
       std::vector<double> upper_controls(nu);
@@ -426,7 +427,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   }
 
   PerformanceMetrics metrics;
-  metrics.cycle = ++performance_cycle_;
+  metrics.cycle = ++logging_cycle_;
   metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
   metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
   metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();

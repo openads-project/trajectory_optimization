@@ -254,15 +254,15 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
 
       if (s >= 0.0 && s <= 1.0 && t >= 0.0) {
         Eigen::Vector2d intersection = a + s * seg;
-        double euklidean_distance = (ref_pos - intersection).norm();
+        double euclidean_distance = (ref_pos - intersection).norm();
         const double intersection_route_s = boundary_route_s[i] + s * (boundary_route_s[i + 1] - boundary_route_s[i]);
         const double route_s_difference = std::abs(intersection_route_s - expected_route_s);
 
         if (route_s_difference <= MAX_ROUTE_S_DIFFERENCE &&
             (route_s_difference < best_route_s_difference ||
-             (std::abs(route_s_difference - best_route_s_difference) < 1e-9 && euklidean_distance < intersection_result.first))) {
+             (std::abs(route_s_difference - best_route_s_difference) < 1e-9 && euclidean_distance < intersection_result.first))) {
           best_route_s_difference = route_s_difference;
-          intersection_result = {euklidean_distance, intersection};
+          intersection_result = {euclidean_distance, intersection};
         }
       }
     }

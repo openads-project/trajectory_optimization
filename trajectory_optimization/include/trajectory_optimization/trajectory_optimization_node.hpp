@@ -152,11 +152,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   /**
    * @brief Logs solver status and optional debug statistics for the last optimization run.
+   *
+   * @param[in] metrics Performance metrics collected for the optimization run.
    */
   void printSolution(const PerformanceMetrics& metrics);
 
   /**
    * @brief Emits one machine-readable performance record when performance logging is enabled.
+   *
+   * @param[in] metrics Performance metrics to write to the log.
    */
   void logPerformance(const PerformanceMetrics& metrics);
 
@@ -442,7 +446,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
-  uint64_t performance_cycle_ = 0;
+  uint64_t logging_cycle_ = 0;
   std::unique_ptr<PerformanceLogger> performance_logger_;
 };
 
