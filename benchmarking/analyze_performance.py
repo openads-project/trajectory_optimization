@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
-# SPDX-License-Identifier: Apache-2.0
-
 """Summarize one optimizer CSV and optionally compare it with a baseline run."""
 
 import argparse
@@ -132,19 +129,8 @@ def summarize(records, deadline_ms):
     published_values = values_for(records, "published")
     hard_failure = lambda status: status not in (0, 2, 7)  # noqa: E731
 
-    timing_key = "acados_total_ms"
-    timing_values = values_for(records, timing_key)
-    if not timing_values:
-        timing_key = "solve_wall_ms"
-        timing_values = values_for(records, timing_key)
-    deadline_key = "cycle_ms"
-    deadline_values = values_for(records, deadline_key)
-    if not deadline_values:
-        deadline_key = timing_key
-        deadline_values = timing_values
-    solver_deadline_rate = sum(value <= deadline_ms for value in timing_values) / len(timing_values) if timing_values else None
+    timing_values = values_for(records, "acados_total_ms")
     cycle_values = values_for(records, "cycle_ms")
-    cycle_deadline_rate = sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None
 
     rejected_diagnostics = Counter()
     rejected_constraint_indices = Counter()
@@ -169,12 +155,8 @@ def summarize(records, deadline_ms):
         "hard_failure_rate": sum(count for status, count in counts.items() if hard_failure(status)) / known if known else None,
         "published_rate": statistics.mean(published_values) if published_values else None,
         "deadline_rate": (
-            sum(value <= deadline_ms for value in deadline_values) / len(deadline_values) if deadline_values else None
+            sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None
         ),
-        "deadline_key": deadline_key,
-        "solver_deadline_rate": solver_deadline_rate,
-        "cycle_deadline_rate": cycle_deadline_rate,
-        "timing_key": timing_key,
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
         "timing_p99": percentile(timing_values, 0.99),
@@ -212,7 +194,7 @@ def print_run(path, records, summary, deadline_ms):
         f"timeout={paint(format_rate(summary['timeout_rate']), lower_rate_color(summary['timeout_rate']))}  "
         f"hard_failure={paint(format_rate(summary['hard_failure_rate']), lower_rate_color(summary['hard_failure_rate']))}  "
         f"published={paint(format_rate(summary['published_rate']), higher_rate_color(summary['published_rate']))}  "
-        f"{summary['deadline_key']}_within_{deadline_ms:g}ms="
+        f"cycle_ms_within_{deadline_ms:g}ms="
         f"{paint(format_rate(summary['deadline_rate']), higher_rate_color(summary['deadline_rate']))}"
     )
     print(
@@ -252,13 +234,6 @@ def relative_delta(candidate, baseline):
     return (candidate - baseline) / baseline
 
 
-def comparable_deadline_rates(candidate, baseline):
-    """Prefer cycle deadlines, but fall back to solver deadlines for legacy runs."""
-    if candidate["cycle_deadline_rate"] is not None and baseline["cycle_deadline_rate"] is not None:
-        return "cycle deadline rate", candidate["cycle_deadline_rate"], baseline["cycle_deadline_rate"]
-    return "solver deadline rate", candidate["solver_deadline_rate"], baseline["solver_deadline_rate"]
-
-
 def compare(candidate, baseline):
     """Classify candidate using explicit stability and latency thresholds."""
     stability_regressions = []
@@ -268,7 +243,8 @@ def compare(candidate, baseline):
     if candidate["published_rate"] is not None and baseline["published_rate"] is not None:
         if baseline["published_rate"] - candidate["published_rate"] > 0.01:
             stability_regressions.append("published rate decreased by >1 percentage point")
-    _, candidate_deadline_rate, baseline_deadline_rate = comparable_deadline_rates(candidate, baseline)
+    candidate_deadline_rate = candidate["deadline_rate"]
+    baseline_deadline_rate = baseline["deadline_rate"]
     if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
         if baseline_deadline_rate - candidate_deadline_rate > 0.02:
             stability_regressions.append("deadline rate decreased by >2 percentage points")
@@ -294,13 +270,14 @@ def compare(candidate, baseline):
 def print_comparison(candidate, baseline):
     """Print deltas and the threshold-based overall verdict."""
     print(paint("\nCOMPARISON (candidate relative to baseline)", Color.BOLD + Color.CYAN))
-    deadline_label, candidate_deadline_rate, baseline_deadline_rate = comparable_deadline_rates(candidate, baseline)
+    candidate_deadline_rate = candidate["deadline_rate"]
+    baseline_deadline_rate = baseline["deadline_rate"]
     rows = [
         ("success rate", candidate["success_rate"], baseline["success_rate"], "rate", True),
         ("timeout rate", candidate["timeout_rate"], baseline["timeout_rate"], "rate", False),
         ("hard failure rate", candidate["hard_failure_rate"], baseline["hard_failure_rate"], "rate", False),
         ("published rate", candidate["published_rate"], baseline["published_rate"], "rate", True),
-        (deadline_label, candidate_deadline_rate, baseline_deadline_rate, "rate", True),
+        ("cycle deadline rate", candidate_deadline_rate, baseline_deadline_rate, "rate", True),
         ("solver p50 [ms]", candidate["timing_p50"], baseline["timing_p50"], "number", False),
         ("solver p95 [ms]", candidate["timing_p95"], baseline["timing_p95"], "number", False),
         ("solver p99 [ms]", candidate["timing_p99"], baseline["timing_p99"], "number", False),
@@ -334,7 +311,7 @@ def main():
     parser.add_argument("run", type=Path, help="candidate performance CSV")
     parser.add_argument("--compare", type=Path, metavar="BASELINE", help="baseline CSV")
     parser.add_argument("--skip", type=int, default=0, help="discard this many warm-up rows from both runs")
-    parser.add_argument("--deadline-ms", type=float, default=100.0, help="solver deadline used for the deadline rate")
+    parser.add_argument("--deadline-ms", type=float, default=100.0, help="planning-cycle deadline")
     parser.add_argument(
         "--color",
         choices=("auto", "always", "never"),
