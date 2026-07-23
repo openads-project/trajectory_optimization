@@ -25,6 +25,7 @@ The runtime CSV deliberately contains only values needed to compare solver behav
 - Outcome: ACADOS status and whether a trajectory was published.
 - Runtime: complete planning-cycle wall time split into preprocessing, `acados_solve()`, and postprocessing, plus ACADOS' internal total, linearization, simulation, QP, QP-solver, condensing, regularization, globalization, preparation, and feedback times. The three top-level phases add up to the complete cycle; CSV writing happens afterwards and is excluded.
 - Work and quality: SQP/QP iterations, QP status, cost, KKT norm, aggregate NLP residual, and stationarity, equality, inequality, and complementarity residuals.
+- Rejected-output diagnostics: maximum inequality violation with shooting stage, constraint type/index and bound side, plus the maximum dynamics defect with stage and state index. These values are collected only for finite solver outputs that fail the publication check.
 
 Timers for input transformation, initial-guess construction, boundary preparation, individual parameter updates, solution reading, diagnostics, and message output are intentionally not recorded. They required instrumentation throughout the planning code but are not needed for the initial ACADOS version and option comparisons. They can be profiled separately if a later result points at non-solver overhead.
 
@@ -60,6 +61,6 @@ python3 benchmarking/analyze_performance.py \
   --skip 10 --deadline-ms 100
 ```
 
-The report contains status and publication rates, deadline compliance, consecutive failure streaks, and timing and quality distributions. A comparison prints the deltas and a threshold-based `BETTER`, `WORSE`, or `MIXED / NO MATERIAL CHANGE` verdict.
+The report contains status and publication rates, deadline compliance, consecutive failure streaks, rejected constraint types, and timing and quality distributions. A comparison prints the deltas and a threshold-based `BETTER`, `WORSE`, or `MIXED / NO MATERIAL CHANGE` verdict.
 
 Output is colored automatically when stdout is a terminal. Use `--color always` to preserve colors in a compatible log viewer, `--color never` to disable them, or set the conventional `NO_COLOR` environment variable.

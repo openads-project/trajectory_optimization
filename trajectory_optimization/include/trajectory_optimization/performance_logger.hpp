@@ -47,6 +47,15 @@ struct PerformanceMetrics {
   double res_eq = 0.0;
   double res_ineq = 0.0;
   double res_comp = 0.0;
+
+  double max_ineq_violation = 0.0;
+  int max_ineq_stage = -1;
+  std::string max_ineq_type = "none";
+  int max_ineq_index = -1;
+  std::string max_ineq_side = "none";
+  double max_eq_violation = 0.0;
+  int max_eq_stage = -1;
+  int max_eq_state = -1;
 };
 
 class PerformanceLogger {
@@ -65,7 +74,12 @@ class PerformanceLogger {
                                       ocp_nlp_config* config,
                                       ocp_nlp_dims* dims,
                                       ocp_nlp_in* input,
-                                      ocp_nlp_out* output);
+                                      ocp_nlp_out* output,
+                                      bool collect_details);
+  void collectConstraintDiagnostics(PerformanceMetrics& metrics,
+                                    ocp_nlp_solver* solver,
+                                    const ocp_nlp_dims* dims,
+                                    int obstacle_circles) const;
   const std::filesystem::path& path() const { return path_; }
 
  private:

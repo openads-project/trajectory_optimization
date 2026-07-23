@@ -143,6 +143,20 @@ def summarize(records, deadline_ms):
     cycle_values = values_for(records, "cycle_ms")
     cycle_deadline_rate = sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None
 
+    rejected_diagnostics = Counter()
+    rejected_constraint_indices = Counter()
+    for record in records:
+        if number(record.get("published")) != 0:
+            continue
+        constraint_type = record.get("max_ineq_type", "")
+        if constraint_type and constraint_type != "none":
+            rejected_diagnostics[constraint_type] += 1
+            rejected_constraint_indices[(constraint_type, record.get("max_ineq_index", ""))] += 1
+        elif number(record.get("max_eq_stage")) is not None and number(record.get("max_eq_stage")) >= 0:
+            rejected_diagnostics["dynamics"] += 1
+        else:
+            rejected_diagnostics["unavailable"] += 1
+
     return {
         "records": len(records),
         "status_counts": counts,
@@ -165,6 +179,8 @@ def summarize(records, deadline_ms):
         "max_timeout_streak": longest_streak(statuses, lambda status: status == 7),
         "max_status4_streak": longest_streak(statuses, lambda status: status == 4),
         "max_hard_failure_streak": longest_streak(statuses, hard_failure),
+        "rejected_diagnostics": rejected_diagnostics,
+        "rejected_constraint_indices": rejected_constraint_indices,
     }
 
 
@@ -205,6 +221,15 @@ def print_run(path, records, summary, deadline_ms):
         f"hard_failure="
         f"{paint(str(summary['max_hard_failure_streak']), Color.GREEN if summary['max_hard_failure_streak'] == 0 else Color.RED)}"
     )
+    if summary["rejected_diagnostics"]:
+        diagnostics = ", ".join(f"{key}: {count}" for key, count in summary["rejected_diagnostics"].most_common())
+        indices = ", ".join(
+            f"{constraint_type}[{index}]: {count}"
+            for (constraint_type, index), count in summary["rejected_constraint_indices"].most_common()
+        )
+        print(f"rejected_constraint_types={{{diagnostics}}}")
+        if indices:
+            print(f"rejected_constraint_indices={{{indices}}}")
     print(paint(f"{'metric':24} {'count':>7} {'mean':>11} {'p50':>11} {'p95':>11} {'p99':>11} {'max':>11}", Color.BOLD))
     for key in TIMING_METRICS + QUALITY_METRICS:
         values = values_for(records, key)

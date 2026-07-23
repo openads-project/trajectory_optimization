@@ -475,7 +475,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   const auto solve_end = SteadyClock::now();
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
 
-  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_);
+  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                             performance_logger_ != nullptr || verbose_);
 
   const bool usable_status =
       metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
@@ -501,6 +502,10 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(),
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
+    if (finite_solution && performance_logger_) {
+      performance_logger_->collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
+                                                        static_cast<int>(p_obstacle_circles_shape_[0]));
+    }
     if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
       // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.
       control_guess_ = utraj_;

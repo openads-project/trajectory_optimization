@@ -3,11 +3,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 #include <trajectory_optimization/performance_logger.hpp>
 
@@ -55,7 +57,9 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
              "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
              "acados_sim_ms,acados_qp_ms,"
              "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
-             "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp\n";
+             "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
+             "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
+             "max_eq_violation,max_eq_stage,max_eq_state\n";
   stream_.flush();
 }
 
@@ -69,7 +73,20 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
                                                 ocp_nlp_config* config,
                                                 ocp_nlp_dims* dims,
                                                 ocp_nlp_in* input,
-                                                ocp_nlp_out* output) {
+                                                ocp_nlp_out* output,
+                                                bool collect_details) {
+  ocp_nlp_eval_cost(solver, input, output);
+  ocp_nlp_eval_residuals(solver, input, output);
+  ocp_nlp_get(solver, "cost_value", &metrics.cost_value);
+  ocp_nlp_get(solver, "res_eq", &metrics.res_eq);
+  ocp_nlp_get(solver, "res_ineq", &metrics.res_ineq);
+
+  if (!collect_details) return;
+
+  ocp_nlp_get(solver, "res_stat", &metrics.res_stat);
+  ocp_nlp_get(solver, "res_comp", &metrics.res_comp);
+  metrics.nlp_res = std::max({metrics.res_stat, metrics.res_eq, metrics.res_ineq, metrics.res_comp});
+
   auto readTime = [&](const char* field, double& destination_ms) {
     double time_seconds = 0.0;
     ocp_nlp_get(solver, field, &time_seconds);
@@ -90,19 +107,80 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
   ocp_nlp_get(solver, "qp_iter", &metrics.qp_iter);
   ocp_nlp_get(solver, "qp_status", &metrics.qp_status);
   ocp_nlp_out_get(config, dims, output, 0, "kkt_norm_inf", &metrics.kkt_norm_inf);
+}
 
-  ocp_nlp_eval_cost(solver, input, output);
-  ocp_nlp_eval_residuals(solver, input, output);
-  ocp_nlp_get(solver, "cost_value", &metrics.cost_value);
-  ocp_nlp_get(solver, "res_stat", &metrics.res_stat);
-  ocp_nlp_get(solver, "res_eq", &metrics.res_eq);
-  ocp_nlp_get(solver, "res_ineq", &metrics.res_ineq);
-  ocp_nlp_get(solver, "res_comp", &metrics.res_comp);
-  metrics.nlp_res = std::max({metrics.res_stat, metrics.res_eq, metrics.res_ineq, metrics.res_comp});
+void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics,
+                                                     ocp_nlp_solver* solver,
+                                                     const ocp_nlp_dims* dims,
+                                                     int obstacle_circles) const {
+  for (int stage = 0; stage <= dims->N; ++stage) {
+    std::vector<double> residuals(2 * dims->ni[stage]);
+    ocp_nlp_get_at_stage(solver, stage, "ineq_fun", residuals.data());
+    for (size_t index = 0; index < residuals.size(); ++index) {
+      if (residuals[index] > metrics.max_ineq_violation) {
+        metrics.max_ineq_violation = residuals[index];
+        metrics.max_ineq_stage = stage;
+        metrics.max_ineq_index = static_cast<int>(index);
+      }
+    }
+  }
+
+  for (int stage = 0; stage < dims->N; ++stage) {
+    std::vector<double> residuals(dims->nx[stage + 1]);
+    ocp_nlp_get_at_stage(solver, stage, "res_eq", residuals.data());
+    for (size_t state = 0; state < residuals.size(); ++state) {
+      if (std::abs(residuals[state]) > metrics.max_eq_violation) {
+        metrics.max_eq_violation = std::abs(residuals[state]);
+        metrics.max_eq_stage = stage;
+        metrics.max_eq_state = static_cast<int>(state);
+      }
+    }
+  }
+
+  if (metrics.max_ineq_stage < 0) return;
+
+  const int ni = dims->ni[metrics.max_ineq_stage];
+  const int nb = dims->nb[metrics.max_ineq_stage];
+  const int ng = dims->ng[metrics.max_ineq_stage];
+  const int nh = ni - nb - ng - dims->ns[metrics.max_ineq_stage];
+  const int index = metrics.max_ineq_index % ni;
+  metrics.max_ineq_side = metrics.max_ineq_index < ni ? "lower" : "upper";
+  metrics.max_ineq_index = index;
+  if (index < nb) {
+    std::vector<int> bound_indices(nb);
+    ocp_nlp_get_at_stage(solver, metrics.max_ineq_stage, "idxb", bound_indices.data());
+    const int variable_index = bound_indices[index];
+    if (variable_index < dims->nu[metrics.max_ineq_stage]) {
+      metrics.max_ineq_type = "control";
+      metrics.max_ineq_index = variable_index;
+    } else {
+      metrics.max_ineq_type = "state";
+      metrics.max_ineq_index = variable_index - dims->nu[metrics.max_ineq_stage];
+    }
+  } else if (index < nb + ng) {
+    metrics.max_ineq_type = "linear";
+  } else if (index < nb + ng + nh) {
+    const int h_index = index - nb - ng;
+    const int ego_circles = nh / (obstacle_circles + 2);
+    if (h_index < 2 * ego_circles) {
+      metrics.max_ineq_type = h_index % 2 == 0 ? "boundary_left" : "boundary_right";
+      metrics.max_ineq_index = h_index / 2;
+    } else if (h_index < (obstacle_circles + 2) * ego_circles) {
+      const int obstacle_index = h_index - 2 * ego_circles;
+      metrics.max_ineq_type = "obstacle_" + std::to_string(obstacle_index / ego_circles);
+      metrics.max_ineq_index = obstacle_index % ego_circles;
+    } else {
+      metrics.max_ineq_type = "vehicle";
+      metrics.max_ineq_index = h_index - (obstacle_circles + 2) * ego_circles;
+    }
+  } else {
+    metrics.max_ineq_type = "slack";
+    metrics.max_ineq_index = index - nb - ng - nh;
+  }
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 4 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+  stream_ << std::setprecision(17) << 5 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
           << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
           << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ',' << metrics.sqp_iter
           << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms
@@ -111,7 +189,10 @@ void PerformanceLogger::write(const PerformanceMetrics& metrics) {
           << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ',' << metrics.acados_reg_ms << ','
           << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ',' << metrics.acados_feedback_ms << ','
           << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res << ',' << metrics.res_stat << ','
-          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << '\n';
+          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ',' << metrics.max_ineq_violation << ','
+          << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ',' << metrics.max_ineq_index << ','
+          << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ',' << metrics.max_eq_stage << ','
+          << metrics.max_eq_state << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();
