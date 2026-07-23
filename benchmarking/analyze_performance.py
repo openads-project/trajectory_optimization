@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
+# SPDX-License-Identifier: Apache-2.0
+
 """Summarize one optimizer CSV and optionally compare it with a baseline run."""
 
 import argparse
@@ -154,9 +157,7 @@ def summarize(records, deadline_ms):
         "timeout_rate": counts[7] / known if known else None,
         "hard_failure_rate": sum(count for status, count in counts.items() if hard_failure(status)) / known if known else None,
         "published_rate": statistics.mean(published_values) if published_values else None,
-        "deadline_rate": (
-            sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None
-        ),
+        "deadline_rate": (sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None),
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
         "timing_p99": percentile(timing_values, 0.99),
