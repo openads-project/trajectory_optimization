@@ -397,10 +397,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool run_as_callback_ = false;
 
   // common bi-level thresholds
-  double bi_level_dV_ = 5.0;
-  double bi_level_dA_ = 2.0;
-  double bi_level_dY_ = 0.1;
-  double bi_level_dYaw_ = 5.0;
+  double bi_level_dV_ = 2.0;
+  double bi_level_dY_ = 0.3;
+  double bi_level_dYaw_ = 89.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;

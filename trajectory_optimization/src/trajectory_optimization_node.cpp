@@ -74,8 +74,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
       "consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
-  this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
-                                "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]");
   this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");

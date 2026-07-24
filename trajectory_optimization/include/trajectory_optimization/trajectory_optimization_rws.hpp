@@ -68,10 +68,6 @@ class TrajectoryOptimizationRWSNode : public TrajectoryOptimizationNode {
   // parameters
   double distance_front_axle_ = 1.7;
   double distance_rear_axle_ = 1.7;
-
-  // model specific bi-level thresholds
-  double bi_level_dDelta_front_ = 5.0;
-  double bi_level_dDelta_rear_ = 5.0;
 };
 
 }  // namespace trajectory_optimization
