@@ -112,7 +112,9 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
 void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                                      ocp_nlp_solver* solver,
                                                      const ocp_nlp_dims* dims,
-                                                     int obstacle_circles) const {
+                                                     int obstacle_circles) {
+  // The acados C API exposes stage-dependent dimensions as raw arrays.
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (int stage = 0; stage <= dims->N; ++stage) {
     std::vector<double> residuals(2 * dims->ni[stage]);
     ocp_nlp_get_at_stage(solver, stage, "ineq_fun", residuals.data());
@@ -177,6 +179,7 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
     metrics.max_ineq_type = "slack";
     metrics.max_ineq_index = index - nb - ng - nh;
   }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {

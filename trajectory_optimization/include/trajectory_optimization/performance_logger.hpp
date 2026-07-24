@@ -129,10 +129,10 @@ class PerformanceLogger {
    * @param[in] dims acados NLP dimensions.
    * @param[in] obstacle_circles Number of obstacle circles represented in the nonlinear constraints.
    */
-  void collectConstraintDiagnostics(PerformanceMetrics& metrics,
-                                    ocp_nlp_solver* solver,
-                                    const ocp_nlp_dims* dims,
-                                    int obstacle_circles) const;
+  static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
+                                           ocp_nlp_solver* solver,
+                                           const ocp_nlp_dims* dims,
+                                           int obstacle_circles);
 
   /**
    * @brief Returns the path of the CSV performance log.

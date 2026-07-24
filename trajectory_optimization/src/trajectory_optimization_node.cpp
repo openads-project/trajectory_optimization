@@ -436,7 +436,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   auto logCompletedCycle = [&]() {
     metrics.cycle_ms = elapsedMilliseconds(cycle_start);
     metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
-    logPerformance(metrics);
+    if (performance_logger_) {
+      performance_logger_->write(metrics);
+    }
   };
 
   // set initial state
@@ -504,8 +506,8 @@ void TrajectoryOptimizationNode::planningCycle() {
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
     if (finite_solution && performance_logger_) {
-      performance_logger_->collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
-                                                        static_cast<int>(p_obstacle_circles_shape_[0]));
+      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
+                                                      static_cast<int>(p_obstacle_circles_shape_[0]));
     }
     if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
       // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.

@@ -481,10 +481,4 @@ void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics
   }
 }
 
-void TrajectoryOptimizationNode::logPerformance(const PerformanceMetrics& metrics) {
-  if (performance_logger_) {
-    performance_logger_->write(metrics);
-  }
-}
-
 }  // namespace trajectory_optimization
