@@ -1,4 +1,6 @@
-# Benchmarking
+# Utilities
+
+## Performance benchmarking
 
 The trajectory optimizer can write one CSV record per planning cycle. Enable
 `performance_logging` in the node parameters to record solver status, timing,
@@ -35,13 +37,13 @@ included in `cycle_ms`.
 Analyze a run:
 
 ```bash
-python3 benchmarking/analyze_performance.py run.csv
+python3 utils/analyze_performance.py run.csv
 ```
 
 Compare it with a baseline:
 
 ```bash
-python3 benchmarking/analyze_performance.py run.csv --compare baseline.csv
+python3 utils/analyze_performance.py run.csv --compare baseline.csv
 ```
 
 Use `--skip` to discard warm-up cycles and `--deadline-ms` to configure the
