@@ -392,7 +392,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
-  bool add_x_init_to_ref_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;

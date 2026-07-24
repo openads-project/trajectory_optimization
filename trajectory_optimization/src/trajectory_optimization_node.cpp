@@ -65,9 +65,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter(
-      "add_x_init_to_ref", add_x_init_to_ref_,
-      "add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle");
-  this->declareAndLoadParameter(
       "consider_objects", consider_objects_,
       "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
   this->declareAndLoadParameter("min_prediction_probability", min_prediction_probability_,
@@ -567,11 +564,6 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     tf_reference_trajectory =
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-    if (add_x_init_to_ref_ && trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, 0) > 0.0) {
-      RCLCPP_INFO(this->get_logger(), "Adding x_init to beginning of reference trajectory");
-      std::vector<double> x_0_ref = {0.0, x_init[0], x_init[1], x_init[3]};
-      tf_reference_trajectory.states.insert(tf_reference_trajectory.states.begin(), x_0_ref.begin(), x_0_ref.end());
-    }
     // object list
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
