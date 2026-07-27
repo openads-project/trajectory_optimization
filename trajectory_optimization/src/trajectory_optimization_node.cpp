@@ -456,7 +456,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
-  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_, x_init)) {
+  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
@@ -551,8 +551,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                                                  const perception_msgs::msg::ObjectList& object_list,
                                                  const route_planning_msgs::msg::Route& route,
-                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                                                 const std::vector<double>& x_init) {
+                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;

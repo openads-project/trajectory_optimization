@@ -231,14 +231,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in] object_list Current object list.
    * @param[in] route Current route data.
    * @param[in] reference_trajectory Current reference trajectory.
-   * @param[in] x_init Initial optimizer state.
    * @return `true` if all optimizer inputs were updated successfully.
    */
   bool updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                        const perception_msgs::msg::ObjectList& object_list,
                        const route_planning_msgs::msg::Route& route,
-                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                       const std::vector<double>& x_init);
+                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
 
   /**
    * @brief Writes stage-independent data into the OCP.
