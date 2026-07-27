@@ -155,6 +155,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route) {
   const double NO_BOUNDARY_DISTANCE = 1e6;  // finite sentinel avoids NaNs during reference-path interpolation
   constexpr double MAX_ROUTE_S_DIFFERENCE = 20.0;
+  constexpr double LOOK_BEHIND_REMAINING_ROUTE_S = 2.0;
 
   struct Boundaries {
     std::vector<std::pair<double, double>> min_normal_distances;
@@ -183,7 +184,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   const double current_route_s = route_elements.front().s;
   const size_t current_route_index = std::min(static_cast<size_t>(route.current_route_element_idx), route.route_elements.size());
   size_t overlap_begin = current_route_index;
-  while (overlap_begin > 0 && current_route_s - route.route_elements[overlap_begin - 1].s <= 2.0) {
+  while (overlap_begin > 0 && current_route_s - route.route_elements[overlap_begin - 1].s <= LOOK_BEHIND_REMAINING_ROUTE_S) {
     --overlap_begin;
   }
   route_elements.insert(route_elements.begin(), route.route_elements.begin() + static_cast<std::ptrdiff_t>(overlap_begin),
