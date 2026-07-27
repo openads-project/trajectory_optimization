@@ -158,13 +158,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void printSolution(const PerformanceMetrics& metrics);
 
   /**
-   * @brief Emits one machine-readable performance record when performance logging is enabled.
-   *
-   * @param[in] metrics Performance metrics to write to the log.
-   */
-  void logPerformance(const PerformanceMetrics& metrics);
-
-  /**
    * @brief Transforms the planned trajectory into the configured output frame (trajectory_frame_id_) if required.
    *
    * @param[in,out] trajectory Trajectory to transform.

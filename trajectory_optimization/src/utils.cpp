@@ -153,8 +153,9 @@ std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(
 
 std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundaryDistance(
     const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route) {
-  const double NO_BOUNDARY_DISTANCE = 1e6;  // should be smaller than MAX_BOUNDARY_CONSTRAINT from ocp
+  const double NO_BOUNDARY_DISTANCE = 1e6;  // finite sentinel avoids NaNs during reference-path interpolation
   constexpr double MAX_ROUTE_S_DIFFERENCE = 20.0;
+  constexpr double LOOK_BEHIND_REMAINING_ROUTE_S = 2.0;
 
   struct Boundaries {
     std::vector<std::pair<double, double>> min_normal_distances;
@@ -167,17 +168,10 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   };
 
   Boundaries boundaries;
-  const auto remaining_route = route_planning_msgs::route_access::getRemainingRouteElements(route, true);
+  auto route_elements = route_planning_msgs::route_access::getRemainingRouteElements(route, true);
   const int ref_sample_size = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
-  boundaries.left_boundary_points.reserve(remaining_route.size());
-  boundaries.right_boundary_points.reserve(remaining_route.size());
-  boundaries.left_boundary_route_s.reserve(remaining_route.size());
-  boundaries.right_boundary_route_s.reserve(remaining_route.size());
-  boundaries.min_normal_distances.reserve(ref_sample_size);
-  boundaries.left_boundary_intersections.reserve(ref_sample_size);
-  boundaries.right_boundary_intersections.reserve(ref_sample_size);
 
-  if (remaining_route.empty()) {
+  if (route_elements.empty()) {
     if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
       RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
     }
@@ -187,7 +181,24 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
     return boundaries.min_normal_distances;
   }
 
-  for (const auto& route_element : remaining_route) {
+  const double current_route_s = route_elements.front().s;
+  const size_t current_route_index = std::min(static_cast<size_t>(route.current_route_element_idx), route.route_elements.size());
+  size_t overlap_begin = current_route_index;
+  while (overlap_begin > 0 && current_route_s - route.route_elements[overlap_begin - 1].s <= LOOK_BEHIND_REMAINING_ROUTE_S) {
+    --overlap_begin;
+  }
+  route_elements.insert(route_elements.begin(), route.route_elements.begin() + static_cast<std::ptrdiff_t>(overlap_begin),
+                        route.route_elements.begin() + static_cast<std::ptrdiff_t>(current_route_index));
+
+  boundaries.left_boundary_points.reserve(route_elements.size());
+  boundaries.right_boundary_points.reserve(route_elements.size());
+  boundaries.left_boundary_route_s.reserve(route_elements.size());
+  boundaries.right_boundary_route_s.reserve(route_elements.size());
+  boundaries.min_normal_distances.reserve(ref_sample_size);
+  boundaries.left_boundary_intersections.reserve(ref_sample_size);
+  boundaries.right_boundary_intersections.reserve(ref_sample_size);
+
+  for (const auto& route_element : route_elements) {
     if (route_element.is_enriched) {
       if (consider_boundaries_ == CONSIDER_BOUNDARIES::SUGGESTED_LANE) {
         route_planning_msgs::msg::LaneElement suggested_lane =
@@ -262,7 +273,6 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   // Loop over trajectory points and compute intersections
   double reference_progress = 0.0;
   Eigen::Vector2d previous_ref_pos = Eigen::Vector2d::Zero();
-  const double current_route_s = remaining_route.front().s;
   for (int i = 0; i < ref_sample_size; ++i) {
     Eigen::Vector2d ref_pos(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i),
                             trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i));
@@ -469,12 +479,6 @@ void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics
     std::fputs("\n--- utraj ---\n", stdout);
     d_print_exp_tran_mat(*nlp_dims_->nu, n_shots_, utraj_.data(), *nlp_dims_->nu);
     trajectory_optimization::acados_print_stats(ocp_capsule_);
-  }
-}
-
-void TrajectoryOptimizationNode::logPerformance(const PerformanceMetrics& metrics) {
-  if (performance_logger_) {
-    performance_logger_->write(metrics);
   }
 }
 

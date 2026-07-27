@@ -1,62 +1,49 @@
-# Trajectory optimization benchmarking
+# Benchmarking
 
-This directory contains standalone tooling for extracting and comparing trajectory optimizer performance measurements. The tools are intentionally not installed as part of the ROS package.
+The trajectory optimizer can write one CSV record per planning cycle. Enable
+`performance_logging` in the node parameters to record solver status, timing,
+residuals, publication outcome, and diagnostics for rejected solutions.
 
-## Recording a new run
-
-Enable `performance_logging` in the optimizer configuration. The node creates a timestamped file such as
-`trajectory_optimization_ackermann_node_20260715T142355_123Z.csv` and buffers up to 100 records before flushing.
-
-By default, files are written to `/tmp/trajectory_optimization_benchmarks`. To place them in this directory, set the output directory before starting the node:
+Files are written to `/tmp/trajectory_optimization_benchmarks` by default. Set
+an alternative output directory before starting the node if required:
 
 ```bash
-export TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR="$(pwd)/benchmarking"
+export TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR=/path/to/results
 ```
 
-The filename identifies the node and start time, so no run ID or output path is needed in the ROS parameter file. Rename the completed CSV if a descriptive name such as `acados-0.5.5-warmstart-0.csv` is more useful. Alternatively, fill the initially empty `run_id` column after the run; avoid editing measurement values.
+## Recorded data
 
-For comparable runs, use the same optimizer configuration, rosbag playback rate, warm-up removal, and deadline. Keep `verbose` and `debug_visualization` disabled.
+Each row describes one completed planning cycle:
 
-### Recorded values
+- **Context:** timestamps, cycle number, reference points, and perceived objects.
+- **Outcome:** ACADOS status and whether a trajectory was published.
+- **Cycle timing:** total cycle time split into preprocessing, solver, and
+  postprocessing. These phases add up to `cycle_ms`.
+- **Solver timing:** ACADOS total, linearization, simulation, QP, condensing,
+  regularization, globalization, preparation, and feedback times.
+- **Solver work:** SQP/QP iterations and the final QP status.
+- **Solution quality:** cost, KKT norm, and stationarity (`res_stat`), dynamics
+  (`res_eq`), inequality (`res_ineq`), and complementarity (`res_comp`)
+  residuals.
+- **Rejected solutions:** largest constraint or dynamics violation including
+  shooting stage, constraint type, index, and bound side.
 
-The runtime CSV deliberately contains only values needed to compare solver behavior or explain a regression:
+Detailed constraint diagnostics are collected only for finite solver outputs
+that are rejected. CSV writing happens after cycle timing and is therefore not
+included in `cycle_ms`.
 
-- Context: schema version, source, optional run ID, cycle, record timestamp, reference-point count, and object count.
-- Outcome: ACADOS status and whether a trajectory was published.
-- Runtime: complete planning-cycle wall time split into preprocessing, `acados_solve()`, and postprocessing, plus ACADOS' internal total, linearization, simulation, QP, QP-solver, condensing, regularization, globalization, preparation, and feedback times. The three top-level phases add up to the complete cycle; CSV writing happens afterwards and is excluded.
-- Work and quality: SQP/QP iterations, QP status, cost, KKT norm, aggregate NLP residual, and stationarity, equality, inequality, and complementarity residuals.
-
-Timers for input transformation, initial-guess construction, boundary preparation, individual parameter updates, solution reading, diagnostics, and message output are intentionally not recorded. They required instrumentation throughout the planning code but are not needed for the initial ACADOS version and option comparisons. They can be profiled separately if a later result points at non-solver overhead.
-
-## Extracting a legacy rosout baseline
-
-The extractor needs the ROS Python environment, including `rosbag2_py`, `rclpy`, and `rcl_interfaces`. These modules come from the ROS installation and are not available as ordinary PyPI dependencies.
+Analyze a run:
 
 ```bash
-python3 benchmarking/extract_rosout_performance.py \
-  optimization-testing benchmarking/acados-0.5.1.csv
+python3 benchmarking/analyze_performance.py run.csv
 ```
 
-The resulting CSV only contains values actually present in the old logs: status, publication outcome, ACADOS total time, iterations, KKT, cost, and NLP residual. Missing values remain empty rather than being interpreted as zero.
-
-## Analyzing and comparing runs
-
-Analyze one run:
+Compare it with a baseline:
 
 ```bash
-python3 benchmarking/analyze_performance.py \
-  benchmarking/acados-0.5.5.csv --skip 10 --deadline-ms 100
+python3 benchmarking/analyze_performance.py run.csv --compare baseline.csv
 ```
 
-Compare a candidate with a baseline:
-
-```bash
-python3 benchmarking/analyze_performance.py \
-  benchmarking/acados-0.5.5.csv \
-  --compare benchmarking/acados-0.5.1.csv \
-  --skip 10 --deadline-ms 100
-```
-
-The report contains status and publication rates, deadline compliance, consecutive failure streaks, and timing and quality distributions. A comparison prints the deltas and a threshold-based `BETTER`, `WORSE`, or `MIXED / NO MATERIAL CHANGE` verdict.
-
-Output is colored automatically when stdout is a terminal. Use `--color always` to preserve colors in a compatible log viewer, `--color never` to disable them, or set the conventional `NO_COLOR` environment variable.
+Use `--skip` to discard warm-up cycles and `--deadline-ms` to configure the
+planning-cycle deadline. Comparable runs should use the same inputs, optimizer
+configuration, playback rate, and deadline.

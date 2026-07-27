@@ -132,27 +132,41 @@ def summarize(records, deadline_ms):
     published_values = values_for(records, "published")
     hard_failure = lambda status: status not in (0, 2, 7)  # noqa: E731
 
-    timing_key = "acados_total_ms"
-    timing_values = values_for(records, timing_key)
-    if not timing_values:
-        timing_key = "solve_wall_ms"
-        timing_values = values_for(records, timing_key)
+    timing_values = values_for(records, "acados_total_ms")
+    cycle_values = values_for(records, "cycle_ms")
+
+    rejected_diagnostics = Counter()
+    rejected_constraint_indices = Counter()
+    for record in records:
+        if number(record.get("published")) != 0:
+            continue
+        constraint_type = record.get("max_ineq_type", "")
+        if constraint_type and constraint_type != "none":
+            rejected_diagnostics[constraint_type] += 1
+            rejected_constraint_indices[(constraint_type, record.get("max_ineq_index", ""))] += 1
+        elif number(record.get("max_eq_stage")) is not None and number(record.get("max_eq_stage")) >= 0:
+            rejected_diagnostics["dynamics"] += 1
+        else:
+            rejected_diagnostics["unavailable"] += 1
 
     return {
         "records": len(records),
         "status_counts": counts,
+        "status_rates": {status: count / known for status, count in counts.items()} if known else {},
         "success_rate": counts[0] / known if known else None,
         "timeout_rate": counts[7] / known if known else None,
         "hard_failure_rate": sum(count for status, count in counts.items() if hard_failure(status)) / known if known else None,
         "published_rate": statistics.mean(published_values) if published_values else None,
-        "deadline_rate": (sum(value <= deadline_ms for value in timing_values) / len(timing_values) if timing_values else None),
-        "timing_key": timing_key,
+        "deadline_rate": (sum(value <= deadline_ms for value in cycle_values) / len(cycle_values) if cycle_values else None),
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
         "timing_p99": percentile(timing_values, 0.99),
+        "max_unpublished_streak": longest_streak(published_values, lambda published: published == 0),
         "max_timeout_streak": longest_streak(statuses, lambda status: status == 7),
         "max_status4_streak": longest_streak(statuses, lambda status: status == 4),
         "max_hard_failure_streak": longest_streak(statuses, hard_failure),
+        "rejected_diagnostics": rejected_diagnostics,
+        "rejected_constraint_indices": rejected_constraint_indices,
     }
 
 
@@ -171,21 +185,37 @@ def print_run(path, records, summary, deadline_ms):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
         status_parts.append(paint(f"{status}: {count}", color))
     print(f"records={summary['records']} status_counts={{{', '.join(status_parts)}}}")
+    status_rate_parts = []
+    for status, rate in sorted(summary["status_rates"].items()):
+        color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
+        status_rate_parts.append(paint(f"{status}: {format_rate(rate)}", color))
+    print(f"status_rates={{{', '.join(status_rate_parts)}}}")
     print(
         f"success={paint(format_rate(summary['success_rate']), higher_rate_color(summary['success_rate']))}  "
         f"timeout={paint(format_rate(summary['timeout_rate']), lower_rate_color(summary['timeout_rate']))}  "
         f"hard_failure={paint(format_rate(summary['hard_failure_rate']), lower_rate_color(summary['hard_failure_rate']))}  "
         f"published={paint(format_rate(summary['published_rate']), higher_rate_color(summary['published_rate']))}  "
-        f"within_{deadline_ms:g}ms="
+        f"cycle_ms_within_{deadline_ms:g}ms="
         f"{paint(format_rate(summary['deadline_rate']), higher_rate_color(summary['deadline_rate']))}"
     )
     print(
-        f"max_streaks: timeout="
+        f"max_streaks: unpublished="
+        f"{paint(str(summary['max_unpublished_streak']), Color.GREEN if summary['max_unpublished_streak'] == 0 else Color.RED)} "
+        f"timeout="
         f"{paint(str(summary['max_timeout_streak']), Color.GREEN if summary['max_timeout_streak'] == 0 else Color.YELLOW)} "
         f"status4={paint(str(summary['max_status4_streak']), Color.GREEN if summary['max_status4_streak'] == 0 else Color.RED)} "
         f"hard_failure="
         f"{paint(str(summary['max_hard_failure_streak']), Color.GREEN if summary['max_hard_failure_streak'] == 0 else Color.RED)}"
     )
+    if summary["rejected_diagnostics"]:
+        diagnostics = ", ".join(f"{key}: {count}" for key, count in summary["rejected_diagnostics"].most_common())
+        indices = ", ".join(
+            f"{constraint_type}[{index}]: {count}"
+            for (constraint_type, index), count in summary["rejected_constraint_indices"].most_common()
+        )
+        print(f"rejected_constraint_types={{{diagnostics}}}")
+        if indices:
+            print(f"rejected_constraint_indices={{{indices}}}")
     print(paint(f"{'metric':24} {'count':>7} {'mean':>11} {'p50':>11} {'p95':>11} {'p99':>11} {'max':>11}", Color.BOLD))
     for key in TIMING_METRICS + QUALITY_METRICS:
         values = values_for(records, key)
@@ -214,13 +244,15 @@ def compare(candidate, baseline):
     if candidate["published_rate"] is not None and baseline["published_rate"] is not None:
         if baseline["published_rate"] - candidate["published_rate"] > 0.01:
             stability_regressions.append("published rate decreased by >1 percentage point")
-    if candidate["deadline_rate"] is not None and baseline["deadline_rate"] is not None:
-        if baseline["deadline_rate"] - candidate["deadline_rate"] > 0.02:
+    candidate_deadline_rate = candidate["deadline_rate"]
+    baseline_deadline_rate = baseline["deadline_rate"]
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if baseline_deadline_rate - candidate_deadline_rate > 0.02:
             stability_regressions.append("deadline rate decreased by >2 percentage points")
 
     improvements = []
-    if candidate["deadline_rate"] is not None and baseline["deadline_rate"] is not None:
-        if candidate["deadline_rate"] - baseline["deadline_rate"] > 0.02:
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if candidate_deadline_rate - baseline_deadline_rate > 0.02:
             improvements.append("deadline rate increased by >2 percentage points")
     p95_delta = relative_delta(candidate["timing_p95"], baseline["timing_p95"])
     if p95_delta is not None and p95_delta < -0.05:
@@ -239,12 +271,14 @@ def compare(candidate, baseline):
 def print_comparison(candidate, baseline):
     """Print deltas and the threshold-based overall verdict."""
     print(paint("\nCOMPARISON (candidate relative to baseline)", Color.BOLD + Color.CYAN))
+    candidate_deadline_rate = candidate["deadline_rate"]
+    baseline_deadline_rate = baseline["deadline_rate"]
     rows = [
         ("success rate", candidate["success_rate"], baseline["success_rate"], "rate", True),
         ("timeout rate", candidate["timeout_rate"], baseline["timeout_rate"], "rate", False),
         ("hard failure rate", candidate["hard_failure_rate"], baseline["hard_failure_rate"], "rate", False),
         ("published rate", candidate["published_rate"], baseline["published_rate"], "rate", True),
-        ("deadline rate", candidate["deadline_rate"], baseline["deadline_rate"], "rate", True),
+        ("cycle deadline rate", candidate_deadline_rate, baseline_deadline_rate, "rate", True),
         ("solver p50 [ms]", candidate["timing_p50"], baseline["timing_p50"], "number", False),
         ("solver p95 [ms]", candidate["timing_p95"], baseline["timing_p95"], "number", False),
         ("solver p99 [ms]", candidate["timing_p99"], baseline["timing_p99"], "number", False),
@@ -278,7 +312,7 @@ def main():
     parser.add_argument("run", type=Path, help="candidate performance CSV")
     parser.add_argument("--compare", type=Path, metavar="BASELINE", help="baseline CSV")
     parser.add_argument("--skip", type=int, default=0, help="discard this many warm-up rows from both runs")
-    parser.add_argument("--deadline-ms", type=float, default=100.0, help="solver deadline used for the deadline rate")
+    parser.add_argument("--deadline-ms", type=float, default=100.0, help="planning-cycle deadline")
     parser.add_argument(
         "--color",
         choices=("auto", "always", "never"),

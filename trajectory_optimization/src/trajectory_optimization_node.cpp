@@ -1,6 +1,7 @@
 // Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -336,22 +337,27 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
     return false;
   }
 
-  // Fall back to zero controls if no sufficiently recent accepted solution is available.
+  // Fall back to zero controls if no sufficiently recent solver output is available.
   std::vector<double> controls(expected_control_size, 0.0);
   if (control_guess_.size() == expected_control_size) {
     const double elapsed = (stamp - control_guess_stamp_).seconds();
     if (elapsed >= 0.0 && elapsed < MAX_CONTROL_GUESS_AGE_FACTOR * optimization_horizon_) {
       // Shift the previous controls to the current planning time and interpolate between shooting nodes.
+      std::vector<double> lower_controls(nu);
+      std::vector<double> upper_controls(nu);
       for (int stage = 0; stage < n_shots_; ++stage) {
         const double previous_stage = (elapsed + stage * time_step) / time_step;
         if (previous_stage >= n_shots_) break;
 
         const int lower_stage = static_cast<int>(std::floor(previous_stage));
         const double interpolation_factor = previous_stage - lower_stage;
+        ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, "lbu", lower_controls.data());
+        ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, "ubu", upper_controls.data());
         for (int control = 0; control < nu; ++control) {
           const double lower_value = control_guess_[lower_stage * nu + control];
           const double upper_value = lower_stage + 1 < n_shots_ ? control_guess_[(lower_stage + 1) * nu + control] : 0.0;
-          controls[stage * nu + control] = lower_value + interpolation_factor * (upper_value - lower_value);
+          const double interpolated_control = lower_value + interpolation_factor * (upper_value - lower_value);
+          controls[stage * nu + control] = std::clamp(interpolated_control, lower_controls[control], upper_controls[control]);
         }
       }
     }
@@ -430,7 +436,9 @@ void TrajectoryOptimizationNode::planningCycle() {
   auto logCompletedCycle = [&]() {
     metrics.cycle_ms = elapsedMilliseconds(cycle_start);
     metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
-    logPerformance(metrics);
+    if (performance_logger_) {
+      performance_logger_->write(metrics);
+    }
   };
 
   // set initial state
@@ -470,23 +478,49 @@ void TrajectoryOptimizationNode::planningCycle() {
   const auto solve_end = SteadyClock::now();
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
 
-  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_);
+  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                             performance_logger_ != nullptr || verbose_);
 
-  if (metrics.status == ACADOS_NAN_DETECTED || metrics.status == ACADOS_MINSTEP || metrics.status == ACADOS_QP_FAILURE) {
+  const bool usable_status =
+      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
+  if (usable_status) {
+    for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
+    }
+    for (int ii = 0; ii < nlp_dims_->N; ++ii) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
+    }
+  }
+
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  const bool finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
+                               std::isfinite(metrics.res_ineq) &&
+                               std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
+                               std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
+  const bool primal_feasible =
+      finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
+
+  if (!primal_feasible) {
     printSolution(metrics);
-    // Keep the last accepted controls; the failed solver output is not added to the cache.
+    RCLCPP_WARN(this->get_logger(),
+                "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
+                metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
+    if (finite_solution && performance_logger_) {
+      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
+                                                      static_cast<int>(p_obstacle_circles_shape_[0]));
+    }
+    if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
+      // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.
+      control_guess_ = utraj_;
+      control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
+    } else {
+      control_guess_.clear();
+    }
     resetSolver();
     logCompletedCycle();
     return;
   }
 
-  // get solution
-  for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
-  }
-  for (int ii = 0; ii < nlp_dims_->N; ++ii) {
-    ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
-  }
   control_guess_ = utraj_;
   control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
 
@@ -639,6 +673,45 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const perception_msgs::msg::ObjectList& object_list) {
   const auto start_time = std::chrono::steady_clock::now();
+  struct PredictionData {
+    std::vector<double> time;
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> yaw;
+    size_t index;
+    double probability;
+  };
+  std::vector<std::vector<PredictionData>> object_predictions(object_list.objects.size());
+  const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
+  for (size_t j = 0; j < object_list.objects.size(); ++j) {
+    const auto& object = object_list.objects[j];
+    if (consider_objects_ != CONSIDER_OBJECTS::PREDICTED_OBJECTS || object.state_predictions.empty()) continue;
+
+    auto append_prediction = [&](const auto& state_prediction, size_t prediction_idx) {
+      PredictionData prediction{{object_stamp},
+                                {perception_msgs::object_access::getX(object)},
+                                {perception_msgs::object_access::getY(object)},
+                                {perception_msgs::object_access::getYaw(object)},
+                                prediction_idx,
+                                state_prediction.probability};
+      for (const auto& predicted_state : state_prediction.states) {
+        prediction.time.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
+        prediction.x.push_back(perception_msgs::object_access::getX(predicted_state));
+        prediction.y.push_back(perception_msgs::object_access::getY(predicted_state));
+        prediction.yaw.push_back(perception_msgs::object_access::getYaw(predicted_state));
+      }
+      object_predictions[j].push_back(std::move(prediction));
+    };
+
+    for (size_t prediction_idx = 0; prediction_idx < object.state_predictions.size(); ++prediction_idx) {
+      const auto& state_prediction = object.state_predictions[prediction_idx];
+      if (state_prediction.probability > min_prediction_probability_) {
+        append_prediction(state_prediction, prediction_idx);
+      }
+    }
+    if (object_predictions[j].empty()) append_prediction(object.state_predictions[0], 0);
+  }
+
   // loop over shooting intervals
   double floating_dynamic_weight = 1.0;
   double dt = optimization_horizon_ / n_shots_;
@@ -662,65 +735,34 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
 
     for (size_t j = 0; j < object_list.objects.size(); ++j) {
-      std::vector<double> TIME, X, Y, YAW;
       std::vector<std::tuple<double, double, double>> target_states;
-      // TODO(ika): Build prediction arrays once per object outside the shooting-interval loop.
-      TIME.push_back(static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9);
-      X.push_back(perception_msgs::object_access::getX(object_list.objects[j]));
-      Y.push_back(perception_msgs::object_access::getY(object_list.objects[j]));
-      YAW.push_back(perception_msgs::object_access::getYaw(object_list.objects[j]));
-      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS && !object_list.objects[j].state_predictions.empty()) {
-        // build one target state for a single prediction hypothesis at the current shooting interval
-        auto appendPredictionTargetState = [&](const auto& state_prediction, size_t prediction_idx) {
-          std::vector<double> prediction_time = TIME;
-          std::vector<double> prediction_x = X;
-          std::vector<double> prediction_y = Y;
-          std::vector<double> prediction_yaw = YAW;
-          for (const auto& predicted_state : state_prediction.states) {
-            prediction_time.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
-            prediction_x.push_back(perception_msgs::object_access::getX(predicted_state));
-            prediction_y.push_back(perception_msgs::object_access::getY(predicted_state));
-            prediction_yaw.push_back(perception_msgs::object_access::getYaw(predicted_state));
-          }
+      if (!object_predictions[j].empty()) {
+        for (const auto& prediction : object_predictions[j]) {
           double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
           double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
-          if (des_time > prediction_time.back()) {
-            const double relative_des_time = des_time - prediction_time.front();
-            const double relative_max_time = prediction_time.back() - prediction_time.front();
+          if (des_time > prediction.time.back()) {
+            const double relative_des_time = des_time - prediction.time.front();
+            const double relative_max_time = prediction.time.back() - prediction.time.front();
             RCLCPP_WARN(this->get_logger(),
                         "Prediction horizon shorter than requested interpolation time. "
                         "object=%zu prediction=%zu probability=%.3f desired_rel=%.3f s max_rel=%.3f s n_states=%zu. "
                         "Using last prediction state.",
-                        j, prediction_idx, state_prediction.probability, relative_des_time, relative_max_time,
-                        state_prediction.states.size());
-            x_tgt = prediction_x.back();
-            y_tgt = prediction_y.back();
-            yaw_tgt = prediction_yaw.back();
+                        j, prediction.index, prediction.probability, relative_des_time, relative_max_time,
+                        prediction.time.size() - 1);
+            x_tgt = prediction.x.back();
+            y_tgt = prediction.y.back();
+            yaw_tgt = prediction.yaw.back();
           } else {
-            linearInterpolation(prediction_time, prediction_x, des_time, x_tgt);
-            linearInterpolation(prediction_time, prediction_y, des_time, y_tgt);
-            linearInterpolation(prediction_time, prediction_yaw, des_time, yaw_tgt, true);
+            linearInterpolation(prediction.time, prediction.x, des_time, x_tgt);
+            linearInterpolation(prediction.time, prediction.y, des_time, y_tgt);
+            linearInterpolation(prediction.time, prediction.yaw, des_time, yaw_tgt, true);
           }
           target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
-        };
-
-        // consider all prediction hypotheses whose probability exceeds the configured threshold
-        bool has_prediction_above_threshold = false;
-        for (size_t prediction_idx = 0; prediction_idx < object_list.objects[j].state_predictions.size(); ++prediction_idx) {
-          const auto& state_prediction = object_list.objects[j].state_predictions[prediction_idx];
-          if (state_prediction.probability <= min_prediction_probability_) {
-            continue;
-          }
-          has_prediction_above_threshold = true;
-          appendPredictionTargetState(state_prediction, prediction_idx);
-        }
-        if (!has_prediction_above_threshold) {
-          // always keep at least one prediction hypothesis for predicted objects
-          appendPredictionTargetState(object_list.objects[j].state_predictions[0], 0);
         }
       } else {
-        // static object handling or missing predictions: use the current object state
-        target_states.emplace_back(X.front(), Y.front(), YAW.front());
+        target_states.emplace_back(perception_msgs::object_access::getX(object_list.objects[j]),
+                                   perception_msgs::object_access::getY(object_list.objects[j]),
+                                   perception_msgs::object_access::getYaw(object_list.objects[j]));
       }
 
       double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y,

@@ -47,6 +47,15 @@ struct PerformanceMetrics {
   double res_eq = 0.0;
   double res_ineq = 0.0;
   double res_comp = 0.0;
+
+  double max_ineq_violation = 0.0;
+  int max_ineq_stage = -1;
+  std::string max_ineq_type = "none";
+  int max_ineq_index = -1;
+  std::string max_ineq_side = "none";
+  double max_eq_violation = 0.0;
+  int max_eq_stage = -1;
+  int max_eq_state = -1;
 };
 
 class PerformanceLogger {
@@ -109,7 +118,21 @@ class PerformanceLogger {
                                       ocp_nlp_config* config,
                                       ocp_nlp_dims* dims,
                                       ocp_nlp_in* input,
-                                      ocp_nlp_out* output);
+                                      ocp_nlp_out* output,
+                                      bool collect_details);
+
+  /**
+   * @brief Collects the largest equality and inequality constraint violations from acados.
+   *
+   * @param[in,out] metrics Metrics structure populated with constraint diagnostics.
+   * @param[in] solver acados NLP solver instance.
+   * @param[in] dims acados NLP dimensions.
+   * @param[in] obstacle_circles Number of obstacle circles represented in the nonlinear constraints.
+   */
+  static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
+                                           ocp_nlp_solver* solver,
+                                           const ocp_nlp_dims* dims,
+                                           int obstacle_circles);
 
   /**
    * @brief Returns the path of the CSV performance log.

@@ -204,6 +204,15 @@ inline ocp_nlp_config* acados_get_nlp_config(ocp_model_capsule_t capsule) { ACAD
 inline void* acados_get_nlp_opts(ocp_model_capsule_t capsule) { ACADOS_DISPATCH(acados_get_nlp_opts); }
 
 /**
+ * @brief Returns the common NLP options stored inside the generated solver-specific options.
+ */
+inline const ocp_nlp_opts* acados_get_common_nlp_opts(ocp_nlp_config* config, void* solver_opts) {
+  void* common_opts = nullptr;
+  config->opts_get(config, solver_opts, "nlp_opts", &common_opts);
+  return static_cast<ocp_nlp_opts*>(common_opts);
+}
+
+/**
  * @brief Wrapper around the generated accessor for the OCP dimensions.
  *
  * @param[in] capsule Variant holding the model-specific acados capsule.

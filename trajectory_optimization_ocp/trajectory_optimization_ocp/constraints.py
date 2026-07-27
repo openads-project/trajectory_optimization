@@ -3,7 +3,7 @@
 
 import casadi as ca
 import numpy as np
-from acados_template import AcadosOcp, AcadosOcpConstraints
+from acados_template import ACADOS_INFTY, AcadosOcp, AcadosOcpConstraints
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
@@ -119,7 +119,6 @@ def set_constraints(ocp: AcadosOcp, config):
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
 
     # calc offset to boundaries for each ego circle
-    MAX_BOUNDARY_CONSTRAINT = 1e9
     # limit the requested extra clearance to what the current lane geometry allows
     left_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - ego_radius, 0.0))
     right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - ego_radius, 0.0))
@@ -134,7 +133,7 @@ def set_constraints(ocp: AcadosOcp, config):
         right_constraint = -d_circle_center_ref_path + ego_radius + right_margin_required - ref_inter["d_right_boundary"]
 
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
-        cons.lh = np.concatenate((cons.lh, [-MAX_BOUNDARY_CONSTRAINT, -MAX_BOUNDARY_CONSTRAINT]))
+        cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
         cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
     # --- Obstacle avoidance ---
@@ -146,7 +145,6 @@ def set_constraints(ocp: AcadosOcp, config):
     p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
     assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
 
-    MAX_OBSTACLE_CONSTRAINT = 1e9  # large value to "disable" obstacle constraints without pushing JSON to inf
     beta = compute_side_slip_angle(ocp, config)
     v_t = ocp.model.x[STATE_INDEX_V_T]
     psi = ocp.model.x[STATE_INDEX_PSI]
@@ -180,7 +178,7 @@ def set_constraints(ocp: AcadosOcp, config):
 
             ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, ellipse_constraint)
             cons.lh = np.concatenate((cons.lh, [0.0]))
-            cons.uh = np.concatenate((cons.uh, [MAX_OBSTACLE_CONSTRAINT]))
+            cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
 
     # --- a_abs_squared, psi_dot, steering_mode_constraint ---
     # Ackermann: psi_dot = v / l * tan(delta_f)
