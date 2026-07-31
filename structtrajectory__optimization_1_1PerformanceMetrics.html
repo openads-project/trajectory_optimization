@@ -28,7 +28,7 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.3.1</span>
+   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.4.0</span>
    </div>
   </td>
  </tr>
@@ -172,6 +172,22 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a091bc3d1b7c8fab25323b09849b828a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4600457e9d3969a11337973de7a44bd5" id="r_a4600457e9d3969a11337973de7a44bd5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4600457e9d3969a11337973de7a44bd5">res_comp</a> = 0.0</td></tr>
 <tr class="separator:a4600457e9d3969a11337973de7a44bd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba6a0804837829e2b341a97a2ef4a63f" id="r_aba6a0804837829e2b341a97a2ef4a63f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aba6a0804837829e2b341a97a2ef4a63f">max_ineq_violation</a> = 0.0</td></tr>
+<tr class="separator:aba6a0804837829e2b341a97a2ef4a63f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b0ac2bab29432a82a1f07f7ee007a44" id="r_a4b0ac2bab29432a82a1f07f7ee007a44"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4b0ac2bab29432a82a1f07f7ee007a44">max_ineq_stage</a> = -1</td></tr>
+<tr class="separator:a4b0ac2bab29432a82a1f07f7ee007a44"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a626f99e38b3b8b3ff4de88172088045d" id="r_a626f99e38b3b8b3ff4de88172088045d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a626f99e38b3b8b3ff4de88172088045d">max_ineq_type</a> = &quot;none&quot;</td></tr>
+<tr class="separator:a626f99e38b3b8b3ff4de88172088045d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afe90f1759daa1af0fe1ef9ac50bdfd9f" id="r_afe90f1759daa1af0fe1ef9ac50bdfd9f"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afe90f1759daa1af0fe1ef9ac50bdfd9f">max_ineq_index</a> = -1</td></tr>
+<tr class="separator:afe90f1759daa1af0fe1ef9ac50bdfd9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37cf72a6497ab9f5c3672a067d76a73b" id="r_a37cf72a6497ab9f5c3672a067d76a73b"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a37cf72a6497ab9f5c3672a067d76a73b">max_ineq_side</a> = &quot;none&quot;</td></tr>
+<tr class="separator:a37cf72a6497ab9f5c3672a067d76a73b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae588f4eafce97dad03869e3ed757cacc" id="r_ae588f4eafce97dad03869e3ed757cacc"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae588f4eafce97dad03869e3ed757cacc">max_eq_violation</a> = 0.0</td></tr>
+<tr class="separator:ae588f4eafce97dad03869e3ed757cacc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2ad38626f3792324d6edcdab8a688133" id="r_a2ad38626f3792324d6edcdab8a688133"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2ad38626f3792324d6edcdab8a688133">max_eq_stage</a> = -1</td></tr>
+<tr class="separator:a2ad38626f3792324d6edcdab8a688133"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9213a3cb04979394ac3328733317f6f0" id="r_a9213a3cb04979394ac3328733317f6f0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9213a3cb04979394ac3328733317f6f0">max_eq_state</a> = -1</td></tr>
+<tr class="separator:a9213a3cb04979394ac3328733317f6f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock">
@@ -414,6 +430,134 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00045">45</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="a2ad38626f3792324d6edcdab8a688133" name="a2ad38626f3792324d6edcdab8a688133"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2ad38626f3792324d6edcdab8a688133">&#9670;&#160;</a></span>max_eq_stage</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int trajectory_optimization::PerformanceMetrics::max_eq_stage = -1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00057">57</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="a9213a3cb04979394ac3328733317f6f0" name="a9213a3cb04979394ac3328733317f6f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9213a3cb04979394ac3328733317f6f0">&#9670;&#160;</a></span>max_eq_state</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int trajectory_optimization::PerformanceMetrics::max_eq_state = -1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00058">58</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="ae588f4eafce97dad03869e3ed757cacc" name="ae588f4eafce97dad03869e3ed757cacc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae588f4eafce97dad03869e3ed757cacc">&#9670;&#160;</a></span>max_eq_violation</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double trajectory_optimization::PerformanceMetrics::max_eq_violation = 0.0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00056">56</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="afe90f1759daa1af0fe1ef9ac50bdfd9f" name="afe90f1759daa1af0fe1ef9ac50bdfd9f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afe90f1759daa1af0fe1ef9ac50bdfd9f">&#9670;&#160;</a></span>max_ineq_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int trajectory_optimization::PerformanceMetrics::max_ineq_index = -1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00054">54</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="a37cf72a6497ab9f5c3672a067d76a73b" name="a37cf72a6497ab9f5c3672a067d76a73b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a37cf72a6497ab9f5c3672a067d76a73b">&#9670;&#160;</a></span>max_ineq_side</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string trajectory_optimization::PerformanceMetrics::max_ineq_side = &quot;none&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00055">55</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="a4b0ac2bab29432a82a1f07f7ee007a44" name="a4b0ac2bab29432a82a1f07f7ee007a44"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b0ac2bab29432a82a1f07f7ee007a44">&#9670;&#160;</a></span>max_ineq_stage</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int trajectory_optimization::PerformanceMetrics::max_ineq_stage = -1</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00052">52</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="a626f99e38b3b8b3ff4de88172088045d" name="a626f99e38b3b8b3ff4de88172088045d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a626f99e38b3b8b3ff4de88172088045d">&#9670;&#160;</a></span>max_ineq_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string trajectory_optimization::PerformanceMetrics::max_ineq_type = &quot;none&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00053">53</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+
+</div>
+</div>
+<a id="aba6a0804837829e2b341a97a2ef4a63f" name="aba6a0804837829e2b341a97a2ef4a63f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba6a0804837829e2b341a97a2ef4a63f">&#9670;&#160;</a></span>max_ineq_violation</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double trajectory_optimization::PerformanceMetrics::max_ineq_violation = 0.0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00051">51</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 
 </div>
 </div>

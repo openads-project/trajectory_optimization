@@ -28,7 +28,7 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.3.1</span>
+   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.4.0</span>
    </div>
   </td>
  </tr>
@@ -138,9 +138,12 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-methods" name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a9dc24154ac7c02691fbfdb754ca78c18" id="r_a9dc24154ac7c02691fbfdb754ca78c18"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9dc24154ac7c02691fbfdb754ca78c18">collectSolverStatistics</a> (<a class="el" href="structtrajectory__optimization_1_1PerformanceMetrics.html">PerformanceMetrics</a> &amp;metrics, ocp_nlp_solver *solver, ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *input, ocp_nlp_out *output)</td></tr>
-<tr class="memdesc:a9dc24154ac7c02691fbfdb754ca78c18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads timing, iteration, cost, and residual statistics from acados.  <br /></td></tr>
-<tr class="separator:a9dc24154ac7c02691fbfdb754ca78c18"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae97276b6171b09f33f5325f1b818e7da" id="r_ae97276b6171b09f33f5325f1b818e7da"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae97276b6171b09f33f5325f1b818e7da">collectSolverStatistics</a> (<a class="el" href="structtrajectory__optimization_1_1PerformanceMetrics.html">PerformanceMetrics</a> &amp;metrics, ocp_nlp_solver *solver, ocp_nlp_config *config, ocp_nlp_dims *dims, ocp_nlp_in *input, ocp_nlp_out *output, bool collect_details)</td></tr>
+<tr class="memdesc:ae97276b6171b09f33f5325f1b818e7da"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads timing, iteration, cost, and residual statistics from acados.  <br /></td></tr>
+<tr class="separator:ae97276b6171b09f33f5325f1b818e7da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3e33915bd564b2dcd8334f5f88f1cc7d" id="r_a3e33915bd564b2dcd8334f5f88f1cc7d"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3e33915bd564b2dcd8334f5f88f1cc7d">collectConstraintDiagnostics</a> (<a class="el" href="structtrajectory__optimization_1_1PerformanceMetrics.html">PerformanceMetrics</a> &amp;metrics, ocp_nlp_solver *solver, const ocp_nlp_dims *dims, int obstacle_circles)</td></tr>
+<tr class="memdesc:a3e33915bd564b2dcd8334f5f88f1cc7d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Collects the largest equality and inequality constraint violations from acados.  <br /></td></tr>
+<tr class="separator:a3e33915bd564b2dcd8334f5f88f1cc7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pri-attribs" name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -158,7 +161,7 @@ Static Private Attributes</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock">
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00052">52</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00061">61</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a0e0171bdd90a5c92532add1aceac6c09" name="a0e0171bdd90a5c92532add1aceac6c09"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0e0171bdd90a5c92532add1aceac6c09">&#9670;&#160;</a></span>PerformanceLogger() <span class="overload">[1/3]</span></h2>
@@ -191,34 +194,36 @@ Static Private Attributes</h2></td></tr>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00036">36</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">   36</span>                                                               {</div>
-<div class="line"><span class="lineno">   37</span>  <span class="keyword">const</span> <span class="keywordtype">char</span>* configured_directory = std::getenv(<span class="stringliteral">&quot;TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR&quot;</span>);</div>
-<div class="line"><span class="lineno">   38</span>  <span class="keyword">const</span> std::filesystem::path directory = configured_directory != <span class="keyword">nullptr</span> &amp;&amp; *configured_directory != <span class="charliteral">&#39;\0&#39;</span></div>
-<div class="line"><span class="lineno">   39</span>                                              ? std::filesystem::path(configured_directory)</div>
-<div class="line"><span class="lineno">   40</span>                                              : std::filesystem::temp_directory_path() / <span class="stringliteral">&quot;trajectory_optimization_benchmarks&quot;</span>;</div>
-<div class="line"><span class="lineno">   41</span>  <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a> = directory / (node_name + <span class="charliteral">&#39;_&#39;</span> + timestamp() + <span class="stringliteral">&quot;.csv&quot;</span>);</div>
-<div class="line"><span class="lineno">   42</span> </div>
-<div class="line"><span class="lineno">   43</span>  std::error_code error;</div>
-<div class="line"><span class="lineno">   44</span>  std::filesystem::create_directories(directory, error);</div>
-<div class="line"><span class="lineno">   45</span>  <span class="keywordflow">if</span> (error) {</div>
-<div class="line"><span class="lineno">   46</span>    <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;could not create directory &#39;&quot;</span> + directory.string() + <span class="stringliteral">&quot;&#39;: &quot;</span> + error.message());</div>
-<div class="line"><span class="lineno">   47</span>  }</div>
-<div class="line"><span class="lineno">   48</span> </div>
-<div class="line"><span class="lineno">   49</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.open(<a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>, std::ios::out | std::ios::trunc);</div>
-<div class="line"><span class="lineno">   50</span>  <span class="keywordflow">if</span> (!<a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>) {</div>
-<div class="line"><span class="lineno">   51</span>    <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;could not open &#39;&quot;</span> + <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>.string() + <span class="stringliteral">&quot;&#39;&quot;</span>);</div>
-<div class="line"><span class="lineno">   52</span>  }</div>
-<div class="line"><span class="lineno">   53</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a> &lt;&lt; <span class="stringliteral">&quot;schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,&quot;</span></div>
-<div class="line"><span class="lineno">   54</span>             <span class="stringliteral">&quot;published,ref_points,objects,sqp_iter,qp_iter,&quot;</span></div>
-<div class="line"><span class="lineno">   55</span>             <span class="stringliteral">&quot;qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,&quot;</span></div>
-<div class="line"><span class="lineno">   56</span>             <span class="stringliteral">&quot;acados_sim_ms,acados_qp_ms,&quot;</span></div>
-<div class="line"><span class="lineno">   57</span>             <span class="stringliteral">&quot;acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,&quot;</span></div>
-<div class="line"><span class="lineno">   58</span>             <span class="stringliteral">&quot;acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp\n&quot;</span>;</div>
-<div class="line"><span class="lineno">   59</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
-<div class="line"><span class="lineno">   60</span>}</div>
-<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_a73c76e4fe79e745a5889ea2bf1747076"><div class="ttname"><a href="#a73c76e4fe79e745a5889ea2bf1747076">trajectory_optimization::PerformanceLogger::path_</a></div><div class="ttdeci">std::filesystem::path path_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00124">performance_logger.hpp:124</a></div></div>
-<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_ad0d2e7fb6313c3365d0ffd898be25b85"><div class="ttname"><a href="#ad0d2e7fb6313c3365d0ffd898be25b85">trajectory_optimization::PerformanceLogger::stream_</a></div><div class="ttdeci">std::ofstream stream_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00125">performance_logger.hpp:125</a></div></div>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00038">38</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">   38</span>                                                               {</div>
+<div class="line"><span class="lineno">   39</span>  <span class="keyword">const</span> <span class="keywordtype">char</span>* configured_directory = std::getenv(<span class="stringliteral">&quot;TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR&quot;</span>);</div>
+<div class="line"><span class="lineno">   40</span>  <span class="keyword">const</span> std::filesystem::path directory = configured_directory != <span class="keyword">nullptr</span> &amp;&amp; *configured_directory != <span class="charliteral">&#39;\0&#39;</span></div>
+<div class="line"><span class="lineno">   41</span>                                              ? std::filesystem::path(configured_directory)</div>
+<div class="line"><span class="lineno">   42</span>                                              : std::filesystem::temp_directory_path() / <span class="stringliteral">&quot;trajectory_optimization_benchmarks&quot;</span>;</div>
+<div class="line"><span class="lineno">   43</span>  <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a> = directory / (node_name + <span class="charliteral">&#39;_&#39;</span> + timestamp() + <span class="stringliteral">&quot;.csv&quot;</span>);</div>
+<div class="line"><span class="lineno">   44</span> </div>
+<div class="line"><span class="lineno">   45</span>  std::error_code error;</div>
+<div class="line"><span class="lineno">   46</span>  std::filesystem::create_directories(directory, error);</div>
+<div class="line"><span class="lineno">   47</span>  <span class="keywordflow">if</span> (error) {</div>
+<div class="line"><span class="lineno">   48</span>    <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;could not create directory &#39;&quot;</span> + directory.string() + <span class="stringliteral">&quot;&#39;: &quot;</span> + error.message());</div>
+<div class="line"><span class="lineno">   49</span>  }</div>
+<div class="line"><span class="lineno">   50</span> </div>
+<div class="line"><span class="lineno">   51</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.open(<a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>, std::ios::out | std::ios::trunc);</div>
+<div class="line"><span class="lineno">   52</span>  <span class="keywordflow">if</span> (!<a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>) {</div>
+<div class="line"><span class="lineno">   53</span>    <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;could not open &#39;&quot;</span> + <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>.string() + <span class="stringliteral">&quot;&#39;&quot;</span>);</div>
+<div class="line"><span class="lineno">   54</span>  }</div>
+<div class="line"><span class="lineno">   55</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a> &lt;&lt; <span class="stringliteral">&quot;schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,&quot;</span></div>
+<div class="line"><span class="lineno">   56</span>             <span class="stringliteral">&quot;published,ref_points,objects,sqp_iter,qp_iter,&quot;</span></div>
+<div class="line"><span class="lineno">   57</span>             <span class="stringliteral">&quot;qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,&quot;</span></div>
+<div class="line"><span class="lineno">   58</span>             <span class="stringliteral">&quot;acados_sim_ms,acados_qp_ms,&quot;</span></div>
+<div class="line"><span class="lineno">   59</span>             <span class="stringliteral">&quot;acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,&quot;</span></div>
+<div class="line"><span class="lineno">   60</span>             <span class="stringliteral">&quot;acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,&quot;</span></div>
+<div class="line"><span class="lineno">   61</span>             <span class="stringliteral">&quot;max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,&quot;</span></div>
+<div class="line"><span class="lineno">   62</span>             <span class="stringliteral">&quot;max_eq_violation,max_eq_stage,max_eq_state\n&quot;</span>;</div>
+<div class="line"><span class="lineno">   63</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
+<div class="line"><span class="lineno">   64</span>}</div>
+<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_a73c76e4fe79e745a5889ea2bf1747076"><div class="ttname"><a href="#a73c76e4fe79e745a5889ea2bf1747076">trajectory_optimization::PerformanceLogger::path_</a></div><div class="ttdeci">std::filesystem::path path_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00147">performance_logger.hpp:147</a></div></div>
+<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_ad0d2e7fb6313c3365d0ffd898be25b85"><div class="ttname"><a href="#ad0d2e7fb6313c3365d0ffd898be25b85">trajectory_optimization::PerformanceLogger::stream_</a></div><div class="ttdeci">std::ofstream stream_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00148">performance_logger.hpp:148</a></div></div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -239,11 +244,11 @@ Static Private Attributes</h2></td></tr>
 
 <p>Flushes and closes the performance log. </p>
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00062">62</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">   62</span>                                      {</div>
-<div class="line"><span class="lineno">   63</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
-<div class="line"><span class="lineno">   64</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.close();</div>
-<div class="line"><span class="lineno">   65</span>}</div>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00066">66</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">   66</span>                                      {</div>
+<div class="line"><span class="lineno">   67</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
+<div class="line"><span class="lineno">   68</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.close();</div>
+<div class="line"><span class="lineno">   69</span>}</div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -302,8 +307,129 @@ Static Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a9dc24154ac7c02691fbfdb754ca78c18" name="a9dc24154ac7c02691fbfdb754ca78c18"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9dc24154ac7c02691fbfdb754ca78c18">&#9670;&#160;</a></span>collectSolverStatistics()</h2>
+<a id="a3e33915bd564b2dcd8334f5f88f1cc7d" name="a3e33915bd564b2dcd8334f5f88f1cc7d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3e33915bd564b2dcd8334f5f88f1cc7d">&#9670;&#160;</a></span>collectConstraintDiagnostics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void trajectory_optimization::PerformanceLogger::collectConstraintDiagnostics </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structtrajectory__optimization_1_1PerformanceMetrics.html">PerformanceMetrics</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>metrics</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ocp_nlp_solver *</td>          <td class="paramname"><span class="paramname"><em>solver</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const ocp_nlp_dims *</td>          <td class="paramname"><span class="paramname"><em>dims</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>obstacle_circles</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Collects the largest equality and inequality constraint violations from acados. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in,out]</td><td class="paramname">metrics</td><td>Metrics structure populated with constraint diagnostics. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">solver</td><td>acados NLP solver instance. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">dims</td><td>acados NLP dimensions. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">obstacle_circles</td><td>Number of obstacle circles represented in the nonlinear constraints. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00112">112</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">  115</span>                                                                           {</div>
+<div class="line"><span class="lineno">  116</span>  <span class="comment">// The acados C API exposes stage-dependent dimensions as raw arrays.</span></div>
+<div class="line"><span class="lineno">  117</span>  <span class="comment">// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)</span></div>
+<div class="line"><span class="lineno">  118</span>  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> stage = 0; stage &lt;= dims-&gt;N; ++stage) {</div>
+<div class="line"><span class="lineno">  119</span>    std::vector&lt;double&gt; residuals(2 * dims-&gt;ni[stage]);</div>
+<div class="line"><span class="lineno">  120</span>    ocp_nlp_get_at_stage(solver, stage, <span class="stringliteral">&quot;ineq_fun&quot;</span>, residuals.data());</div>
+<div class="line"><span class="lineno">  121</span>    <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> index = 0; index &lt; residuals.size(); ++index) {</div>
+<div class="line"><span class="lineno">  122</span>      <span class="keywordflow">if</span> (residuals[index] &gt; metrics.max_ineq_violation) {</div>
+<div class="line"><span class="lineno">  123</span>        metrics.max_ineq_violation = residuals[index];</div>
+<div class="line"><span class="lineno">  124</span>        metrics.max_ineq_stage = stage;</div>
+<div class="line"><span class="lineno">  125</span>        metrics.max_ineq_index = <span class="keyword">static_cast&lt;</span><span class="keywordtype">int</span><span class="keyword">&gt;</span>(index);</div>
+<div class="line"><span class="lineno">  126</span>      }</div>
+<div class="line"><span class="lineno">  127</span>    }</div>
+<div class="line"><span class="lineno">  128</span>  }</div>
+<div class="line"><span class="lineno">  129</span> </div>
+<div class="line"><span class="lineno">  130</span>  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> stage = 0; stage &lt; dims-&gt;N; ++stage) {</div>
+<div class="line"><span class="lineno">  131</span>    std::vector&lt;double&gt; residuals(dims-&gt;nx[stage + 1]);</div>
+<div class="line"><span class="lineno">  132</span>    ocp_nlp_get_at_stage(solver, stage, <span class="stringliteral">&quot;res_eq&quot;</span>, residuals.data());</div>
+<div class="line"><span class="lineno">  133</span>    <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> state = 0; state &lt; residuals.size(); ++state) {</div>
+<div class="line"><span class="lineno">  134</span>      <span class="keywordflow">if</span> (std::abs(residuals[state]) &gt; metrics.max_eq_violation) {</div>
+<div class="line"><span class="lineno">  135</span>        metrics.max_eq_violation = std::abs(residuals[state]);</div>
+<div class="line"><span class="lineno">  136</span>        metrics.max_eq_stage = stage;</div>
+<div class="line"><span class="lineno">  137</span>        metrics.max_eq_state = <span class="keyword">static_cast&lt;</span><span class="keywordtype">int</span><span class="keyword">&gt;</span>(state);</div>
+<div class="line"><span class="lineno">  138</span>      }</div>
+<div class="line"><span class="lineno">  139</span>    }</div>
+<div class="line"><span class="lineno">  140</span>  }</div>
+<div class="line"><span class="lineno">  141</span> </div>
+<div class="line"><span class="lineno">  142</span>  <span class="keywordflow">if</span> (metrics.max_ineq_stage &lt; 0) <span class="keywordflow">return</span>;</div>
+<div class="line"><span class="lineno">  143</span> </div>
+<div class="line"><span class="lineno">  144</span>  <span class="keyword">const</span> <span class="keywordtype">int</span> ni = dims-&gt;ni[metrics.max_ineq_stage];</div>
+<div class="line"><span class="lineno">  145</span>  <span class="keyword">const</span> <span class="keywordtype">int</span> nb = dims-&gt;nb[metrics.max_ineq_stage];</div>
+<div class="line"><span class="lineno">  146</span>  <span class="keyword">const</span> <span class="keywordtype">int</span> ng = dims-&gt;ng[metrics.max_ineq_stage];</div>
+<div class="line"><span class="lineno">  147</span>  <span class="keyword">const</span> <span class="keywordtype">int</span> nh = ni - nb - ng - dims-&gt;ns[metrics.max_ineq_stage];</div>
+<div class="line"><span class="lineno">  148</span>  <span class="keyword">const</span> <span class="keywordtype">int</span> index = metrics.max_ineq_index % ni;</div>
+<div class="line"><span class="lineno">  149</span>  metrics.max_ineq_side = metrics.max_ineq_index &lt; ni ? <span class="stringliteral">&quot;lower&quot;</span> : <span class="stringliteral">&quot;upper&quot;</span>;</div>
+<div class="line"><span class="lineno">  150</span>  metrics.max_ineq_index = index;</div>
+<div class="line"><span class="lineno">  151</span>  <span class="keywordflow">if</span> (index &lt; nb) {</div>
+<div class="line"><span class="lineno">  152</span>    std::vector&lt;int&gt; bound_indices(nb);</div>
+<div class="line"><span class="lineno">  153</span>    ocp_nlp_get_at_stage(solver, metrics.max_ineq_stage, <span class="stringliteral">&quot;idxb&quot;</span>, bound_indices.data());</div>
+<div class="line"><span class="lineno">  154</span>    <span class="keyword">const</span> <span class="keywordtype">int</span> variable_index = bound_indices[index];</div>
+<div class="line"><span class="lineno">  155</span>    <span class="keywordflow">if</span> (variable_index &lt; dims-&gt;nu[metrics.max_ineq_stage]) {</div>
+<div class="line"><span class="lineno">  156</span>      metrics.max_ineq_type = <span class="stringliteral">&quot;control&quot;</span>;</div>
+<div class="line"><span class="lineno">  157</span>      metrics.max_ineq_index = variable_index;</div>
+<div class="line"><span class="lineno">  158</span>    } <span class="keywordflow">else</span> {</div>
+<div class="line"><span class="lineno">  159</span>      metrics.max_ineq_type = <span class="stringliteral">&quot;state&quot;</span>;</div>
+<div class="line"><span class="lineno">  160</span>      metrics.max_ineq_index = variable_index - dims-&gt;nu[metrics.max_ineq_stage];</div>
+<div class="line"><span class="lineno">  161</span>    }</div>
+<div class="line"><span class="lineno">  162</span>  } <span class="keywordflow">else</span> <span class="keywordflow">if</span> (index &lt; nb + ng) {</div>
+<div class="line"><span class="lineno">  163</span>    metrics.max_ineq_type = <span class="stringliteral">&quot;linear&quot;</span>;</div>
+<div class="line"><span class="lineno">  164</span>  } <span class="keywordflow">else</span> <span class="keywordflow">if</span> (index &lt; nb + ng + nh) {</div>
+<div class="line"><span class="lineno">  165</span>    <span class="keyword">const</span> <span class="keywordtype">int</span> h_index = index - nb - ng;</div>
+<div class="line"><span class="lineno">  166</span>    <span class="keyword">const</span> <span class="keywordtype">int</span> ego_circles = nh / (obstacle_circles + 2);</div>
+<div class="line"><span class="lineno">  167</span>    <span class="keywordflow">if</span> (h_index &lt; 2 * ego_circles) {</div>
+<div class="line"><span class="lineno">  168</span>      metrics.max_ineq_type = h_index % 2 == 0 ? <span class="stringliteral">&quot;boundary_left&quot;</span> : <span class="stringliteral">&quot;boundary_right&quot;</span>;</div>
+<div class="line"><span class="lineno">  169</span>      metrics.max_ineq_index = h_index / 2;</div>
+<div class="line"><span class="lineno">  170</span>    } <span class="keywordflow">else</span> <span class="keywordflow">if</span> (h_index &lt; (obstacle_circles + 2) * ego_circles) {</div>
+<div class="line"><span class="lineno">  171</span>      <span class="keyword">const</span> <span class="keywordtype">int</span> obstacle_index = h_index - 2 * ego_circles;</div>
+<div class="line"><span class="lineno">  172</span>      metrics.max_ineq_type = <span class="stringliteral">&quot;obstacle_&quot;</span> + std::to_string(obstacle_index / ego_circles);</div>
+<div class="line"><span class="lineno">  173</span>      metrics.max_ineq_index = obstacle_index % ego_circles;</div>
+<div class="line"><span class="lineno">  174</span>    } <span class="keywordflow">else</span> {</div>
+<div class="line"><span class="lineno">  175</span>      metrics.max_ineq_type = <span class="stringliteral">&quot;vehicle&quot;</span>;</div>
+<div class="line"><span class="lineno">  176</span>      metrics.max_ineq_index = h_index - (obstacle_circles + 2) * ego_circles;</div>
+<div class="line"><span class="lineno">  177</span>    }</div>
+<div class="line"><span class="lineno">  178</span>  } <span class="keywordflow">else</span> {</div>
+<div class="line"><span class="lineno">  179</span>    metrics.max_ineq_type = <span class="stringliteral">&quot;slack&quot;</span>;</div>
+<div class="line"><span class="lineno">  180</span>    metrics.max_ineq_index = index - nb - ng - nh;</div>
+<div class="line"><span class="lineno">  181</span>  }</div>
+<div class="line"><span class="lineno">  182</span>  <span class="comment">// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)</span></div>
+<div class="line"><span class="lineno">  183</span>}</div>
+</div><!-- fragment -->
+</div>
+</div>
+<a id="ae97276b6171b09f33f5325f1b818e7da" name="ae97276b6171b09f33f5325f1b818e7da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae97276b6171b09f33f5325f1b818e7da">&#9670;&#160;</a></span>collectSolverStatistics()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -339,7 +465,12 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">ocp_nlp_out *</td>          <td class="paramname"><span class="paramname"><em>output</em></span>&#160;)</td>
+          <td class="paramtype">ocp_nlp_out *</td>          <td class="paramname"><span class="paramname"><em>output</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>collect_details</em></span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -362,38 +493,41 @@ Static Private Attributes</h2></td></tr>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00067">67</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">   72</span>                                                                     {</div>
-<div class="line"><span class="lineno">   73</span>  <span class="keyword">auto</span> readTime = [&amp;](<span class="keyword">const</span> <span class="keywordtype">char</span>* field, <span class="keywordtype">double</span>&amp; destination_ms) {</div>
-<div class="line"><span class="lineno">   74</span>    <span class="keywordtype">double</span> time_seconds = 0.0;</div>
-<div class="line"><span class="lineno">   75</span>    ocp_nlp_get(solver, field, &amp;time_seconds);</div>
-<div class="line"><span class="lineno">   76</span>    destination_ms = time_seconds * 1000.0;</div>
-<div class="line"><span class="lineno">   77</span>  };</div>
-<div class="line"><span class="lineno">   78</span> </div>
-<div class="line"><span class="lineno">   79</span>  readTime(<span class="stringliteral">&quot;time_tot&quot;</span>, metrics.acados_total_ms);</div>
-<div class="line"><span class="lineno">   80</span>  readTime(<span class="stringliteral">&quot;time_lin&quot;</span>, metrics.acados_lin_ms);</div>
-<div class="line"><span class="lineno">   81</span>  readTime(<span class="stringliteral">&quot;time_sim&quot;</span>, metrics.acados_sim_ms);</div>
-<div class="line"><span class="lineno">   82</span>  readTime(<span class="stringliteral">&quot;time_qp&quot;</span>, metrics.acados_qp_ms);</div>
-<div class="line"><span class="lineno">   83</span>  readTime(<span class="stringliteral">&quot;time_qp_solver_call&quot;</span>, metrics.acados_qp_solver_ms);</div>
-<div class="line"><span class="lineno">   84</span>  readTime(<span class="stringliteral">&quot;time_qp_xcond&quot;</span>, metrics.acados_qp_xcond_ms);</div>
-<div class="line"><span class="lineno">   85</span>  readTime(<span class="stringliteral">&quot;time_reg&quot;</span>, metrics.acados_reg_ms);</div>
-<div class="line"><span class="lineno">   86</span>  readTime(<span class="stringliteral">&quot;time_glob&quot;</span>, metrics.acados_glob_ms);</div>
-<div class="line"><span class="lineno">   87</span>  readTime(<span class="stringliteral">&quot;time_preparation&quot;</span>, metrics.acados_preparation_ms);</div>
-<div class="line"><span class="lineno">   88</span>  readTime(<span class="stringliteral">&quot;time_feedback&quot;</span>, metrics.acados_feedback_ms);</div>
-<div class="line"><span class="lineno">   89</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;sqp_iter&quot;</span>, &amp;metrics.sqp_iter);</div>
-<div class="line"><span class="lineno">   90</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;qp_iter&quot;</span>, &amp;metrics.qp_iter);</div>
-<div class="line"><span class="lineno">   91</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;qp_status&quot;</span>, &amp;metrics.qp_status);</div>
-<div class="line"><span class="lineno">   92</span>  ocp_nlp_out_get(config, dims, output, 0, <span class="stringliteral">&quot;kkt_norm_inf&quot;</span>, &amp;metrics.kkt_norm_inf);</div>
-<div class="line"><span class="lineno">   93</span> </div>
-<div class="line"><span class="lineno">   94</span>  ocp_nlp_eval_cost(solver, input, output);</div>
-<div class="line"><span class="lineno">   95</span>  ocp_nlp_eval_residuals(solver, input, output);</div>
-<div class="line"><span class="lineno">   96</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;cost_value&quot;</span>, &amp;metrics.cost_value);</div>
-<div class="line"><span class="lineno">   97</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_stat&quot;</span>, &amp;metrics.res_stat);</div>
-<div class="line"><span class="lineno">   98</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_eq&quot;</span>, &amp;metrics.res_eq);</div>
-<div class="line"><span class="lineno">   99</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_ineq&quot;</span>, &amp;metrics.res_ineq);</div>
-<div class="line"><span class="lineno">  100</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_comp&quot;</span>, &amp;metrics.res_comp);</div>
-<div class="line"><span class="lineno">  101</span>  metrics.nlp_res = std::max({metrics.res_stat, metrics.res_eq, metrics.res_ineq, metrics.res_comp});</div>
-<div class="line"><span class="lineno">  102</span>}</div>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00071">71</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">   77</span>                                                                      {</div>
+<div class="line"><span class="lineno">   78</span>  ocp_nlp_eval_cost(solver, input, output);</div>
+<div class="line"><span class="lineno">   79</span>  ocp_nlp_eval_residuals(solver, input, output);</div>
+<div class="line"><span class="lineno">   80</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;cost_value&quot;</span>, &amp;metrics.cost_value);</div>
+<div class="line"><span class="lineno">   81</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_eq&quot;</span>, &amp;metrics.res_eq);</div>
+<div class="line"><span class="lineno">   82</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_ineq&quot;</span>, &amp;metrics.res_ineq);</div>
+<div class="line"><span class="lineno">   83</span> </div>
+<div class="line"><span class="lineno">   84</span>  <span class="keywordflow">if</span> (!collect_details) <span class="keywordflow">return</span>;</div>
+<div class="line"><span class="lineno">   85</span> </div>
+<div class="line"><span class="lineno">   86</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_stat&quot;</span>, &amp;metrics.res_stat);</div>
+<div class="line"><span class="lineno">   87</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;res_comp&quot;</span>, &amp;metrics.res_comp);</div>
+<div class="line"><span class="lineno">   88</span>  metrics.nlp_res = std::max({metrics.res_stat, metrics.res_eq, metrics.res_ineq, metrics.res_comp});</div>
+<div class="line"><span class="lineno">   89</span> </div>
+<div class="line"><span class="lineno">   90</span>  <span class="keyword">auto</span> readTime = [&amp;](<span class="keyword">const</span> <span class="keywordtype">char</span>* field, <span class="keywordtype">double</span>&amp; destination_ms) {</div>
+<div class="line"><span class="lineno">   91</span>    <span class="keywordtype">double</span> time_seconds = 0.0;</div>
+<div class="line"><span class="lineno">   92</span>    ocp_nlp_get(solver, field, &amp;time_seconds);</div>
+<div class="line"><span class="lineno">   93</span>    destination_ms = time_seconds * 1000.0;</div>
+<div class="line"><span class="lineno">   94</span>  };</div>
+<div class="line"><span class="lineno">   95</span> </div>
+<div class="line"><span class="lineno">   96</span>  readTime(<span class="stringliteral">&quot;time_tot&quot;</span>, metrics.acados_total_ms);</div>
+<div class="line"><span class="lineno">   97</span>  readTime(<span class="stringliteral">&quot;time_lin&quot;</span>, metrics.acados_lin_ms);</div>
+<div class="line"><span class="lineno">   98</span>  readTime(<span class="stringliteral">&quot;time_sim&quot;</span>, metrics.acados_sim_ms);</div>
+<div class="line"><span class="lineno">   99</span>  readTime(<span class="stringliteral">&quot;time_qp&quot;</span>, metrics.acados_qp_ms);</div>
+<div class="line"><span class="lineno">  100</span>  readTime(<span class="stringliteral">&quot;time_qp_solver_call&quot;</span>, metrics.acados_qp_solver_ms);</div>
+<div class="line"><span class="lineno">  101</span>  readTime(<span class="stringliteral">&quot;time_qp_xcond&quot;</span>, metrics.acados_qp_xcond_ms);</div>
+<div class="line"><span class="lineno">  102</span>  readTime(<span class="stringliteral">&quot;time_reg&quot;</span>, metrics.acados_reg_ms);</div>
+<div class="line"><span class="lineno">  103</span>  readTime(<span class="stringliteral">&quot;time_glob&quot;</span>, metrics.acados_glob_ms);</div>
+<div class="line"><span class="lineno">  104</span>  readTime(<span class="stringliteral">&quot;time_preparation&quot;</span>, metrics.acados_preparation_ms);</div>
+<div class="line"><span class="lineno">  105</span>  readTime(<span class="stringliteral">&quot;time_feedback&quot;</span>, metrics.acados_feedback_ms);</div>
+<div class="line"><span class="lineno">  106</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;sqp_iter&quot;</span>, &amp;metrics.sqp_iter);</div>
+<div class="line"><span class="lineno">  107</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;qp_iter&quot;</span>, &amp;metrics.qp_iter);</div>
+<div class="line"><span class="lineno">  108</span>  ocp_nlp_get(solver, <span class="stringliteral">&quot;qp_status&quot;</span>, &amp;metrics.qp_status);</div>
+<div class="line"><span class="lineno">  109</span>  ocp_nlp_out_get(config, dims, output, 0, <span class="stringliteral">&quot;kkt_norm_inf&quot;</span>, &amp;metrics.kkt_norm_inf);</div>
+<div class="line"><span class="lineno">  110</span>}</div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -479,8 +613,8 @@ Static Private Attributes</h2></td></tr>
 <p>Returns the path of the CSV performance log. </p>
 <dl class="section return"><dt>Returns</dt><dd>Path of the active performance log file. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00119">119</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">  119</span>{ <span class="keywordflow">return</span> <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>; }</div>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00142">142</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">  142</span>{ <span class="keywordflow">return</span> <a class="code hl_variable" href="#a73c76e4fe79e745a5889ea2bf1747076">path_</a>; }</div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -507,26 +641,29 @@ Static Private Attributes</h2></td></tr>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00104">104</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">  104</span>                                                               {</div>
-<div class="line"><span class="lineno">  105</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a> &lt;&lt; std::setprecision(17) &lt;&lt; 4 &lt;&lt; <span class="stringliteral">&quot;,runtime,,&quot;</span> &lt;&lt; metrics.cycle &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; nowNanoseconds() &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.ego_stamp_ns</div>
-<div class="line"><span class="lineno">  106</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.reference_stamp_ns &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.route_stamp_ns &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.status &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  107</span>          &lt;&lt; (metrics.published ? 1 : 0) &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.reference_points &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.objects &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.sqp_iter</div>
-<div class="line"><span class="lineno">  108</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.qp_iter &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.qp_status &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.cycle_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.preprocessing_ms</div>
-<div class="line"><span class="lineno">  109</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.solve_wall_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.postprocessing_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_total_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  110</span>          &lt;&lt; metrics.acados_lin_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_sim_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_qp_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  111</span>          &lt;&lt; metrics.acados_qp_solver_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_qp_xcond_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_reg_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  112</span>          &lt;&lt; metrics.acados_glob_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_preparation_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_feedback_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  113</span>          &lt;&lt; metrics.cost_value &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.kkt_norm_inf &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.nlp_res &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_stat &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
-<div class="line"><span class="lineno">  114</span>          &lt;&lt; metrics.res_eq &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_ineq &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_comp &lt;&lt; <span class="charliteral">&#39;\n&#39;</span>;</div>
-<div class="line"><span class="lineno">  115</span> </div>
-<div class="line"><span class="lineno">  116</span>  <span class="keywordflow">if</span> (++<a class="code hl_variable" href="#ac7d4bfb07573c769dcc1efefc5be7707">records_since_flush_</a> &gt;= <a class="code hl_variable" href="#aaa10913580a1e1a40843d3e7721823d8">FLUSH_INTERVAL</a>) {</div>
-<div class="line"><span class="lineno">  117</span>    <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
-<div class="line"><span class="lineno">  118</span>    <a class="code hl_variable" href="#ac7d4bfb07573c769dcc1efefc5be7707">records_since_flush_</a> = 0;</div>
-<div class="line"><span class="lineno">  119</span>  }</div>
-<div class="line"><span class="lineno">  120</span>}</div>
-<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_aaa10913580a1e1a40843d3e7721823d8"><div class="ttname"><a href="#aaa10913580a1e1a40843d3e7721823d8">trajectory_optimization::PerformanceLogger::FLUSH_INTERVAL</a></div><div class="ttdeci">static constexpr uint64_t FLUSH_INTERVAL</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00122">performance_logger.hpp:122</a></div></div>
-<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_ac7d4bfb07573c769dcc1efefc5be7707"><div class="ttname"><a href="#ac7d4bfb07573c769dcc1efefc5be7707">trajectory_optimization::PerformanceLogger::records_since_flush_</a></div><div class="ttdeci">uint64_t records_since_flush_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00126">performance_logger.hpp:126</a></div></div>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8cpp_source.html#l00185">185</a> of file <a class="el" href="performance__logger_8cpp_source.html">performance_logger.cpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">  185</span>                                                               {</div>
+<div class="line"><span class="lineno">  186</span>  <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a> &lt;&lt; std::setprecision(17) &lt;&lt; 5 &lt;&lt; <span class="stringliteral">&quot;,runtime,,&quot;</span> &lt;&lt; metrics.cycle &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; nowNanoseconds() &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.ego_stamp_ns</div>
+<div class="line"><span class="lineno">  187</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.reference_stamp_ns &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.route_stamp_ns &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.status &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  188</span>          &lt;&lt; (metrics.published ? 1 : 0) &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.reference_points &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.objects &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.sqp_iter</div>
+<div class="line"><span class="lineno">  189</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.qp_iter &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.qp_status &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.cycle_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.preprocessing_ms</div>
+<div class="line"><span class="lineno">  190</span>          &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.solve_wall_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.postprocessing_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_total_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  191</span>          &lt;&lt; metrics.acados_lin_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_sim_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_qp_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  192</span>          &lt;&lt; metrics.acados_qp_solver_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_qp_xcond_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_reg_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  193</span>          &lt;&lt; metrics.acados_glob_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_preparation_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.acados_feedback_ms &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  194</span>          &lt;&lt; metrics.cost_value &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.kkt_norm_inf &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.nlp_res &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_stat &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  195</span>          &lt;&lt; metrics.res_eq &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_ineq &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.res_comp &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.max_ineq_violation &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  196</span>          &lt;&lt; metrics.max_ineq_stage &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.max_ineq_type &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.max_ineq_index &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  197</span>          &lt;&lt; metrics.max_ineq_side &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.max_eq_violation &lt;&lt; <span class="charliteral">&#39;,&#39;</span> &lt;&lt; metrics.max_eq_stage &lt;&lt; <span class="charliteral">&#39;,&#39;</span></div>
+<div class="line"><span class="lineno">  198</span>          &lt;&lt; metrics.max_eq_state &lt;&lt; <span class="charliteral">&#39;\n&#39;</span>;</div>
+<div class="line"><span class="lineno">  199</span> </div>
+<div class="line"><span class="lineno">  200</span>  <span class="keywordflow">if</span> (++<a class="code hl_variable" href="#ac7d4bfb07573c769dcc1efefc5be7707">records_since_flush_</a> &gt;= <a class="code hl_variable" href="#aaa10913580a1e1a40843d3e7721823d8">FLUSH_INTERVAL</a>) {</div>
+<div class="line"><span class="lineno">  201</span>    <a class="code hl_variable" href="#ad0d2e7fb6313c3365d0ffd898be25b85">stream_</a>.flush();</div>
+<div class="line"><span class="lineno">  202</span>    <a class="code hl_variable" href="#ac7d4bfb07573c769dcc1efefc5be7707">records_since_flush_</a> = 0;</div>
+<div class="line"><span class="lineno">  203</span>  }</div>
+<div class="line"><span class="lineno">  204</span>}</div>
+<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_aaa10913580a1e1a40843d3e7721823d8"><div class="ttname"><a href="#aaa10913580a1e1a40843d3e7721823d8">trajectory_optimization::PerformanceLogger::FLUSH_INTERVAL</a></div><div class="ttdeci">static constexpr uint64_t FLUSH_INTERVAL</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00145">performance_logger.hpp:145</a></div></div>
+<div class="ttc" id="aclasstrajectory__optimization_1_1PerformanceLogger_html_ac7d4bfb07573c769dcc1efefc5be7707"><div class="ttname"><a href="#ac7d4bfb07573c769dcc1efefc5be7707">trajectory_optimization::PerformanceLogger::records_since_flush_</a></div><div class="ttdeci">uint64_t records_since_flush_</div><div class="ttdef"><b>Definition</b> <a href="performance__logger_8hpp_source.html#l00149">performance_logger.hpp:149</a></div></div>
 </div><!-- fragment -->
 </div>
 </div>
@@ -551,7 +688,7 @@ Static Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00122">122</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00145">145</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 
 </div>
 </div>
@@ -575,7 +712,7 @@ Static Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00124">124</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00147">147</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 
 </div>
 </div>
@@ -599,7 +736,7 @@ Static Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00126">126</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00149">149</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 
 </div>
 </div>
@@ -623,7 +760,7 @@ Static Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00125">125</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="performance__logger_8hpp_source.html#l00148">148</a> of file <a class="el" href="performance__logger_8hpp_source.html">performance_logger.hpp</a>.</p>
 
 </div>
 </div>

@@ -8,6 +8,7 @@ var ocp__model__handler_8hpp =
     [ "acados_evaluate_dynamics", "ocp__model__handler_8hpp.html#aed4341a60834f385364a2eb9cabf735f", null ],
     [ "acados_free", "ocp__model__handler_8hpp.html#a1faeb96cd88e9027071e02b798f58c9a", null ],
     [ "acados_free_capsule", "ocp__model__handler_8hpp.html#a7891d7f1729631dd2617f155ba664df3", null ],
+    [ "acados_get_common_nlp_opts", "ocp__model__handler_8hpp.html#ac396ee302d5dfbf18626cdf6902d4508", null ],
     [ "acados_get_nlp_config", "ocp__model__handler_8hpp.html#a5461cba71cd01ed379937a43b15d4a5b", null ],
     [ "acados_get_nlp_dims", "ocp__model__handler_8hpp.html#aa64bc7a83deda16392d327c1e7afa441", null ],
     [ "acados_get_nlp_in", "ocp__model__handler_8hpp.html#ac56d1e13c052a0920fe8cc00a2707fbd", null ],

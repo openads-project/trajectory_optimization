@@ -28,7 +28,7 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.3.1</span>
+   <div id="projectname">trajectory_optimization<span id="projectnumber">&#160;v1.4.0</span>
    </div>
   </td>
  </tr>
@@ -181,6 +181,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a606c76fb7ae59d2b8f16388048aa1c82" id="r_a606c76fb7ae59d2b8f16388048aa1c82"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a606c76fb7ae59d2b8f16388048aa1c82">acados_get_nlp_opts</a> (<a class="el" href="#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule)</td></tr>
 <tr class="memdesc:a606c76fb7ae59d2b8f16388048aa1c82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around the generated accessor for the OCP solver options.  <br /></td></tr>
 <tr class="separator:a606c76fb7ae59d2b8f16388048aa1c82"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac396ee302d5dfbf18626cdf6902d4508" id="r_ac396ee302d5dfbf18626cdf6902d4508"><td class="memItemLeft" align="right" valign="top">const ocp_nlp_opts *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac396ee302d5dfbf18626cdf6902d4508">acados_get_common_nlp_opts</a> (ocp_nlp_config *config, void *solver_opts)</td></tr>
+<tr class="memdesc:ac396ee302d5dfbf18626cdf6902d4508"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the common NLP options stored inside the generated solver-specific options.  <br /></td></tr>
+<tr class="separator:ac396ee302d5dfbf18626cdf6902d4508"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa64bc7a83deda16392d327c1e7afa441" id="r_aa64bc7a83deda16392d327c1e7afa441"><td class="memItemLeft" align="right" valign="top">ocp_nlp_dims *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa64bc7a83deda16392d327c1e7afa441">acados_get_nlp_dims</a> (<a class="el" href="#ac9ae85a6ccdf0e100333943202cba65b">ocp_model_capsule_t</a> capsule)</td></tr>
 <tr class="memdesc:aa64bc7a83deda16392d327c1e7afa441"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around the generated accessor for the OCP dimensions.  <br /></td></tr>
 <tr class="separator:aa64bc7a83deda16392d327c1e7afa441"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -499,6 +502,44 @@ Variables</h2></td></tr>
 </div><!-- fragment -->
 </div>
 </div>
+<a id="ac396ee302d5dfbf18626cdf6902d4508" name="ac396ee302d5dfbf18626cdf6902d4508"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac396ee302d5dfbf18626cdf6902d4508">&#9670;&#160;</a></span>acados_get_common_nlp_opts()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const ocp_nlp_opts * trajectory_optimization::acados_get_common_nlp_opts </td>
+          <td>(</td>
+          <td class="paramtype">ocp_nlp_config *</td>          <td class="paramname"><span class="paramname"><em>config</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">void *</td>          <td class="paramname"><span class="paramname"><em>solver_opts</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the common NLP options stored inside the generated solver-specific options. </p>
+
+<p class="definition">Definition at line <a class="el" href="ocp__model__handler_8hpp_source.html#l00209">209</a> of file <a class="el" href="ocp__model__handler_8hpp_source.html">ocp_model_handler.hpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">  209</span>                                                                                                 {</div>
+<div class="line"><span class="lineno">  210</span>  <span class="keywordtype">void</span>* common_opts = <span class="keyword">nullptr</span>;</div>
+<div class="line"><span class="lineno">  211</span>  config-&gt;opts_get(config, solver_opts, <span class="stringliteral">&quot;nlp_opts&quot;</span>, &amp;common_opts);</div>
+<div class="line"><span class="lineno">  212</span>  <span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>ocp_nlp_opts*<span class="keyword">&gt;</span>(common_opts);</div>
+<div class="line"><span class="lineno">  213</span>}</div>
+</div><!-- fragment -->
+</div>
+</div>
 <a id="a5461cba71cd01ed379937a43b15d4a5b" name="a5461cba71cd01ed379937a43b15d4a5b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5461cba71cd01ed379937a43b15d4a5b">&#9670;&#160;</a></span>acados_get_nlp_config()</h2>
 
@@ -568,8 +609,8 @@ Variables</h2></td></tr>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Pointer to the model-specific <code>ocp_nlp_dims</code>. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="ocp__model__handler_8hpp_source.html#l00212">212</a> of file <a class="el" href="ocp__model__handler_8hpp_source.html">ocp_model_handler.hpp</a>.</p>
-<div class="fragment"><div class="line"><span class="lineno">  212</span>{ <a class="code hl_define" href="ocp__model__handler_8hpp.html#ac46885697791d6f1042ea35aae2da282">ACADOS_DISPATCH</a>(acados_get_nlp_dims); }</div>
+<p class="definition">Definition at line <a class="el" href="ocp__model__handler_8hpp_source.html#l00221">221</a> of file <a class="el" href="ocp__model__handler_8hpp_source.html">ocp_model_handler.hpp</a>.</p>
+<div class="fragment"><div class="line"><span class="lineno">  221</span>{ <a class="code hl_define" href="ocp__model__handler_8hpp.html#ac46885697791d6f1042ea35aae2da282">ACADOS_DISPATCH</a>(acados_get_nlp_dims); }</div>
 </div><!-- fragment -->
 </div>
 </div>
