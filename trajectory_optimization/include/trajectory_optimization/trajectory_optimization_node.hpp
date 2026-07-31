@@ -231,14 +231,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in] object_list Current object list.
    * @param[in] route Current route data.
    * @param[in] reference_trajectory Current reference trajectory.
-   * @param[in] x_init Initial optimizer state.
    * @return `true` if all optimizer inputs were updated successfully.
    */
   bool updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                        const perception_msgs::msg::ObjectList& object_list,
                        const route_planning_msgs::msg::Route& route,
-                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                       const std::vector<double>& x_init);
+                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
 
   /**
    * @brief Writes stage-independent data into the OCP.
@@ -392,16 +390,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
-  bool add_x_init_to_ref_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;
 
   // common bi-level thresholds
-  double bi_level_dV_ = 5.0;
-  double bi_level_dA_ = 2.0;
-  double bi_level_dY_ = 0.1;
-  double bi_level_dYaw_ = 5.0;
+  double bi_level_dV_ = 2.0;
+  double bi_level_dY_ = 0.3;
+  double bi_level_dYaw_ = 89.0;
 
   // latest valid trajectory
   trajectory_planning_msgs::msg::Trajectory latest_valid_trajectory_;

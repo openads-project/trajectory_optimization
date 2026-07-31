@@ -10,10 +10,7 @@ RCLCPP_COMPONENTS_REGISTER_NODE(trajectory_optimization::TrajectoryOptimizationA
 namespace trajectory_optimization {
 
 TrajectoryOptimizationAckermannNode::TrajectoryOptimizationAckermannNode(const rclcpp::NodeOptions& options)
-    : TrajectoryOptimizationNode("TrajectoryOptimizationAckermannNode", options) {
-  this->declareAndLoadParameter("bi_level_dDelta", bi_level_dDelta_,
-                                "Threshold for bi-level stabilization: maximum ackermann steering angle difference [degree]");
-}
+    : TrajectoryOptimizationNode("TrajectoryOptimizationAckermannNode", options) {}
 
 void TrajectoryOptimizationAckermannNode::initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) {
   trajectory_planning_msgs::trajectory_access::initializeTrajectory(trajectory, trajectory_planning_msgs::msg::DRIVABLE::TYPE_ID,
@@ -58,23 +55,22 @@ std::vector<double> TrajectoryOptimizationAckermannNode::getBiLevelX0(const perc
 
   // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
-  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_ ||
-      fabs(a_tgt - perception_msgs::object_access::getAccLon(ego_data)) > bi_level_dA_) {
-    RCLCPP_WARN(this->get_logger(), "Lon reinit: v_tgt: %f, a_tgt: %f, ego_v: %f, ego_a: %f", v_tgt, a_tgt,
-                perception_msgs::object_access::getVelLon(ego_data), perception_msgs::object_access::getAccLon(ego_data));
-    v_tgt = perception_msgs::object_access::getVelLon(ego_data);
-    a_tgt = perception_msgs::object_access::getAccLon(ego_data);
+  if (fabs(v_tgt - perception_msgs::object_access::getVelLon(ego_data)) > bi_level_dV_) {
+    const auto ego_v = perception_msgs::object_access::getVelLon(ego_data);
+    const auto ego_a = perception_msgs::object_access::getAccLon(ego_data);
+    RCLCPP_WARN(this->get_logger(), "Velocity reinit: v_tgt: %f, a_tgt: %f, ego_v: %f, ego_a: %f", v_tgt, a_tgt, ego_v, ego_a);
+    v_tgt = ego_v;
+    a_tgt = ego_a;
   }
   // lateral reinits
   if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
-    RCLCPP_WARN(this->get_logger(), "Lat reinit: y_tgt: %f, theta_tgt: %f", y_tgt, theta_tgt);
+    const auto ego_delta = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+    RCLCPP_WARN(this->get_logger(),
+                "Lateral reinit: y_tgt: %f, theta_tgt: %f, delta_tgt: %f, ego_y: %f, ego_theta: %f, ego_delta: %f", y_tgt,
+                theta_tgt, delta_tgt, 0.0, 0.0, ego_delta);
     y_tgt = 0.0;
     theta_tgt = 0.0;
-    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
-  } else if (fabs(delta_tgt - perception_msgs::object_access::getSteeringAngleAck(ego_data)) > bi_level_dDelta_ * M_PI / 180.0) {
-    RCLCPP_WARN(this->get_logger(), "Delta reinit: delta_tgt: %f, ego_delta: %f", delta_tgt,
-                perception_msgs::object_access::getSteeringAngleAck(ego_data));
-    delta_tgt = perception_msgs::object_access::getSteeringAngleAck(ego_data);
+    delta_tgt = ego_delta;
   }
 
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);

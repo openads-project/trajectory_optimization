@@ -65,9 +65,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter(
-      "add_x_init_to_ref", add_x_init_to_ref_,
-      "add initial state of OCP to beginning of reference trajectory if this starts in front of ego vehicle");
-  this->declareAndLoadParameter(
       "consider_objects", consider_objects_,
       "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
   this->declareAndLoadParameter("min_prediction_probability", min_prediction_probability_,
@@ -77,8 +74,6 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
       "consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space");
   this->declareAndLoadParameter("bi_level_dV", bi_level_dV_,
                                 "Threshold for bi-level stabilization: maximum velocity difference [m/s]");
-  this->declareAndLoadParameter("bi_level_dA", bi_level_dA_,
-                                "Threshold for bi-level stabilization: maximum acceleration difference [m/s^2]");
   this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
@@ -461,7 +456,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
-  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_, x_init)) {
+  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
@@ -556,8 +551,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                                                  const perception_msgs::msg::ObjectList& object_list,
                                                  const route_planning_msgs::msg::Route& route,
-                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                                                 const std::vector<double>& x_init) {
+                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;
@@ -567,11 +561,6 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     tf_reference_trajectory =
         tf2_buffer_->transform(reference_trajectory, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
                                fixed_over_time_frame_id_, tf2::durationFromSec(0.01));
-    if (add_x_init_to_ref_ && trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, 0) > 0.0) {
-      RCLCPP_INFO(this->get_logger(), "Adding x_init to beginning of reference trajectory");
-      std::vector<double> x_0_ref = {0.0, x_init[0], x_init[1], x_init[3]};
-      tf_reference_trajectory.states.insert(tf_reference_trajectory.states.begin(), x_0_ref.begin(), x_0_ref.end());
-    }
     // object list
     if (!object_list.objects.empty() && object_list.header.frame_id != vehicle_frame_id_) {
       tf_object_list = tf2_buffer_->transform(object_list, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),

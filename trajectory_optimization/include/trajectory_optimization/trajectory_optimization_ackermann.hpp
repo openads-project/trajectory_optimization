@@ -46,10 +46,6 @@ class TrajectoryOptimizationAckermannNode : public TrajectoryOptimizationNode {
    * @param[in,out] trajectory Trajectory message to populate.
    */
   void convertToTrajectoryMsg(trajectory_planning_msgs::msg::Trajectory& trajectory) override;
-
-  // parameters
-  // model specific bi-level thresholds
-  double bi_level_dDelta_ = 5.0;
 };
 
 }  // namespace trajectory_optimization

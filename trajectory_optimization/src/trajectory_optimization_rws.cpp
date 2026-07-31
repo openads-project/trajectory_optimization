@@ -14,10 +14,6 @@ TrajectoryOptimizationRWSNode::TrajectoryOptimizationRWSNode(const rclcpp::NodeO
     : TrajectoryOptimizationNode("TrajectoryOptimizationRWSNode", options) {
   this->declareAndLoadParameter("distance_front_axle", distance_front_axle_, "Distance from center of gravity to front axle [m]");
   this->declareAndLoadParameter("distance_rear_axle", distance_rear_axle_, "Distance from center of gravity to rear axle [m]");
-  this->declareAndLoadParameter("bi_level_dDelta_front", bi_level_dDelta_front_,
-                                "Threshold for bi-level stabilization: maximum front steering angle difference [degree]");
-  this->declareAndLoadParameter("bi_level_dDelta_rear", bi_level_dDelta_rear_,
-                                "Threshold for bi-level stabilization: maximum rear steering angle difference [degree]");
 }
 
 void TrajectoryOptimizationRWSNode::initializeTrajectory(trajectory_planning_msgs::msg::Trajectory& trajectory) {
@@ -70,25 +66,26 @@ std::vector<double> TrajectoryOptimizationRWSNode::getBiLevelX0(const perception
 
   // handle thresholds for bi-level stabilization (which means, using ego state as initial state for the optimization)
   // longitudinal reinits
-  double a_path = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
-                                    perception_msgs::object_access::getVelocity(ego_data));
-  if (fabs(v_tgt - perception_msgs::object_access::getVelocityMagnitude(ego_data)) > bi_level_dV_ ||
-      fabs(a_tgt - a_path) > bi_level_dA_) {
-    v_tgt = perception_msgs::object_access::getVelocityMagnitude(ego_data);
-    a_tgt = a_path;
+  if (fabs(v_tgt - perception_msgs::object_access::getVelocityMagnitude(ego_data)) > bi_level_dV_) {
+    const auto ego_v = perception_msgs::object_access::getVelocityMagnitude(ego_data);
+    const auto ego_a = projectVectorAonV(perception_msgs::object_access::getAcceleration(ego_data),
+                                         perception_msgs::object_access::getVelocity(ego_data));
+    RCLCPP_WARN(this->get_logger(), "Velocity reinit: v_tgt: %f, a_tgt: %f, ego_v: %f, ego_a: %f", v_tgt, a_tgt, ego_v, ego_a);
+    v_tgt = ego_v;
+    a_tgt = ego_a;
   }
   // lateral reinits
   if (fabs(y_tgt) > bi_level_dY_ || fabs(theta_tgt) > bi_level_dYaw_ * M_PI / 180.0) {
+    const auto ego_delta_front = perception_msgs::object_access::getSteeringAngleFront(ego_data);
+    const auto ego_delta_rear = perception_msgs::object_access::getSteeringAngleRear(ego_data);
+    RCLCPP_WARN(this->get_logger(),
+                "Lateral reinit: y_tgt: %f, theta_tgt: %f, delta_front_tgt: %f, delta_rear_tgt: %f, ego_y: %f, "
+                "ego_theta: %f, ego_delta_front: %f, ego_delta_rear: %f",
+                y_tgt, theta_tgt, delta_front_tgt, delta_rear_tgt, 0.0, 0.0, ego_delta_front, ego_delta_rear);
     y_tgt = 0.0;
     theta_tgt = 0.0;
-    delta_front_tgt = perception_msgs::object_access::getSteeringAngleFront(ego_data);
-    delta_rear_tgt = perception_msgs::object_access::getSteeringAngleRear(ego_data);
-  } else if (fabs(delta_front_tgt - perception_msgs::object_access::getSteeringAngleFront(ego_data)) >
-             bi_level_dDelta_front_ * M_PI / 180.0) {
-    delta_front_tgt = perception_msgs::object_access::getSteeringAngleFront(ego_data);
-  } else if (fabs(delta_rear_tgt - perception_msgs::object_access::getSteeringAngleRear(ego_data)) >
-             bi_level_dDelta_rear_ * M_PI / 180.0) {
-    delta_rear_tgt = perception_msgs::object_access::getSteeringAngleRear(ego_data);
+    delta_front_tgt = ego_delta_front;
+    delta_rear_tgt = ego_delta_rear;
   }
 
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
