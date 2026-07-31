@@ -1,0 +1,9 @@
+apiVersion: v2
+name: trajectory-optimization
+version: 1.4.0
+appVersion: 1.4.0
+description: ROS 2 Trajectory Optimization for Automated Driving based on an Optimal Control Problem (OCP).
+dependencies:
+  - repository: oci://ghcr.io/openads-project/openads-helm
+    name: openadservice
+    version: 1.0.0

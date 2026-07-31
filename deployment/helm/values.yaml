@@ -1,0 +1,45 @@
+openadservice:
+  name: trajectory-optimization
+  image: ghcr.io/openads-project/trajectory_optimization:v1.4.0
+  env:
+    # --- name ------
+    NAMESPACE: /
+    NAME: trajectory_optimization
+    # --- inputs ----
+    EGO_DATA_TOPIC: ~/ego_data
+    OBJECT_LIST_TOPIC: ~/object_list
+    REFERENCE_TRAJECTORY_TOPIC: ~/reference_trajectory
+    ROUTE_TOPIC: ~/route
+    # --- outputs ---
+    TRAJECTORY_TOPIC: ~/trajectory
+    BOUNDARY_MARKER_TOPIC: ~/visualization/boundaries
+    EGO_CIRCLES_TOPIC: ~/visualization/ego_circles
+    OBJECT_CIRCLES_TOPIC: ~/visualization/object_circles
+    # --- other -----
+    LOG_LEVEL: info
+    USE_SIM_TIME: false
+    PARAMS: /docker-ros/ws/install/trajectory_optimization/share/trajectory_optimization/config/params.yml
+    ROS_TRACING: false
+    DRIVING_MODE: ackermann
+  args:
+  - /bin/bash
+  - -ic
+  - |
+    ros2 launch trajectory_optimization trajectory_optimization.launch.py \
+      namespace:=${NAMESPACE} \
+      name:=${NAME} \
+      log_level:=${LOG_LEVEL} \
+      use_sim_time:=${USE_SIM_TIME} \
+      params:=${PARAMS} \
+      ros_tracing:=${ROS_TRACING} \
+      driving_mode:=${DRIVING_MODE} \
+      ego_data_topic:=${EGO_DATA_TOPIC} \
+      object_list_topic:=${OBJECT_LIST_TOPIC} \
+      reference_trajectory_topic:=${REFERENCE_TRAJECTORY_TOPIC} \
+      route_topic:=${ROUTE_TOPIC} \
+      trajectory_topic:=${TRAJECTORY_TOPIC} \
+      boundary_marker_topic:=${BOUNDARY_MARKER_TOPIC} \
+      ego_circles_topic:=${EGO_CIRCLES_TOPIC} \
+      object_circles_topic:=${OBJECT_CIRCLES_TOPIC}
+  rosParamFileMountPath: /docker-ros/ws/install/trajectory_optimization/share/trajectory_optimization/config/params.yml
+  rosParamFileData: null
