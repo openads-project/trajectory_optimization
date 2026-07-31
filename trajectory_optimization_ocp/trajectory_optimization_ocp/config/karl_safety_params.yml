@@ -20,7 +20,7 @@ acceleration_t_min: -9.81         # max. negative tangential acceleration [m/s²
 acceleration_t_max: 9.81          # max. positive tangential acceleration [m/s²]
 acceleration_n_max: 9.81          # max. absolute normal acceleration [m/s²]
 alpha_max: 0.8                    # max. absolute steering rate [rad/s]
-jerk_min: -20.                    # max. negative tangential jerk [m/s²]
+jerk_min: -20.0                   # max. negative tangential jerk [m/s²]
 jerk_max: 20.0                    # max. positive tangential jerk [m/s²]
 
 ### cost scaling factors
