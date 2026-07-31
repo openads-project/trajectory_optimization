@@ -16,6 +16,7 @@
 
 // models
 #include <trajectory_optimization_ocp/acados_solver_karl.h>
+#include <trajectory_optimization_ocp/acados_solver_karl_safety.h>
 #include <trajectory_optimization_ocp/acados_solver_shuttle.h>
 
 namespace trajectory_optimization {
