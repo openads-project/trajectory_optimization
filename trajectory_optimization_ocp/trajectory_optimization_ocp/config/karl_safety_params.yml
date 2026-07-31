@@ -1,0 +1,60 @@
+### general parameters defining the ocp
+model_name: 'karl_safety'                # name of the acados model (also used in ROS node)
+model_type: 'Ackermann'           # model type on which the acados model is based on (Ackermann or RWS)
+optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
+n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
+
+### vehicle specific parameters
+wheelbase: 3.124                  # wheelbase [m]
+length: 5.173                     # length [m]
+width: 1.94                       # width [m]
+offset2geocenter: [1.4895, 0.0]   # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
+n_ego_circles: 5                  # number of circles to discretize ego-vehicle geometry
+
+### constraints
+delta_max: 0.6                    # max. absolute steering angle [rad] (33.97°)
+v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
+v_max: 20.84                      # upper boundary constraint for longitudinal velocity [m/s] (75km/h)
+acceleration_max: 9.81            # max. absolute acceleration [m/s²]
+acceleration_t_min: -9.81         # max. negative tangential acceleration [m/s²]
+acceleration_t_max: 9.81          # max. positive tangential acceleration [m/s²]
+acceleration_n_max: 9.81          # max. absolute normal acceleration [m/s²]
+alpha_max: 0.8                    # max. absolute steering rate [rad/s]
+jerk_min: -20.                    # max. negative tangential jerk [m/s²]
+jerk_max: 20.0                    # max. positive tangential jerk [m/s²]
+
+### cost scaling factors
+c_lat: 0.5            # distance to scale the lateral deviation costs [m]
+c_psi: 1.0            # distance to scale the yaw deviation costs [rad] -> not used cost function
+c_x: 1.0              # distance to scale the x deviation costs [m]
+c_y: 1.0              # distance to scale the y deviaton costs [m]
+c_a_t: 3.0            # distance to scale the tangential acceleration costs [m/s²]
+c_a_n: 3.0            # distance to scale the nominal acceleration costs [m/s²]
+c_j_t: 3.0            # distance to scale the tangential jerk costs [m/s³]
+c_j_n: 3.0            # distance to scale the normal jerk costs [m/s³]
+c_alpha: 0.35         # distance to scale the steering rate costs [rad/s]
+
+### slack weights for soft constraints
+enable_boundary_slack: False                # activate slack weights for soft constraints (route boundaries)
+boundary_slack_weights:                     # scalar or list (length 2 * n_ego_circles)
+  linear_lower: 10.0
+  linear_upper: 10.0
+  quadratic_lower: 100.0
+  quadratic_upper: 100.0
+enable_obstacle_slack: False                # activate slack weights for obstacle constraints
+obstacle_slack_weights:                     # scalar or list (length n_obstacles * n_ego_circles)
+  linear_lower: 50.0
+  linear_upper: 50.0
+  quadratic_lower: 500.0
+  quadratic_upper: 500.0
+
+### parameter vector structure (stage-wise parameters)
+# [dyn_weight (1), obstacles]
+p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
+p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
+
+### global parameter vector structure (constant over the horizon)
+# [cost_weights (12), cost_params (4), ref_path]
+p_cost_weights_shape: [12, 1]     # nWeights x weightDim (also used in ROS node)
+p_cost_params_shape: [4, 1]       # [thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
+p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)
