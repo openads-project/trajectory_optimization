@@ -18,6 +18,7 @@ Generation logic is defined in [`codegeneration.cmake`](codegeneration.cmake):
 1. Copy generator sources from `trajectory_optimization_ocp/` into the build directory.
 2. Run [`generate_ocp.py`](trajectory_optimization_ocp/generate_ocp.py) once per model config:
    - `karl_params.yml`
+   - `karl_safety_params.yml`
    - `shuttle_params.yml`
 3. Build generated acados solver code/libraries.
 4. Install generated headers and `.so` files.
@@ -34,6 +35,7 @@ Model equations are defined in:
 Model/config parameterizations are defined in:
 
 - [`trajectory_optimization_ocp/config/karl_params.yml`](trajectory_optimization_ocp/config/karl_params.yml)
+- [`trajectory_optimization_ocp/config/karl_safety_params.yml`](trajectory_optimization_ocp/config/karl_safety_params.yml)
 - [`trajectory_optimization_ocp/config/shuttle_params.yml`](trajectory_optimization_ocp/config/shuttle_params.yml)
 
 ### Generated artifacts

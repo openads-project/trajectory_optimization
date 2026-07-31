@@ -376,7 +376,7 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
   std::vector<double> ego_offset2geocenter;
 
   // define vehicle geometry based on model name (should match the OCP definition)
-  if (model_name == "karl") {
+  if (model_name == "karl" || model_name == "karl_safety") {
     ego_length = 5.173;
     ego_width = 1.94;
     ego_offset2geocenter = {1.4895, 0.0};

@@ -16,11 +16,12 @@
 
 // models
 #include <trajectory_optimization_ocp/acados_solver_karl.h>
+#include <trajectory_optimization_ocp/acados_solver_karl_safety.h>
 #include <trajectory_optimization_ocp/acados_solver_shuttle.h>
 
 namespace trajectory_optimization {
 
-typedef std::variant<karl_solver_capsule*, shuttle_solver_capsule*> ocp_model_capsule_t;
+typedef std::variant<karl_solver_capsule*, karl_safety_solver_capsule*, shuttle_solver_capsule*> ocp_model_capsule_t;
 
 /**
  * @brief Creates the model-specific acados capsule selected by the configured model name.
@@ -32,6 +33,8 @@ typedef std::variant<karl_solver_capsule*, shuttle_solver_capsule*> ocp_model_ca
 inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) {
   if (model_name == "karl") {
     return karl_acados_create_capsule();
+  } else if (model_name == "karl_safety") {
+    return karl_safety_acados_create_capsule();
   } else if (model_name == "shuttle") {
     return shuttle_acados_create_capsule();
   } else {
@@ -39,13 +42,15 @@ inline ocp_model_capsule_t acados_create_capsule(const std::string& model_name) 
   }
 }
 
-#define ACADOS_DISPATCH(function_name, ...)                                                    \
-  if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                 \
-    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);       \
-  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                       \
-    return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__); \
-  } else {                                                                                     \
-    throw std::invalid_argument("Invalid capsule type.");                                      \
+#define ACADOS_DISPATCH(function_name, ...)                                                            \
+  if (std::holds_alternative<karl_solver_capsule*>(capsule)) {                                         \
+    return karl_##function_name(std::get<karl_solver_capsule*>(capsule), ##__VA_ARGS__);               \
+  } else if (std::holds_alternative<karl_safety_solver_capsule*>(capsule)) {                           \
+    return karl_safety_##function_name(std::get<karl_safety_solver_capsule*>(capsule), ##__VA_ARGS__); \
+  } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {                               \
+    return shuttle_##function_name(std::get<shuttle_solver_capsule*>(capsule), ##__VA_ARGS__);         \
+  } else {                                                                                             \
+    throw std::invalid_argument("Invalid capsule type.");                                              \
   }
 
 /**
@@ -111,6 +116,8 @@ inline void acados_evaluate_dynamics(ocp_model_capsule_t capsule, int stage, dou
 
   if (std::holds_alternative<karl_solver_capsule*>(capsule)) {
     function = &std::get<karl_solver_capsule*>(capsule)->expl_ode_fun[stage];  // NOLINT
+  } else if (std::holds_alternative<karl_safety_solver_capsule*>(capsule)) {
+    function = &std::get<karl_safety_solver_capsule*>(capsule)->expl_ode_fun[stage];  // NOLINT
   } else if (std::holds_alternative<shuttle_solver_capsule*>(capsule)) {
     function = &std::get<shuttle_solver_capsule*>(capsule)->expl_ode_fun[stage];  // NOLINT
   } else {

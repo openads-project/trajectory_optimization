@@ -67,6 +67,7 @@ def main():
     ocp.code_gen_options.json_file = f"{parameters['model_name']}.json"
 
     builder = ocp_get_default_cmake_builder()
+    builder.additional_cmake_options = ""
     builder.options_on.append("BUILD_ACADOS_SOLVER_LIB")
 
     _ = AcadosOcpSolver(ocp, build=True, generate=True, cmake_builder=builder)

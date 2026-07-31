@@ -46,7 +46,7 @@ flowchart LR
 | `trajectory_frame_id` | `string` | `"base_link"` | Frame ID of output trajectory |
 | `fixed_over_time_frame_id` | `string` | `"map"` | Frame ID of frame that is fixed over time for finding temporal transforms |
 | `ego_data_timeout` | `float` | `1.0` | Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid. |
-| `model_name` | `string` | `"karl"` | Name of the model to be used for trajectory optimization [karl, shuttle] |
+| `model_name` | `string` | `"karl"` | Name of the model to be used for trajectory optimization [karl, karl_safety, shuttle] |
 | `optimization_frequency` | `float` | `10.0` | Optimization frequency in Hz |
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
