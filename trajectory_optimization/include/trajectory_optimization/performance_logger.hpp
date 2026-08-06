@@ -17,16 +17,30 @@ struct PerformanceMetrics {
   int64_t ego_stamp_ns = 0;
   int64_t reference_stamp_ns = 0;
   int64_t route_stamp_ns = 0;
-  int status = 0;
+  std::string outcome = "started";
+  bool solver_ran = false;
+  int status = -1;
   int sqp_iter = 0;
   int qp_iter = 0;
   int qp_status = 0;
   int reference_points = 0;
   int objects = 0;
+  std::string collision_geometry = "circles";
+  int obstacle_hypotheses = 0;
+  int dropped_obstacle_hypotheses = 0;
+  bool geometry_validated = false;
+  int node_object_collisions = 0;
+  int node_boundary_violations = 0;
+  int dropped_hypothesis_collisions = 0;
+  int intersample_object_collisions = 0;
+  int intersample_boundary_violations = 0;
+  double max_node_boundary_penetration_m = 0.0;
+  double max_intersample_boundary_penetration_m = 0.0;
   bool published = false;
 
   double cycle_ms = 0.0;
   double preprocessing_ms = 0.0;
+  double parameter_update_ms = 0.0;
   double solve_wall_ms = 0.0;
   double postprocessing_ms = 0.0;
   double acados_total_ms = 0.0;
@@ -127,12 +141,14 @@ class PerformanceLogger {
    * @param[in,out] metrics Metrics structure populated with constraint diagnostics.
    * @param[in] solver acados NLP solver instance.
    * @param[in] dims acados NLP dimensions.
-   * @param[in] obstacle_circles Number of obstacle circles represented in the nonlinear constraints.
+   * @param[in] boundary_constraints Number of leading nonlinear boundary constraints.
+   * @param[in] obstacle_constraints Number of following nonlinear obstacle constraints.
    */
   static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                            ocp_nlp_solver* solver,
                                            const ocp_nlp_dims* dims,
-                                           int obstacle_circles);
+                                           int boundary_constraints,
+                                           int obstacle_constraints);
 
   /**
    * @brief Returns the path of the CSV performance log.
@@ -145,7 +161,9 @@ class PerformanceLogger {
   static constexpr uint64_t FLUSH_INTERVAL = 100;
 
   std::filesystem::path path_;
+  std::filesystem::path active_file_;
   std::ofstream stream_;
+  std::string run_id_;
   uint64_t records_since_flush_ = 0;
 };
 

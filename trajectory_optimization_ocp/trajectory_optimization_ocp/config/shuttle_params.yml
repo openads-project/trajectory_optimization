@@ -1,6 +1,7 @@
 ### general parameters defining the ocp
 model_name: 'shuttle'             # name of the acados model (also used in ROS node)
 model_type: 'RWS'                 # model type on which the acados model is based on (Ackermann or RWS)
+collision_geometry: 'circles'     # collision geometry (circles or obb_sat)
 optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
@@ -60,6 +61,9 @@ obstacle_slack_weights:                     # scalar or list (length n_obstacles
 # [dyn_weight (1), obstacles]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
 p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
+p_obstacle_obbs_shape: [30, 5]    # nObstacleOBBs x [x, y, yaw, half_length, half_width]
+obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
+obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]
 
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]

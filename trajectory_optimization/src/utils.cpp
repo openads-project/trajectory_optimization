@@ -368,6 +368,37 @@ void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles
   }
   circles_pub_->publish(marker_array);
 }
+
+void TrajectoryOptimizationNode::vizObbs(const std::vector<double>& obstacles) {
+  visualization_msgs::msg::MarkerArray marker_array;
+  const size_t width = static_cast<size_t>(p_obstacle_obbs_shape_[1]);
+  const size_t box_count = obstacles.size() / width;
+  for (size_t index = 0; index < box_count; ++index) {
+    const size_t offset = index * width;
+    if (std::abs(obstacles[offset]) > 5000.0 || std::abs(obstacles[offset + 1]) > 5000.0) continue;
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = vehicle_frame_id_;
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+    marker.ns = "obstacle-obbs";
+    marker.id = static_cast<int>(index);
+    marker.type = visualization_msgs::msg::Marker::CUBE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = obstacles[offset];
+    marker.pose.position.y = obstacles[offset + 1];
+    const double half_yaw = 0.5 * obstacles[offset + 2];
+    marker.pose.orientation.z = std::sin(half_yaw);
+    marker.pose.orientation.w = std::cos(half_yaw);
+    marker.scale.x = 2.0 * obstacles[offset + 3];
+    marker.scale.y = 2.0 * obstacles[offset + 4];
+    marker.scale.z = 0.1;
+    marker.color.a = 0.25F;
+    marker.color.r = 1.0F;
+    marker_array.markers.push_back(marker);
+  }
+  circles_pub_->publish(marker_array);
+}
+
 void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name) {
   if (!ego_circles_pub_) return;
 
@@ -445,6 +476,46 @@ void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_traj
     }
   }
 
+  ego_circles_pub_->publish(marker_array);
+}
+
+void TrajectoryOptimizationNode::vizEgoObbs(const std::vector<double>& x_trajectory, const std::string& model_name) {
+  visualization_msgs::msg::MarkerArray marker_array;
+  if (x_trajectory.empty()) {
+    visualization_msgs::msg::Marker delete_marker;
+    delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    marker_array.markers.push_back(delete_marker);
+    ego_circles_pub_->publish(marker_array);
+    return;
+  }
+
+  const auto geometry = vehicleGeometry(model_name);
+  const int state_dim = *nlp_dims_->nx;
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const size_t offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
+    const auto box =
+        orientedBoxFromReference(x_trajectory[offset], x_trajectory[offset + 1], x_trajectory[offset + 5], geometry.length,
+                                 geometry.width, geometry.center_offset_long, geometry.center_offset_lat);
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = vehicle_frame_id_;
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+    marker.ns = "ego-obbs";
+    marker.id = stage;
+    marker.type = visualization_msgs::msg::Marker::CUBE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = box.x;
+    marker.pose.position.y = box.y;
+    marker.pose.orientation.z = std::sin(0.5 * box.yaw);
+    marker.pose.orientation.w = std::cos(0.5 * box.yaw);
+    marker.scale.x = 2.0 * box.half_length;
+    marker.scale.y = 2.0 * box.half_width;
+    marker.scale.z = 0.05;
+    marker.color.a = 0.35F;
+    marker.color.g = 0.6F;
+    marker.color.b = 1.0F;
+    marker_array.markers.push_back(marker);
+  }
   ego_circles_pub_->publish(marker_array);
 }
 

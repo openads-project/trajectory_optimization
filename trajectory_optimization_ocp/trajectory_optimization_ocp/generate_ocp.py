@@ -30,6 +30,8 @@ def parseArguments() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="configuration file (.yml)", type=str, required=False, default="params.yml")
+    parser.add_argument("--model-name", help="override generated solver/model name", type=str)
+    parser.add_argument("--collision-geometry", choices=("circles", "obb_sat"), help="override collision geometry")
     args = parser.parse_args()
     return args
 
@@ -52,6 +54,10 @@ def main():
     """Generate and build the optimal control problem (OCP) based on configuration."""
     args = parseArguments()
     parameters = readConfig(args.config)
+    if args.model_name:
+        parameters["model_name"] = args.model_name
+    if args.collision_geometry:
+        parameters["collision_geometry"] = args.collision_geometry
 
     ocp = AcadosOcp()
     if parameters["model_type"] == "Ackermann":
@@ -68,6 +74,8 @@ def main():
 
     builder = ocp_get_default_cmake_builder()
     builder.options_on.append("BUILD_ACADOS_SOLVER_LIB")
+    # acados_template otherwise renders the Python value `None` as a stray CMake path argument.
+    builder.additional_cmake_options = ""
 
     _ = AcadosOcpSolver(ocp, build=True, generate=True, cmake_builder=builder)
 

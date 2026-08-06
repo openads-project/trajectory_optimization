@@ -26,3 +26,11 @@ execute_process(
 execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/shuttle_params.yml"
 )
+
+execute_process(
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/karl_params.yml --model-name karl_obb_sat --collision-geometry obb_sat"
+)
+
+execute_process(
+  COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/shuttle_params.yml --model-name shuttle_obb_sat --collision-geometry obb_sat"
+)

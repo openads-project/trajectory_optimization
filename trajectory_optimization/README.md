@@ -34,8 +34,8 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
-| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the circular obstacle approximation used by the OCP. |
-| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego vehicle circle approximation used inside the OCP. |
+| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | Backward-compatible debug stream visualizing obstacle circles or OBBs selected by `collision_geometry`. |
+| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | Backward-compatible debug stream visualizing the selected ego circle or OBB representation. |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
 #### Parameters
@@ -47,11 +47,12 @@ flowchart LR
 | `fixed_over_time_frame_id` | `string` | `"map"` | Frame ID of frame that is fixed over time for finding temporal transforms |
 | `ego_data_timeout` | `float` | `1.0` | Time after which a received ego vehicle data is considered invalid [s]. Optimization will not be run if ego data is invalid. |
 | `model_name` | `string` | `"karl"` | Name of the model to be used for trajectory optimization [karl, shuttle] |
+| `collision_geometry` | `string` | `"circles"` | Read-only collision geometry implementation: `circles` or `obb_sat` |
 | `optimization_frequency` | `float` | `10.0` | Optimization frequency in Hz |
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
 | `verbose` | `bool` | `false` | Print solver statistics |
-| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
+| `performance_logging` | `bool` | `false` | Write one CSV record for every scheduled planning tick |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
@@ -59,7 +60,7 @@ flowchart LR
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
 | `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
 | `d_min_obstacle_lat` | `float` | `0.5` | Minimum distance to keep to obstacle in lateral direction [m] |
-| `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
+| `d_min_boundary_lat` | `float` | `-0.5` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
 | `consider_objects` | `int` | `2` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |

@@ -30,6 +30,7 @@
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
 // acados
+#include <trajectory_optimization/collision_geometry.hpp>
 #include <trajectory_optimization/ocp_model_handler.hpp>
 #include <trajectory_optimization/performance_logger.hpp>
 
@@ -82,6 +83,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   TrajectoryOptimizationNode& operator=(TrajectoryOptimizationNode&&) = delete;
 
  protected:
+  struct ObstacleHypothesisMetadata {
+    uint64_t object_id;
+    int prediction_index;
+    double probability;
+    uint8_t classification;
+  };
+
   enum CONSIDER_BOUNDARIES { NO_BOUNDS = 0, SUGGESTED_LANE = 1, INCLUDING_ADJACENT = 2, DRIVABLE_SPACE = 3 };
 
   enum CONSIDER_OBJECTS { NO_OBJECTS = 0, STATIC_OBJECTS = 1, PREDICTED_OBJECTS = 2 };
@@ -255,7 +263,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in] ego_data Current ego state.
    * @param[in] object_list Object list in optimizer frame.
    */
-  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
+  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
+                        const perception_msgs::msg::ObjectList& object_list,
+                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
 
   /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
@@ -303,6 +313,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    */
   void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
 
+  /** Publishes obstacle OBBs currently passed to the optimizer. */
+  void vizObbs(const std::vector<double>& obstacles);
+
+  /** Publishes the exact ego OBB along the optimized trajectory. */
+  void vizEgoObbs(const std::vector<double>& x_trajectory, const std::string& model_name);
+
   /**
    * @brief Publishes the boundary intersections corresponding to the distances passed to the OCP.
    *
@@ -311,6 +327,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    */
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
                          const std::vector<Eigen::Vector2d>& right_boundary_points);
+
+  /** Collects exact polygon collision and boundary diagnostics for the OBB spike. */
+  void collectGeometryValidation(PerformanceMetrics& metrics) const;
 
   // virtual functions need to be implemented in derived classes
 
@@ -381,6 +400,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
   std::string model_name_ = "karl";
+  std::string collision_geometry_ = "circles";
+  std::string solver_model_name_ = "karl";
   double ego_data_timeout_ = 1.0;
   double optimization_freq_ = 10.0;
   int n_shots_ = 50;
@@ -408,6 +429,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // visualization
   std::vector<double> viz_circles_;
+  std::vector<double> viz_obbs_;
+
+  // exact validator snapshots in the optimizer frame
+  std::vector<std::vector<OrientedBox>> validation_obstacle_boxes_;
+  std::vector<bool> validation_selected_hypotheses_;
+  std::vector<ObstacleHypothesisMetadata> selected_hypothesis_metadata_;
+  std::vector<Point2d> validation_left_boundary_;
+  std::vector<Point2d> validation_right_boundary_;
 
   // cost weights
   std::vector<double> cost_weights_ = std::vector<double>(12, 1.0);
@@ -423,6 +452,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_cost_weights_shape_ = {12, 1};      // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};          // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};  // nObstacleCircles x [x, y, radius]
+  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 5};     // nObstacleOBBs x [x, y, yaw, half-length, half-width]
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;
@@ -436,6 +466,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
   uint64_t logging_cycle_ = 0;
+  int obstacle_hypotheses_ = 0;
+  int dropped_obstacle_hypotheses_ = 0;
+  double parameter_update_ms_ = 0.0;
   std::unique_ptr<PerformanceLogger> performance_logger_;
 };
 

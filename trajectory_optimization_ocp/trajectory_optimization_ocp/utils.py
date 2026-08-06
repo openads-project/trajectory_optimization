@@ -154,9 +154,9 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
     psi = ocp.model.x[STATE_INDEX_PSI]
     cos_psi = ca.cos(psi)
     sin_psi = ca.sin(psi)
-    # currently only working if y-offset (second element in "offset2geocenter") is 0.0 -> TODO: handle y-offset
-    ego_center_x = ocp.model.x[STATE_INDEX_X] + config["offset2geocenter"][0] * cos_psi
-    ego_center_y = ocp.model.x[STATE_INDEX_Y] + config["offset2geocenter"][0] * sin_psi
+    offset_long, offset_lat = config["offset2geocenter"]
+    ego_center_x = ocp.model.x[STATE_INDEX_X] + offset_long * cos_psi - offset_lat * sin_psi
+    ego_center_y = ocp.model.x[STATE_INDEX_Y] + offset_long * sin_psi + offset_lat * cos_psi
     # Calculate the radius using symbolic operations
     radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"] / 2.0), 2))
 
@@ -181,6 +181,62 @@ def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
         "y": circle_position_y,
         "radius": radius,
     }
+
+
+def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
+    """Return the exact oriented ego bounding box in the optimizer frame."""
+    psi = ocp.model.x[STATE_INDEX_PSI]
+    cos_psi = ca.cos(psi)
+    sin_psi = ca.sin(psi)
+    offset_long, offset_lat = config["offset2geocenter"]
+    return {
+        "x": ocp.model.x[STATE_INDEX_X] + offset_long * cos_psi - offset_lat * sin_psi,
+        "y": ocp.model.x[STATE_INDEX_Y] + offset_long * sin_psi + offset_lat * cos_psi,
+        "yaw": psi,
+        "long_axis": ca.vertcat(cos_psi, sin_psi),
+        "lat_axis": ca.vertcat(-sin_psi, cos_psi),
+        "half_length": 0.5 * config["length"],
+        "half_width": 0.5 * config["width"],
+    }
+
+
+def smooth_abs_upper(value: ca.MX, epsilon: float) -> ca.MX:
+    """Differentiable upper bound of ``abs(value)``."""
+    return ca.sqrt(value * value + epsilon * epsilon)
+
+
+def smooth_abs_lower(value: ca.MX, epsilon: float) -> ca.MX:
+    """Differentiable lower bound of ``abs(value)``."""
+    return ca.sqrt(value * value + epsilon * epsilon) - epsilon
+
+
+def smooth_max_lower_pair(first: ca.MX, second: ca.MX, tau: float) -> ca.MX:
+    """Stable differentiable lower bound of the maximum of two values."""
+    difference = first - second
+    return 0.5 * (first + second + ca.sqrt(difference * difference + tau * tau) - tau)
+
+
+def smooth_max_lower(values: list[ca.MX], tau: float) -> ca.MX:
+    """Balanced reduction using the conservative pairwise smooth maximum."""
+    if not values:
+        raise ValueError("smooth_max_lower requires at least one value")
+    level = values
+    while len(level) > 1:
+        next_level = []
+        for index in range(0, len(level), 2):
+            if index + 1 < len(level):
+                next_level.append(smooth_max_lower_pair(level[index], level[index + 1], tau))
+            else:
+                next_level.append(level[index])
+        level = next_level
+    return level[0]
+
+
+def obstacle_parameter_shape(config: dict) -> list[int]:
+    """Return the active stage-wise obstacle layout for circles or OBBs."""
+    if config.get("collision_geometry", "circles") == "obb_sat":
+        return config["p_obstacle_obbs_shape"]
+    return config["p_obstacle_circles_shape"]
 
 
 def wrap_angle(angle: ca.MX) -> ca.MX:

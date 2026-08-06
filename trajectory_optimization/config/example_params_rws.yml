@@ -23,6 +23,7 @@
 
     ### general parameters defining the ocp
     model_name: 'shuttle'           # name of the acados model
+    collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 

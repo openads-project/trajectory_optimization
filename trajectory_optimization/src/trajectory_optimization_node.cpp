@@ -41,12 +41,14 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "be run if ego data is invalid.");
   this->declareAndLoadParameter("model_name", model_name_,
                                 "Name of the model to be used for trajectory optimization [karl, shuttle]");
+  this->declareAndLoadParameter("collision_geometry", collision_geometry_, "Collision geometry implementation [circles, obb_sat]",
+                                false, false, true, std::nullopt, std::nullopt, std::nullopt, "Must be 'circles' or 'obb_sat'.");
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("performance_logging", performance_logging_,
-                                "Write one CSV record for every completed solver run", false, false, true);
+                                "Write one CSV record for every scheduled planning tick", false, false, true);
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
@@ -77,6 +79,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("bi_level_dY", bi_level_dY_, "Threshold for bi-level stabilization: maximum y-offset [m]");
   this->declareAndLoadParameter("bi_level_dYaw", bi_level_dYaw_,
                                 "Threshold for bi-level stabilization: maximum yaw difference [degree]");
+  if (collision_geometry_ != "circles" && collision_geometry_ != "obb_sat") {
+    throw std::invalid_argument("Invalid collision_geometry: " + collision_geometry_);
+  }
+  solver_model_name_ = collision_geometry_ == "obb_sat" ? model_name_ + "_obb_sat" : model_name_;
   if (performance_logging_) {
     try {
       performance_logger_ = std::make_unique<PerformanceLogger>(get_name());
@@ -271,15 +277,15 @@ void TrajectoryOptimizationNode::setupSolver() {
   }
 
   // Create exactly once. This also supports a runtime horizon that differs from the generated default.
-  ocp_capsule_ = trajectory_optimization::acados_create_capsule(model_name_);
+  ocp_capsule_ = trajectory_optimization::acados_create_capsule(solver_model_name_);
   std::vector<double> new_time_steps(n_shots_, optimization_horizon_ / n_shots_);
   RCLCPP_INFO(this->get_logger(), "Create OCP with: horizon = %f, n_shots = %d, dt = %f", optimization_horizon_, n_shots_,
               new_time_steps.front());
   int status = trajectory_optimization::acados_create_with_discretization(ocp_capsule_, n_shots_, new_time_steps.data());
 
   if (status != ACADOS_SUCCESS) {
-    RCLCPP_FATAL(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.", model_name_.c_str(),
-                 status);
+    RCLCPP_FATAL(this->get_logger(), "%s_acados_create_with_discretization() returned status %d. Exiting.",
+                 solver_model_name_.c_str(), status);
     exit(1);
   }
 
@@ -303,12 +309,12 @@ void TrajectoryOptimizationNode::freeSolver() {
   // free solver
   int status = trajectory_optimization::acados_free(ocp_capsule_);
   if (status != 0) {
-    RCLCPP_ERROR(this->get_logger(), "%s_acados_free() returned status %d.", model_name_.c_str(), status);
+    RCLCPP_ERROR(this->get_logger(), "%s_acados_free() returned status %d.", solver_model_name_.c_str(), status);
   }
   // free solver capsule
   status = trajectory_optimization::acados_free_capsule(ocp_capsule_);
   if (status != 0) {
-    RCLCPP_ERROR(this->get_logger(), "%s_acados_free_capsule() returned status %d.", model_name_.c_str(), status);
+    RCLCPP_ERROR(this->get_logger(), "%s_acados_free_capsule() returned status %d.", solver_model_name_.c_str(), status);
   }
 }
 
@@ -388,9 +394,28 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
 
 void TrajectoryOptimizationNode::planningCycle() {
   const auto cycle_start = SteadyClock::now();
-  if (debug_viz_) viz_circles_.clear();
+  PerformanceMetrics metrics;
+  metrics.cycle = ++logging_cycle_;
+  metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
+  metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
+  metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();
+  metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
+  metrics.objects = static_cast<int>(object_list_.objects.size());
+  metrics.collision_geometry = collision_geometry_;
+  auto logCompletedCycle = [&]() {
+    metrics.cycle_ms = elapsedMilliseconds(cycle_start);
+    metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
+    if (performance_logger_) performance_logger_->write(metrics);
+  };
+
+  if (debug_viz_) {
+    viz_circles_.clear();
+    viz_obbs_.clear();
+  }
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
     RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
+    metrics.outcome = "skipped_ego_outdated";
+    logCompletedCycle();
     return;
   }
   // init trajectory message and set header
@@ -409,32 +434,22 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
     // transform trajectory to output frame
     if (!trajectory2outputFrame(*trajectory)) {
+      metrics.outcome = "skipped_standstill_transform";
+      logCompletedCycle();
       return;
     }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
     trajectory_pub_->publish(std::move(trajectory));
+    metrics.published = true;
+    metrics.outcome = "published_standstill";
     // Invalidate the warm start and reset the solver once when entering standstill.
     if (!control_guess_.empty()) {
       control_guess_.clear();
       resetSolver();
     }
+    logCompletedCycle();
     return;
   }
-
-  PerformanceMetrics metrics;
-  metrics.cycle = ++logging_cycle_;
-  metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
-  metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
-  metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();
-  metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
-  metrics.objects = static_cast<int>(object_list_.objects.size());
-  auto logCompletedCycle = [&]() {
-    metrics.cycle_ms = elapsedMilliseconds(cycle_start);
-    metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
-    if (performance_logger_) {
-      performance_logger_->write(metrics);
-    }
-  };
 
   // set initial state
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -458,17 +473,25 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
+    metrics.outcome = "skipped_input_update";
+    logCompletedCycle();
     return;
   }
+  metrics.obstacle_hypotheses = obstacle_hypotheses_;
+  metrics.dropped_obstacle_hypotheses = dropped_obstacle_hypotheses_;
+  metrics.parameter_update_ms = parameter_update_ms_;
 
   if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp))) {
     control_guess_.clear();
+    metrics.outcome = "skipped_initial_guess";
+    logCompletedCycle();
     return;
   }
 
   // solve the optimization problem
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
+  metrics.solver_ran = true;
   metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
   const auto solve_end = SteadyClock::now();
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
@@ -501,8 +524,12 @@ void TrajectoryOptimizationNode::planningCycle() {
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
     if (finite_solution && performance_logger_) {
-      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
-                                                      static_cast<int>(p_obstacle_circles_shape_[0]));
+      const auto geometry = vehicleGeometry(model_name_);
+      const int ego_primitives = collision_geometry_ == "obb_sat" ? 1 : geometry.circle_count;
+      const int obstacle_primitives = collision_geometry_ == "obb_sat" ? static_cast<int>(p_obstacle_obbs_shape_[0])
+                                                                       : static_cast<int>(p_obstacle_circles_shape_[0]);
+      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_, 2 * ego_primitives,
+                                                      obstacle_primitives * ego_primitives);
     }
     if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
       // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.
@@ -512,17 +539,24 @@ void TrajectoryOptimizationNode::planningCycle() {
       control_guess_.clear();
     }
     resetSolver();
+    metrics.outcome = "rejected_solver";
     logCompletedCycle();
     return;
   }
 
   control_guess_ = utraj_;
   control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
+  collectGeometryValidation(metrics);
 
   printSolution(metrics);
   if (debug_viz_) {
-    vizCircles(viz_circles_);
-    vizEgoCircles(xtraj_, model_name_);
+    if (collision_geometry_ == "obb_sat") {
+      vizObbs(viz_obbs_);
+      vizEgoObbs(xtraj_, model_name_);
+    } else {
+      vizCircles(viz_circles_);
+      vizEgoCircles(xtraj_, model_name_);
+    }
   }
 
   // convert output into trajectory message
@@ -536,6 +570,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // transform trajectory to output frame
   if (!trajectory2outputFrame(*trajectory)) {
+    metrics.outcome = "skipped_output_transform";
     logCompletedCycle();
     return;
   }
@@ -543,9 +578,74 @@ void TrajectoryOptimizationNode::planningCycle() {
   latest_valid_trajectory_ = *trajectory;
   trajectory_pub_->publish(std::move(trajectory));
   metrics.published = true;
+  metrics.outcome = "published_optimized";
   logCompletedCycle();
   const char* cycle_time_color = metrics.cycle_ms <= 100.0 ? "\x1b[32m" : "\x1b[31m";
   RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
+}
+
+void TrajectoryOptimizationNode::collectGeometryValidation(PerformanceMetrics& metrics) const {
+  metrics.geometry_validated = true;
+  const auto geometry = vehicleGeometry(model_name_);
+  const int state_dimension = *nlp_dims_->nx;
+
+  auto ego_box_at_stage = [&](int stage) {
+    const size_t offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dimension);
+    return orientedBoxFromReference(xtraj_[offset], xtraj_[offset + 1], xtraj_[offset + 5], geometry.length, geometry.width,
+                                    geometry.center_offset_long, geometry.center_offset_lat);
+  };
+  auto boundary_penetration = [&](const OrientedBox& ego_box) {
+    return std::max(boxBoundaryViolationDepth(ego_box, validation_left_boundary_, true),
+                    boxBoundaryViolationDepth(ego_box, validation_right_boundary_, false));
+  };
+
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const auto ego_box = ego_box_at_stage(stage);
+    const double boundary_depth = boundary_penetration(ego_box);
+    if (boundary_depth > 1e-9) ++metrics.node_boundary_violations;
+    if (std::isfinite(boundary_depth)) {
+      metrics.max_node_boundary_penetration_m = std::max(metrics.max_node_boundary_penetration_m, boundary_depth);
+    }
+    for (size_t hypothesis = 0; hypothesis < validation_obstacle_boxes_.size(); ++hypothesis) {
+      const auto& boxes = validation_obstacle_boxes_[hypothesis];
+      if (static_cast<size_t>(stage) >= boxes.size()) continue;
+      if (exactSatSeparationMargin(ego_box, boxes[stage]) <= 0.0) {
+        ++metrics.node_object_collisions;
+        if (hypothesis >= validation_selected_hypotheses_.size() || !validation_selected_hypotheses_[hypothesis]) {
+          ++metrics.dropped_hypothesis_collisions;
+        }
+      }
+    }
+  }
+
+  constexpr int INTERSAMPLES_PER_INTERVAL = 10;
+  for (int stage = 0; stage < n_shots_; ++stage) {
+    const auto first_ego_box = ego_box_at_stage(stage);
+    const auto second_ego_box = ego_box_at_stage(stage + 1);
+    for (int substep = 1; substep <= INTERSAMPLES_PER_INTERVAL; ++substep) {
+      const double factor = static_cast<double>(substep) / static_cast<double>(INTERSAMPLES_PER_INTERVAL + 1);
+      const auto ego_box = interpolateBox(first_ego_box, second_ego_box, factor);
+      const double boundary_depth = boundary_penetration(ego_box);
+      if (boundary_depth > 1e-9) ++metrics.intersample_boundary_violations;
+      if (std::isfinite(boundary_depth)) {
+        metrics.max_intersample_boundary_penetration_m = std::max(metrics.max_intersample_boundary_penetration_m, boundary_depth);
+      }
+      for (const auto& boxes : validation_obstacle_boxes_) {
+        if (static_cast<size_t>(stage + 1) >= boxes.size()) continue;
+        if (exactSatSeparationMargin(ego_box, interpolateBox(boxes[stage], boxes[stage + 1], factor)) <= 0.0) {
+          ++metrics.intersample_object_collisions;
+        }
+      }
+    }
+  }
+
+  if (metrics.node_object_collisions > 0 || metrics.node_boundary_violations > 0) {
+    RCLCPP_ERROR(get_logger(),
+                 "Exact geometry validator (%s) found node violations: objects=%d boundaries=%d "
+                 "max_boundary_penetration=%.3f m dropped_hypotheses=%d.",
+                 collision_geometry_.c_str(), metrics.node_object_collisions, metrics.node_boundary_violations,
+                 metrics.max_node_boundary_penetration_m, metrics.dropped_hypothesis_collisions);
+  }
 }
 
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
@@ -568,7 +668,9 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     } else {
       tf_object_list = object_list;
     }
-    keepNClosestObjects(tf_object_list, static_cast<int>(p_obstacle_circles_shape_[0]));
+    if (collision_geometry_ == "circles") {
+      keepNClosestObjects(tf_object_list, static_cast<int>(p_obstacle_circles_shape_[0]));
+    }
     // route
     if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
       tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
@@ -586,10 +688,31 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     return false;
   }
 
+  validation_left_boundary_.clear();
+  validation_right_boundary_.clear();
+  for (const auto& route_element : tf_route.route_elements) {
+    if (!route_element.is_enriched) continue;
+    if (consider_boundaries_ == CONSIDER_BOUNDARIES::SUGGESTED_LANE && !route_element.lane_elements.empty()) {
+      const size_t suggested_index =
+          std::min(static_cast<size_t>(route_element.suggested_lane_idx), route_element.lane_elements.size() - 1);
+      const auto& lane = route_element.lane_elements[suggested_index];
+      validation_left_boundary_.push_back({lane.left_boundary.point.x, lane.left_boundary.point.y});
+      validation_right_boundary_.push_back({lane.right_boundary.point.x, lane.right_boundary.point.y});
+    } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::INCLUDING_ADJACENT && !route_element.lane_elements.empty()) {
+      validation_left_boundary_.push_back(
+          {route_element.lane_elements.front().left_boundary.point.x, route_element.lane_elements.front().left_boundary.point.y});
+      validation_right_boundary_.push_back(
+          {route_element.lane_elements.back().right_boundary.point.x, route_element.lane_elements.back().right_boundary.point.y});
+    } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::DRIVABLE_SPACE) {
+      validation_left_boundary_.push_back({route_element.left_boundary.x, route_element.left_boundary.y});
+      validation_right_boundary_.push_back({route_element.right_boundary.x, route_element.right_boundary.y});
+    }
+  }
+
   // update ocp parameters
   try {
     this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory, tf_route);
-    this->setOcpParameters(ego_data, tf_object_list);
+    this->setOcpParameters(ego_data, tf_object_list, tf_reference_trajectory);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
     return false;
@@ -660,8 +783,244 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
-                                                  const perception_msgs::msg::ObjectList& object_list) {
+                                                  const perception_msgs::msg::ObjectList& object_list,
+                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   const auto start_time = std::chrono::steady_clock::now();
+
+  // The exact validator always sees every input hypothesis, independently of the
+  // approximation and capacity used by the selected OCP.
+  if (collision_geometry_ == "circles") {
+    constexpr double MIN_HALF_EXTENT = 0.05;
+    const int stage_count = n_shots_ + 1;
+    const double dt = optimization_horizon_ / n_shots_;
+    const double ego_stamp = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9;
+    const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
+    validation_obstacle_boxes_.clear();
+    validation_selected_hypotheses_.clear();
+
+    for (const auto& object : object_list.objects) {
+      auto append_validation_hypothesis = [&](const perception_msgs::msg::ObjectStatePrediction* prediction) {
+        std::vector<double> times{object_stamp};
+        std::vector<double> x{perception_msgs::object_access::getX(object)};
+        std::vector<double> y{perception_msgs::object_access::getY(object)};
+        std::vector<double> yaw{perception_msgs::object_access::getYaw(object)};
+        if (prediction != nullptr) {
+          for (const auto& state : prediction->states) {
+            times.push_back(static_cast<double>(rclcpp::Time(state.header.stamp).nanoseconds()) / 1e9);
+            x.push_back(perception_msgs::object_access::getX(state));
+            y.push_back(perception_msgs::object_access::getY(state));
+            yaw.push_back(perception_msgs::object_access::getYaw(state));
+          }
+        }
+
+        std::vector<OrientedBox> boxes;
+        boxes.reserve(stage_count);
+        const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
+        const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
+        const double length = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getLength(object));
+        const double width = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getWidth(object));
+        for (int stage = 0; stage < stage_count; ++stage) {
+          const double desired_time = ego_stamp + dt * stage;
+          boxes.push_back(orientedBoxFromReference(
+              interpolateSample(times, x, desired_time), interpolateSample(times, y, desired_time),
+              interpolateSample(times, yaw, desired_time, true), length, width, offset_long, offset_lat));
+        }
+        validation_obstacle_boxes_.push_back(std::move(boxes));
+        validation_selected_hypotheses_.push_back(true);
+      };
+
+      bool prediction_added = false;
+      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS) {
+        for (const auto& prediction : object.state_predictions) {
+          if (prediction.probability > min_prediction_probability_) {
+            append_validation_hypothesis(&prediction);
+            prediction_added = true;
+          }
+        }
+      }
+      if (!prediction_added) append_validation_hypothesis(nullptr);
+    }
+    obstacle_hypotheses_ = static_cast<int>(validation_obstacle_boxes_.size());
+    dropped_obstacle_hypotheses_ = 0;
+  }
+
+  if (collision_geometry_ == "obb_sat") {
+    struct ObstacleHypothesis {
+      uint64_t object_id;
+      int prediction_index;
+      double probability;
+      uint8_t classification;
+      std::vector<OrientedBox> boxes;
+      double minimum_reference_gap;
+      int earliest_minimum_stage;
+    };
+
+    constexpr double MIN_HALF_EXTENT = 0.05;
+    const int stage_count = n_shots_ + 1;
+    const double dt = optimization_horizon_ / n_shots_;
+    const double ego_stamp = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9;
+    const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
+    const auto ego_geometry = vehicleGeometry(model_name_);
+    std::vector<ObstacleHypothesis> hypotheses;
+
+    for (const auto& object : object_list.objects) {
+      uint8_t classification = 0;
+      double classification_probability = -1.0;
+      for (const auto& candidate : object.state.classifications) {
+        if (candidate.probability > classification_probability) {
+          classification = candidate.type;
+          classification_probability = candidate.probability;
+        }
+      }
+
+      auto append_hypothesis = [&](const perception_msgs::msg::ObjectStatePrediction* prediction, int prediction_index) {
+        std::vector<double> times{object_stamp};
+        std::vector<double> x{perception_msgs::object_access::getX(object)};
+        std::vector<double> y{perception_msgs::object_access::getY(object)};
+        std::vector<double> yaw{perception_msgs::object_access::getYaw(object)};
+        if (prediction != nullptr) {
+          for (const auto& state : prediction->states) {
+            times.push_back(static_cast<double>(rclcpp::Time(state.header.stamp).nanoseconds()) / 1e9);
+            x.push_back(perception_msgs::object_access::getX(state));
+            y.push_back(perception_msgs::object_access::getY(state));
+            yaw.push_back(perception_msgs::object_access::getYaw(state));
+          }
+        }
+
+        ObstacleHypothesis hypothesis{object.id,
+                                      prediction_index,
+                                      prediction != nullptr ? prediction->probability : 1.0,
+                                      classification,
+                                      {},
+                                      std::numeric_limits<double>::infinity(),
+                                      0};
+        hypothesis.boxes.reserve(stage_count);
+        const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
+        const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
+        const double length = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getLength(object));
+        const double width = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getWidth(object));
+        const int reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
+
+        for (int stage = 0; stage < stage_count; ++stage) {
+          const double desired_time = ego_stamp + dt * stage;
+          const auto box =
+              orientedBoxFromReference(interpolateSample(times, x, desired_time), interpolateSample(times, y, desired_time),
+                                       interpolateSample(times, yaw, desired_time, true), length, width, offset_long, offset_lat);
+          hypothesis.boxes.push_back(box);
+
+          const int reference_index = std::min(stage, reference_points - 1);
+          const double reference_yaw =
+              trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, reference_index);
+          auto reference_ego = orientedBoxFromReference(
+              trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, reference_index),
+              trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, reference_index), reference_yaw,
+              ego_geometry.length, ego_geometry.width, ego_geometry.center_offset_long, ego_geometry.center_offset_lat);
+          const double reference_velocity =
+              std::abs(trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
+          reference_ego.half_length += std::max(d_min_obstacle_long_, thw_ * reference_velocity);
+          reference_ego.half_width += std::max(0.0, d_min_obstacle_lat_);
+          const double gap = exactSatSeparationMargin(reference_ego, box);
+          if (gap < hypothesis.minimum_reference_gap) {
+            hypothesis.minimum_reference_gap = gap;
+            hypothesis.earliest_minimum_stage = stage;
+          }
+        }
+        hypotheses.push_back(std::move(hypothesis));
+      };
+
+      bool prediction_added = false;
+      if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS) {
+        for (size_t prediction_index = 0; prediction_index < object.state_predictions.size(); ++prediction_index) {
+          const auto& prediction = object.state_predictions[prediction_index];
+          if (prediction.probability > min_prediction_probability_) {
+            append_hypothesis(&prediction, static_cast<int>(prediction_index));
+            prediction_added = true;
+          }
+        }
+      }
+      if (!prediction_added) append_hypothesis(nullptr, -1);
+    }
+
+    std::vector<HypothesisPriority> priorities;
+    priorities.reserve(hypotheses.size());
+    for (const auto& hypothesis : hypotheses) {
+      priorities.push_back({hypothesis.minimum_reference_gap, hypothesis.earliest_minimum_stage, hypothesis.object_id,
+                            hypothesis.prediction_index});
+    }
+    std::vector<ObstacleHypothesis> ranked_hypotheses;
+    ranked_hypotheses.reserve(hypotheses.size());
+    for (const size_t index : rankHypotheses(priorities)) ranked_hypotheses.push_back(std::move(hypotheses[index]));
+    hypotheses = std::move(ranked_hypotheses);
+
+    obstacle_hypotheses_ = static_cast<int>(hypotheses.size());
+    const size_t capacity = static_cast<size_t>(p_obstacle_obbs_shape_[0]);
+    validation_obstacle_boxes_.clear();
+    validation_selected_hypotheses_.clear();
+    validation_obstacle_boxes_.reserve(hypotheses.size());
+    validation_selected_hypotheses_.reserve(hypotheses.size());
+    selected_hypothesis_metadata_.clear();
+    for (size_t index = 0; index < hypotheses.size(); ++index) {
+      validation_obstacle_boxes_.push_back(hypotheses[index].boxes);
+      validation_selected_hypotheses_.push_back(index < capacity);
+      if (index < capacity) {
+        selected_hypothesis_metadata_.push_back({hypotheses[index].object_id, hypotheses[index].prediction_index,
+                                                 hypotheses[index].probability, hypotheses[index].classification});
+      }
+    }
+    dropped_obstacle_hypotheses_ = static_cast<int>(hypotheses.size() > capacity ? hypotheses.size() - capacity : 0);
+    if (hypotheses.size() > capacity) {
+      std::ostringstream dropped;
+      const size_t report_end = std::min(hypotheses.size(), capacity + 20);
+      for (size_t index = capacity; index < report_end; ++index) {
+        if (index != capacity) dropped << ',';
+        dropped << hypotheses[index].object_id << ':' << hypotheses[index].prediction_index << ':'
+                << static_cast<int>(hypotheses[index].classification);
+      }
+      RCLCPP_WARN(get_logger(), "Dropped %d of %d OBB hypotheses after deterministic risk ranking: [%s%s]",
+                  dropped_obstacle_hypotheses_, obstacle_hypotheses_, dropped.str().c_str(),
+                  hypotheses.size() > report_end ? ",..." : "");
+      hypotheses.resize(capacity);
+    }
+
+    double floating_dynamic_weight = 1.0;
+    for (int stage = 0; stage < stage_count; ++stage) {
+      int parameter_index = 0;
+      int parameter_count = 1;
+      std::vector<int> dynamic_weight_indices{parameter_index};
+      int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, dynamic_weight_indices.data(),
+                                                                        &floating_dynamic_weight, parameter_count);
+      if (status != ACADOS_SUCCESS) {
+        throw std::runtime_error("acados dynamic-weight update failed with status " + std::to_string(status));
+      }
+      floating_dynamic_weight *= dynamic_weight_;
+
+      parameter_index += parameter_count;
+      parameter_count = static_cast<int>(p_obstacle_obbs_shape_[0] * p_obstacle_obbs_shape_[1]);
+      std::vector<double> obbs;
+      obbs.reserve(parameter_count);
+      for (const auto& hypothesis : hypotheses) {
+        const auto& box = hypothesis.boxes[stage];
+        obbs.insert(obbs.end(), {box.x, box.y, box.yaw, box.half_length, box.half_width});
+      }
+      while (obbs.size() < static_cast<size_t>(parameter_count)) {
+        obbs.insert(obbs.end(), {10000.0, 10000.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT});
+      }
+      if (debug_viz_) viz_obbs_.insert(viz_obbs_.end(), obbs.begin(), obbs.end());
+
+      std::vector<int> obstacle_indices(parameter_count);
+      std::iota(obstacle_indices.begin(), obstacle_indices.end(), parameter_index);
+      status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, obstacle_indices.data(), obbs.data(),
+                                                                    parameter_count);
+      if (status != ACADOS_SUCCESS) {
+        throw std::runtime_error("acados OBB update failed with status " + std::to_string(status));
+      }
+    }
+    parameter_update_ms_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    RCLCPP_DEBUG(get_logger(), "setOcpParameters OBB duration: %.3f ms", parameter_update_ms_);
+    return;
+  }
+
+  selected_hypothesis_metadata_.clear();
   struct PredictionData {
     std::vector<double> time;
     std::vector<double> x;
@@ -799,6 +1158,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     }
   }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+  parameter_update_ms_ = elapsed_ms;
   RCLCPP_DEBUG(this->get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
 }
 

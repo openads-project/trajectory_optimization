@@ -12,7 +12,7 @@
     min_prediction_probability: 0.0 # consider only predictions with probability > this threshold
     consider_boundaries: 3          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
-    performance_logging: False      # write one CSV record for each completed solver run
+    performance_logging: False      # write one CSV record for each scheduled planning tick
     debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 
@@ -23,6 +23,8 @@
 
     ### general parameters defining the ocp
     model_name: 'karl'              # name of the acados model
+    collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
+    collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 

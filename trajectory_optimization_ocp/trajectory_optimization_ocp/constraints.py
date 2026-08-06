@@ -8,9 +8,12 @@ from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
     CONTROL_INDEX_J_T,
+    P_OBSTACLES_INDEX_HALF_LENGTH,
+    P_OBSTACLES_INDEX_HALF_WIDTH,
     P_OBSTACLES_INDEX_RADIUS,
     P_OBSTACLES_INDEX_X,
     P_OBSTACLES_INDEX_Y,
+    P_OBSTACLES_INDEX_YAW,
     STATE_INDEX_A_T,
     STATE_INDEX_DELTA_F,
     STATE_INDEX_DELTA_R,
@@ -19,7 +22,16 @@ from constants import (
     STATE_INDEX_X,
     STATE_INDEX_Y,
 )
-from utils import approximate_ego_geometry, determine_spacially_matched_ref_path_point, stable_tan
+from utils import (
+    approximate_ego_geometry,
+    determine_spacially_matched_ref_path_point,
+    ego_obb_geometry,
+    obstacle_parameter_shape,
+    smooth_abs_lower,
+    smooth_abs_upper,
+    smooth_max_lower,
+    stable_tan,
+)
 
 
 def _expand_slack_weights(values, count, name):
@@ -86,10 +98,12 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.lh = np.array([])  # initialize empty lower bounds for nonlinear constraints
     cons.uh = np.array([])  # initialize empty upper bounds for nonlinear constraints
 
-    # approximate the ego-vehicle with circles
-    ego_approximation = approximate_ego_geometry(ocp, config)
-    ego_radius = ego_approximation["radius"]
-    n_ego_circles = config["n_ego_circles"]
+    collision_geometry = config.get("collision_geometry", "circles")
+    if collision_geometry not in ("circles", "obb_sat"):
+        raise ValueError(f"Unknown collision geometry: {collision_geometry}")
+
+    ego_approximation = approximate_ego_geometry(ocp, config) if collision_geometry == "circles" else None
+    ego_obb = ego_obb_geometry(ocp, config) if collision_geometry == "obb_sat" else None
 
     # --- Route boundaries ---
 
@@ -113,25 +127,33 @@ def set_constraints(ocp: AcadosOcp, config):
     d_min_boundary_lat = p_cost_params[3]
 
     # calc normal vector from interpolated reference point to the current position
-    ref_inter = determine_spacially_matched_ref_path_point(
-        config, p_ref_path, ocp.model.x[STATE_INDEX_X], ocp.model.x[STATE_INDEX_Y]
-    )
+    match_x = ego_obb["x"] if ego_obb is not None else ocp.model.x[STATE_INDEX_X]
+    match_y = ego_obb["y"] if ego_obb is not None else ocp.model.x[STATE_INDEX_Y]
+    ref_inter = determine_spacially_matched_ref_path_point(config, p_ref_path, match_x, match_y)
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
 
-    # calc offset to boundaries for each ego circle
-    # limit the requested extra clearance to what the current lane geometry allows
-    left_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - ego_radius, 0.0))
-    right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - ego_radius, 0.0))
-    for i in range(n_ego_circles):
-
-        # signed lateral distance from the reference path to the actual circle center
-        circle_ref_diff = ca.vertcat(ego_approximation["x"][i] - ref_inter["x"], ego_approximation["y"][i] - ref_inter["y"])
-        d_circle_center_ref_path = ca.dot(circle_ref_diff, normal_vec)
-
-        # boundary constraint: circl_center_to_ref + ego_radius + margin < d_boundary (note: offset to right is negative!)
-        left_constraint = d_circle_center_ref_path + ego_radius + left_margin_required - ref_inter["d_left_boundary"]
-        right_constraint = -d_circle_center_ref_path + ego_radius + right_margin_required - ref_inter["d_right_boundary"]
-
+    if collision_geometry == "circles":
+        ego_radius = ego_approximation["radius"]
+        left_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - ego_radius, 0.0))
+        right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - ego_radius, 0.0))
+        for i in range(config["n_ego_circles"]):
+            circle_ref_diff = ca.vertcat(ego_approximation["x"][i] - ref_inter["x"], ego_approximation["y"][i] - ref_inter["y"])
+            d_circle_center_ref_path = ca.dot(circle_ref_diff, normal_vec)
+            left_constraint = d_circle_center_ref_path + ego_radius + left_margin_required - ref_inter["d_left_boundary"]
+            right_constraint = -d_circle_center_ref_path + ego_radius + right_margin_required - ref_inter["d_right_boundary"]
+            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
+            cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
+            cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
+    else:
+        epsilon = config["obb_smoothing_epsilon"]
+        boundary_support = ego_obb["half_length"] * smooth_abs_upper(ca.dot(normal_vec, ego_obb["long_axis"]), epsilon)
+        boundary_support += ego_obb["half_width"] * smooth_abs_upper(ca.dot(normal_vec, ego_obb["lat_axis"]), epsilon)
+        center_ref_diff = ca.vertcat(ego_obb["x"] - ref_inter["x"], ego_obb["y"] - ref_inter["y"])
+        d_center_ref_path = ca.dot(center_ref_diff, normal_vec)
+        left_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - boundary_support, 0.0))
+        right_margin_required = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - boundary_support, 0.0))
+        left_constraint = d_center_ref_path + boundary_support + left_margin_required - ref_inter["d_left_boundary"]
+        right_constraint = -d_center_ref_path + boundary_support + right_margin_required - ref_inter["d_right_boundary"]
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
         cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
         cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
@@ -142,8 +164,9 @@ def set_constraints(ocp: AcadosOcp, config):
     _ = ocp.model.p[
         idx_params : (idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))
     ]  # dynamic weights, not used in constraints
-    p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_obstacle_circles_shape"]))]
-    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_obstacle_circles_shape"])
+    obstacle_shape = obstacle_parameter_shape(config)
+    p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(obstacle_shape))]
+    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(obstacle_shape)
 
     beta = compute_side_slip_angle(ocp, config)
     v_t = ocp.model.x[STATE_INDEX_V_T]
@@ -154,29 +177,54 @@ def set_constraints(ocp: AcadosOcp, config):
     dyn_long_buffer = ca.fabs(p_thw * v_t * ca.cos(beta))
     dyn_lat_buffer = ca.fabs(p_thw * v_t * ca.sin(beta))
 
-    for i in range(config["p_obstacle_circles_shape"][0]):
-        x_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_X]
-        y_center = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_Y]
-        r_circle = p_obstacles[i * config["p_obstacle_circles_shape"][1] + P_OBSTACLES_INDEX_RADIUS]
+    if collision_geometry == "circles":
+        for i in range(obstacle_shape[0]):
+            x_center = p_obstacles[i * obstacle_shape[1] + P_OBSTACLES_INDEX_X]
+            y_center = p_obstacles[i * obstacle_shape[1] + P_OBSTACLES_INDEX_Y]
+            r_circle = p_obstacles[i * obstacle_shape[1] + P_OBSTACLES_INDEX_RADIUS]
 
-        combined_radius = ego_radius + r_circle
-        d_long_min = ca.fmax(d_min_obstacle_long, dyn_long_buffer) + combined_radius
-        d_lat_min = ca.fmax(d_min_obstacle_lat, dyn_lat_buffer) + combined_radius
+            combined_radius = ego_radius + r_circle
+            d_long_min = ca.fmax(d_min_obstacle_long, dyn_long_buffer) + combined_radius
+            d_lat_min = ca.fmax(d_min_obstacle_lat, dyn_lat_buffer) + combined_radius
+            d_long_min = ca.fmax(d_long_min, 1e-3)
+            d_lat_min = ca.fmax(d_lat_min, 1e-3)
 
-        # avoid division by values close to zero when the buffers are very small
-        d_long_min = ca.fmax(d_long_min, 1e-3)
-        d_lat_min = ca.fmax(d_lat_min, 1e-3)
+            for j in range(config["n_ego_circles"]):
+                dx = x_center - ego_approximation["x"][j]
+                dy = y_center - ego_approximation["y"][j]
+                d_long_rel = dx * cos_psi + dy * sin_psi
+                d_lat_rel = -dx * sin_psi + dy * cos_psi
+                ellipse_constraint = ca.power(d_long_rel / d_long_min, 2) + ca.power(d_lat_rel / d_lat_min, 2) - 1.0
+                ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, ellipse_constraint)
+                cons.lh = np.concatenate((cons.lh, [0.0]))
+                cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
+    else:
+        epsilon = config["obb_smoothing_epsilon"]
+        tau = config["obb_smoothing_tau"]
+        ego_half_length = ego_obb["half_length"] + ca.fmax(d_min_obstacle_long, dyn_long_buffer)
+        ego_half_width = ego_obb["half_width"] + ca.fmax(d_min_obstacle_lat, dyn_lat_buffer)
+        ego_center = ca.vertcat(ego_obb["x"], ego_obb["y"])
 
-        for j in range(n_ego_circles):
-            dx = x_center - ego_approximation["x"][j]
-            dy = y_center - ego_approximation["y"][j]
+        for i in range(obstacle_shape[0]):
+            base = i * obstacle_shape[1]
+            obstacle_center = ca.vertcat(p_obstacles[base + P_OBSTACLES_INDEX_X], p_obstacles[base + P_OBSTACLES_INDEX_Y])
+            obstacle_yaw = p_obstacles[base + P_OBSTACLES_INDEX_YAW]
+            obstacle_half_length = p_obstacles[base + P_OBSTACLES_INDEX_HALF_LENGTH]
+            obstacle_half_width = p_obstacles[base + P_OBSTACLES_INDEX_HALF_WIDTH]
+            obstacle_long_axis = ca.vertcat(ca.cos(obstacle_yaw), ca.sin(obstacle_yaw))
+            obstacle_lat_axis = ca.vertcat(-ca.sin(obstacle_yaw), ca.cos(obstacle_yaw))
+            center_difference = obstacle_center - ego_center
+            axes = [ego_obb["long_axis"], ego_obb["lat_axis"], obstacle_long_axis, obstacle_lat_axis]
+            separating_gaps = []
+            for axis in axes:
+                center_projection = smooth_abs_lower(ca.dot(center_difference, axis), epsilon)
+                ego_support = ego_half_length * smooth_abs_upper(ca.dot(ego_obb["long_axis"], axis), epsilon)
+                ego_support += ego_half_width * smooth_abs_upper(ca.dot(ego_obb["lat_axis"], axis), epsilon)
+                obstacle_support = obstacle_half_length * smooth_abs_upper(ca.dot(obstacle_long_axis, axis), epsilon)
+                obstacle_support += obstacle_half_width * smooth_abs_upper(ca.dot(obstacle_lat_axis, axis), epsilon)
+                separating_gaps.append(center_projection - ego_support - obstacle_support)
 
-            d_long_rel = dx * cos_psi + dy * sin_psi
-            d_lat_rel = -dx * sin_psi + dy * cos_psi
-
-            ellipse_constraint = ca.power(d_long_rel / d_long_min, 2) + ca.power(d_lat_rel / d_lat_min, 2) - 1.0
-
-            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, ellipse_constraint)
+            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, smooth_max_lower(separating_gaps, tau))
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
 
@@ -243,8 +291,9 @@ def set_constraints(ocp: AcadosOcp, config):
 
     slack_indices = []
     slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}
-    boundary_constraints = n_ego_circles * 2
-    obstacle_constraints = config["p_obstacle_circles_shape"][0] * n_ego_circles
+    ego_primitives = config["n_ego_circles"] if collision_geometry == "circles" else 1
+    boundary_constraints = ego_primitives * 2
+    obstacle_constraints = obstacle_shape[0] * ego_primitives
 
     if config["enable_boundary_slack"]:
         slack_indices.extend(range(0, boundary_constraints))

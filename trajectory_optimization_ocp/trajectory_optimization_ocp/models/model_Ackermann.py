@@ -12,7 +12,7 @@ from constants import (
     STATE_INDEX_PSI,
     STATE_INDEX_V_T,
 )
-from utils import stable_tan
+from utils import obstacle_parameter_shape, stable_tan
 
 
 def set_model(ocp, config):
@@ -74,7 +74,7 @@ def set_model(ocp, config):
 
     # parameters
     p_dynamic_weight = MX.sym("dynamic_weight", np.prod(config["p_dynamic_weight_shape"]))  # 1
-    p_obstacles = MX.sym("obstacles", np.prod(config["p_obstacle_circles_shape"]))  # (nObstacleCircles x (x, y, radius))
+    p_obstacles = MX.sym("obstacles", np.prod(obstacle_parameter_shape(config)))
     params = vertcat(p_dynamic_weight, p_obstacles)
     model.p = params
 
