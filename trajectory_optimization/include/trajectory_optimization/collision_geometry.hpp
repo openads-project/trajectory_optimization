@@ -40,6 +40,8 @@ VehicleGeometry vehicleGeometry(const std::string& model_name);
 OrientedBox orientedBoxFromReference(
     double x, double y, double yaw, double length, double width, double center_offset_long = 0.0, double center_offset_lat = 0.0);
 
+OrientedBox expandBoxForward(const OrientedBox& box, double front_margin, double rear_margin, double lateral_margin);
+
 double exactSatSeparationMargin(const OrientedBox& first, const OrientedBox& second);
 
 double conservativeSmoothSatMargin(const OrientedBox& first, const OrientedBox& second, double epsilon = 1e-3, double tau = 0.02);

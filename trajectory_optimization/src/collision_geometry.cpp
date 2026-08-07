@@ -53,6 +53,15 @@ OrientedBox orientedBoxFromReference(
           std::max(0.0, 0.5 * width)};
 }
 
+OrientedBox expandBoxForward(const OrientedBox& box, double front_margin, double rear_margin, double lateral_margin) {
+  front_margin = std::max(0.0, front_margin);
+  rear_margin = std::max(0.0, rear_margin);
+  lateral_margin = std::max(0.0, lateral_margin);
+  const double center_shift = 0.5 * (front_margin - rear_margin);
+  return {box.x + center_shift * std::cos(box.yaw), box.y + center_shift * std::sin(box.yaw), box.yaw,
+          box.half_length + 0.5 * (front_margin + rear_margin), box.half_width + lateral_margin};
+}
+
 double exactSatSeparationMargin(const OrientedBox& first, const OrientedBox& second) {
   const auto first_axes = axes(first);
   const auto second_axes = axes(second);

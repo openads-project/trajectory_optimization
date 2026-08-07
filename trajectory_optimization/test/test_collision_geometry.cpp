@@ -18,6 +18,21 @@ TEST(CollisionGeometry, AppliesBothGeometricCenterOffsets) {
   EXPECT_DOUBLE_EQ(box.half_width, 1.0);
 }
 
+TEST(CollisionGeometry, ExpandsTimeHeadwayOnlyTowardsTheFront) {
+  const OrientedBox physical{1.0, -2.0, M_PI_2, 2.5, 1.0};
+  const auto safety = expandBoxForward(physical, 20.0, 1.0, 0.1);
+
+  EXPECT_NEAR(safety.x, physical.x, 1e-12);
+  EXPECT_NEAR(safety.y, physical.y + 9.5, 1e-12);
+  EXPECT_NEAR(safety.half_length, 13.0, 1e-12);
+  EXPECT_NEAR(safety.half_width, 1.1, 1e-12);
+
+  const double physical_rear_y = physical.y - physical.half_length;
+  const double physical_front_y = physical.y + physical.half_length;
+  EXPECT_NEAR(safety.y - safety.half_length, physical_rear_y - 1.0, 1e-12);
+  EXPECT_NEAR(safety.y + safety.half_length, physical_front_y + 20.0, 1e-12);
+}
+
 TEST(CollisionGeometry, HandlesParallelRotatedAndTouchingBoxes) {
   const OrientedBox ego{0.0, 0.0, 0.0, 2.0, 1.0};
   EXPECT_LT(exactSatSeparationMargin(ego, {0.0, 0.0, M_PI_4, 2.0, 1.0}), 0.0);

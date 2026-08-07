@@ -916,9 +916,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
               trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, reference_index), reference_yaw,
               ego_geometry.length, ego_geometry.width, ego_geometry.center_offset_long, ego_geometry.center_offset_lat);
           const double reference_velocity =
-              std::abs(trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
-          reference_ego.half_length += std::max(d_min_obstacle_long_, thw_ * reference_velocity);
-          reference_ego.half_width += std::max(0.0, d_min_obstacle_lat_);
+              std::max(0.0, trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
+          const double rear_margin = std::max(0.0, d_min_obstacle_long_);
+          const double front_margin = std::max(rear_margin, thw_ * reference_velocity);
+          reference_ego = expandBoxForward(reference_ego, front_margin, rear_margin, d_min_obstacle_lat_);
           const double gap = exactSatSeparationMargin(reference_ego, box);
           if (gap < hypothesis.minimum_reference_gap) {
             hypothesis.minimum_reference_gap = gap;

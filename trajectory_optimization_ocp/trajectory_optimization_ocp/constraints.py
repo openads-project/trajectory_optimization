@@ -24,12 +24,12 @@ from constants import (
 )
 from utils import (
     approximate_ego_geometry,
+    conservative_smooth_sat_margin,
     determine_spacially_matched_ref_path_point,
     ego_obb_geometry,
+    expand_ego_obb_forward,
     obstacle_parameter_shape,
-    smooth_abs_lower,
     smooth_abs_upper,
-    smooth_max_lower,
     stable_tan,
 )
 
@@ -201,9 +201,10 @@ def set_constraints(ocp: AcadosOcp, config):
     else:
         epsilon = config["obb_smoothing_epsilon"]
         tau = config["obb_smoothing_tau"]
-        ego_half_length = ego_obb["half_length"] + ca.fmax(d_min_obstacle_long, dyn_long_buffer)
-        ego_half_width = ego_obb["half_width"] + ca.fmax(d_min_obstacle_lat, dyn_lat_buffer)
-        ego_center = ca.vertcat(ego_obb["x"], ego_obb["y"])
+        rear_margin = ca.fmax(d_min_obstacle_long, 0.0)
+        front_margin = ca.fmax(rear_margin, dyn_long_buffer)
+        lateral_margin = ca.fmax(d_min_obstacle_lat, dyn_lat_buffer)
+        safety_ego_obb = expand_ego_obb_forward(ego_obb, front_margin, rear_margin, lateral_margin)
 
         for i in range(obstacle_shape[0]):
             base = i * obstacle_shape[1]
@@ -211,20 +212,17 @@ def set_constraints(ocp: AcadosOcp, config):
             obstacle_yaw = p_obstacles[base + P_OBSTACLES_INDEX_YAW]
             obstacle_half_length = p_obstacles[base + P_OBSTACLES_INDEX_HALF_LENGTH]
             obstacle_half_width = p_obstacles[base + P_OBSTACLES_INDEX_HALF_WIDTH]
-            obstacle_long_axis = ca.vertcat(ca.cos(obstacle_yaw), ca.sin(obstacle_yaw))
-            obstacle_lat_axis = ca.vertcat(-ca.sin(obstacle_yaw), ca.cos(obstacle_yaw))
-            center_difference = obstacle_center - ego_center
-            axes = [ego_obb["long_axis"], ego_obb["lat_axis"], obstacle_long_axis, obstacle_lat_axis]
-            separating_gaps = []
-            for axis in axes:
-                center_projection = smooth_abs_lower(ca.dot(center_difference, axis), epsilon)
-                ego_support = ego_half_length * smooth_abs_upper(ca.dot(ego_obb["long_axis"], axis), epsilon)
-                ego_support += ego_half_width * smooth_abs_upper(ca.dot(ego_obb["lat_axis"], axis), epsilon)
-                obstacle_support = obstacle_half_length * smooth_abs_upper(ca.dot(obstacle_long_axis, axis), epsilon)
-                obstacle_support += obstacle_half_width * smooth_abs_upper(ca.dot(obstacle_lat_axis, axis), epsilon)
-                separating_gaps.append(center_projection - ego_support - obstacle_support)
-
-            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, smooth_max_lower(separating_gaps, tau))
+            obstacle_obb = {
+                "x": obstacle_center[0],
+                "y": obstacle_center[1],
+                "long_axis": ca.vertcat(ca.cos(obstacle_yaw), ca.sin(obstacle_yaw)),
+                "lat_axis": ca.vertcat(-ca.sin(obstacle_yaw), ca.cos(obstacle_yaw)),
+                "half_length": obstacle_half_length,
+                "half_width": obstacle_half_width,
+            }
+            ocp.model.con_h_expr = ca.vertcat(
+                ocp.model.con_h_expr, conservative_smooth_sat_margin(safety_ego_obb, obstacle_obb, epsilon, tau)
+            )
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
 

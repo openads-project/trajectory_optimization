@@ -200,6 +200,22 @@ def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
     }
 
 
+def expand_ego_obb_forward(ego_obb: dict, front_margin: ca.MX, rear_margin: ca.MX, lateral_margin: ca.MX) -> dict:
+    """Expand an ego OBB with independent front, rear, and lateral margins.
+
+    The returned box has the same rear edge when only ``front_margin`` grows.
+    This is the OBB representation of a forward-only time-headway buffer.
+    """
+    center_shift = 0.5 * (front_margin - rear_margin)
+    return {
+        **ego_obb,
+        "x": ego_obb["x"] + center_shift * ego_obb["long_axis"][0],
+        "y": ego_obb["y"] + center_shift * ego_obb["long_axis"][1],
+        "half_length": ego_obb["half_length"] + 0.5 * (front_margin + rear_margin),
+        "half_width": ego_obb["half_width"] + lateral_margin,
+    }
+
+
 def smooth_abs_upper(value: ca.MX, epsilon: float) -> ca.MX:
     """Differentiable upper bound of ``abs(value)``."""
     return ca.sqrt(value * value + epsilon * epsilon)
@@ -230,6 +246,21 @@ def smooth_max_lower(values: list[ca.MX], tau: float) -> ca.MX:
                 next_level.append(level[index])
         level = next_level
     return level[0]
+
+
+def conservative_smooth_sat_margin(first: dict, second: dict, epsilon: float, tau: float) -> ca.MX:
+    """Return a smooth conservative lower bound of the exact OBB SAT margin."""
+    center_difference = ca.vertcat(second["x"] - first["x"], second["y"] - first["y"])
+    axes = [first["long_axis"], first["lat_axis"], second["long_axis"], second["lat_axis"]]
+    separating_gaps = []
+    for axis in axes:
+        center_projection = smooth_abs_lower(ca.dot(center_difference, axis), epsilon)
+        first_support = first["half_length"] * smooth_abs_upper(ca.dot(first["long_axis"], axis), epsilon)
+        first_support += first["half_width"] * smooth_abs_upper(ca.dot(first["lat_axis"], axis), epsilon)
+        second_support = second["half_length"] * smooth_abs_upper(ca.dot(second["long_axis"], axis), epsilon)
+        second_support += second["half_width"] * smooth_abs_upper(ca.dot(second["lat_axis"], axis), epsilon)
+        separating_gaps.append(center_projection - first_support - second_support)
+    return smooth_max_lower(separating_gaps, tau)
 
 
 def obstacle_parameter_shape(config: dict) -> list[int]:
