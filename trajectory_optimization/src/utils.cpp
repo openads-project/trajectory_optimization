@@ -375,7 +375,7 @@ void TrajectoryOptimizationNode::vizObbs(const std::vector<double>& obstacles) {
   const size_t box_count = obstacles.size() / width;
   for (size_t index = 0; index < box_count; ++index) {
     const size_t offset = index * width;
-    if (std::abs(obstacles[offset]) > 5000.0 || std::abs(obstacles[offset + 1]) > 5000.0) continue;
+    if (obstacles[offset + width - 1] < 0.5) continue;
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);

@@ -96,3 +96,24 @@ interval are reported separately and do not affect the spike gate.
 The comparison command applies the agreed performance gates (no more than one
 percentage point publication-rate loss, solver p95 below 100 ms, and at least
 20 percent p95 improvement) together with the exact node-level geometry gate.
+
+## Synthetic OBB ghost probe
+
+`investigate_obb_ghosts.py` runs the generated Karl OBB solver on a straight,
+hard-bounded synthetic corridor. It compares empty OBB slots with increasing
+amounts of unreachable parked-vehicle clutter and stresses both with one real
+blocking obstacle. The output includes solver status, SQP iterations, timing,
+trajectory changes, and exact/smoothed SAT margins:
+
+```bash
+source /docker-ros/ws/install/setup.bash
+python3 utils/investigate_obb_ghosts.py --repeats 5 --speed 5.0
+```
+
+Run the Release build first so the probe loads the current generated
+`karl_obb_sat` solver. This utility is a formulation diagnostic rather than a
+bag benchmark; all scenarios are deterministic and independent of recorded
+data. Each OBB parameter row ends in an activation value. Real hypotheses use
+`active=1`; unused slots use `active=0`, which replaces their SAT constraint by
+the constant feasible margin `1 m`. Consequently unused slots have zero state
+Jacobian regardless of their placeholder pose.

@@ -8,6 +8,7 @@ from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
     CONTROL_INDEX_J_T,
+    P_OBSTACLES_INDEX_ACTIVE,
     P_OBSTACLES_INDEX_HALF_LENGTH,
     P_OBSTACLES_INDEX_HALF_WIDTH,
     P_OBSTACLES_INDEX_RADIUS,
@@ -23,6 +24,7 @@ from constants import (
     STATE_INDEX_Y,
 )
 from utils import (
+    activate_constraint,
     approximate_ego_geometry,
     conservative_smooth_sat_margin,
     determine_spacially_matched_ref_path_point,
@@ -212,6 +214,7 @@ def set_constraints(ocp: AcadosOcp, config):
             obstacle_yaw = p_obstacles[base + P_OBSTACLES_INDEX_YAW]
             obstacle_half_length = p_obstacles[base + P_OBSTACLES_INDEX_HALF_LENGTH]
             obstacle_half_width = p_obstacles[base + P_OBSTACLES_INDEX_HALF_WIDTH]
+            obstacle_active = p_obstacles[base + P_OBSTACLES_INDEX_ACTIVE]
             obstacle_obb = {
                 "x": obstacle_center[0],
                 "y": obstacle_center[1],
@@ -220,9 +223,8 @@ def set_constraints(ocp: AcadosOcp, config):
                 "half_length": obstacle_half_length,
                 "half_width": obstacle_half_width,
             }
-            ocp.model.con_h_expr = ca.vertcat(
-                ocp.model.con_h_expr, conservative_smooth_sat_margin(safety_ego_obb, obstacle_obb, epsilon, tau)
-            )
+            sat_margin = conservative_smooth_sat_margin(safety_ego_obb, obstacle_obb, epsilon, tau)
+            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, activate_constraint(sat_margin, obstacle_active))
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
 

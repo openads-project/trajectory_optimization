@@ -452,7 +452,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_cost_weights_shape_ = {12, 1};      // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};          // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};  // nObstacleCircles x [x, y, radius]
-  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 5};     // nObstacleOBBs x [x, y, yaw, half-length, half-width]
+  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 6};     // nObstacleOBBs x [x, y, yaw, half-length, half-width, active]
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

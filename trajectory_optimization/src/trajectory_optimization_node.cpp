@@ -1001,10 +1001,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       obbs.reserve(parameter_count);
       for (const auto& hypothesis : hypotheses) {
         const auto& box = hypothesis.boxes[stage];
-        obbs.insert(obbs.end(), {box.x, box.y, box.yaw, box.half_length, box.half_width});
+        obbs.insert(obbs.end(), {box.x, box.y, box.yaw, box.half_length, box.half_width, 1.0});
       }
       while (obbs.size() < static_cast<size_t>(parameter_count)) {
-        obbs.insert(obbs.end(), {10000.0, 10000.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT});
+        obbs.insert(obbs.end(), {0.0, 0.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT, 0.0});
       }
       if (debug_viz_) viz_obbs_.insert(viz_obbs_.end(), obbs.begin(), obbs.end());
 

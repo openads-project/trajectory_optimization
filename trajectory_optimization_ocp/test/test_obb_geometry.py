@@ -14,6 +14,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parents[1] / "trajectory_optimization_ocp"))
 
 from utils import (  # noqa: E402, I202
+    activate_constraint,
     conservative_smooth_sat_margin,
     ego_obb_geometry,
     expand_ego_obb_forward,
@@ -119,3 +120,32 @@ def test_sat_jacobian_matches_finite_differences_near_contacts_and_axis_changes(
             minus = float(function(values - delta)[0])
             finite_difference[index] = (plus - minus) / (2.0 * step)
         np.testing.assert_allclose(analytic, finite_difference, rtol=2e-5, atol=2e-6)
+
+
+def test_inactive_sat_constraint_is_constant_and_has_zero_state_derivative():
+    """Disabled slots must not affect the NLP values or derivatives."""
+    variables = ca.MX.sym("variables", 6)
+    active = ca.MX.sym("active")
+    ego = _symbolic_box(variables[0], variables[1], variables[2], 2.5, 1.0)
+    obstacle = _symbolic_box(variables[3], variables[4], variables[5], 2.0, 0.8)
+    sat_margin = conservative_smooth_sat_margin(ego, obstacle, 1e-3, 0.02)
+    constraint = activate_constraint(sat_margin, active)
+    constraint_hessian = ca.hessian(constraint, variables)[0]
+    function = ca.Function(
+        "activated_sat", [variables, active], [constraint, ca.jacobian(constraint, variables), constraint_hessian]
+    )
+    values = np.array([1.0, -2.0, 0.3, 4.0, 5.0, -0.7])
+
+    inactive_value, inactive_jacobian, inactive_hessian = function(values, 0.0)
+    active_value, active_jacobian, active_hessian = function(values, 1.0)
+    raw_function = ca.Function(
+        "raw_sat", [variables], [sat_margin, ca.jacobian(sat_margin, variables), ca.hessian(sat_margin, variables)[0]]
+    )
+    raw_value, raw_jacobian, raw_hessian = raw_function(values)
+
+    assert math.isclose(float(inactive_value), 1.0, abs_tol=1e-12)
+    np.testing.assert_array_equal(np.asarray(inactive_jacobian), np.zeros((1, variables.numel())))
+    np.testing.assert_array_equal(np.asarray(inactive_hessian), np.zeros((variables.numel(), variables.numel())))
+    assert math.isclose(float(active_value), float(raw_value), abs_tol=1e-12)
+    np.testing.assert_allclose(np.asarray(active_jacobian), np.asarray(raw_jacobian), rtol=0.0, atol=1e-12)
+    np.testing.assert_allclose(np.asarray(active_hessian), np.asarray(raw_hessian), rtol=0.0, atol=1e-12)

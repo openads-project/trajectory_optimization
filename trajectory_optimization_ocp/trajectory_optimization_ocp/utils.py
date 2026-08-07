@@ -263,6 +263,11 @@ def conservative_smooth_sat_margin(first: dict, second: dict, epsilon: float, ta
     return smooth_max_lower(separating_gaps, tau)
 
 
+def activate_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.0) -> ca.MX:
+    """Make a parameterized hard constraint constant and feasible when inactive."""
+    return active * value + (1.0 - active) * inactive_margin
+
+
 def obstacle_parameter_shape(config: dict) -> list[int]:
     """Return the active stage-wise obstacle layout for circles or OBBs."""
     if config.get("collision_geometry", "circles") == "obb_sat":
