@@ -49,9 +49,10 @@ def create_solver(config):
     costs.set_costs(ocp, config)
     constraints.set_constraints(ocp, config)
     opts.set_opts(ocp, config)
+    model_name = config["model_name"]
     ocp.code_gen_options.code_export_directory = str(OCP_BUILD_DIR / "c_generated_code")
-    ocp.code_gen_options.json_file = str(OCP_BUILD_DIR / "karl_obb_sat.json")
-    solver_library = OCP_BUILD_DIR / "c_generated_code" / "libacados_ocp_solver_karl_obb_sat.so"
+    ocp.code_gen_options.json_file = str(OCP_BUILD_DIR / f"{model_name}.json")
+    solver_library = OCP_BUILD_DIR / "c_generated_code" / f"libacados_ocp_solver_{model_name}.so"
     if not solver_library.exists():
         raise FileNotFoundError(f"Generated solver not found at {solver_library}. Run the Release build first.")
     return AcadosOcpSolver(ocp, build=False, generate=False, verbose=False, save_p_global=False, check_reuse_possible=False)
@@ -129,14 +130,14 @@ def make_clutter(count):
     return clutter
 
 
-def initialize_problem(solver, config, params, obstacles, speed, filler=GHOST):
+def initialize_problem(solver, config, params, obstacles, speed, filler=GHOST, boundary_half_width=4.0):
     """Set a straight reference, OCP parameters, and a dynamically consistent initial guess."""
     horizon = config["optimization_horizon"]
     stages = config["n_shots"]
     dt = horizon / stages
     reference = []
     for stage in range(stages + 1):
-        reference.extend((0.0, speed * stage * dt, 0.0, speed, 4.0, 4.0))
+        reference.extend((0.0, speed * stage * dt, 0.0, speed, boundary_half_width, boundary_half_width))
     global_parameters = np.asarray(
         [
             *params["cost_weights"],
@@ -180,7 +181,18 @@ def minimum_margins(states, obstacles, config, params):
     return exact, smooth
 
 
-def run_case(solver, config, params, name, obstacles, margin_obstacles, speed, repeats, filler=GHOST):
+def run_case(
+    solver,
+    config,
+    params,
+    name,
+    obstacles,
+    margin_obstacles,
+    speed,
+    repeats,
+    filler=GHOST,
+    boundary_half_width=4.0,
+):
     """Solve one synthetic case repeatedly from the same cold initial guess."""
     results = []
     dt = config["optimization_horizon"] / config["n_shots"]
@@ -190,7 +202,7 @@ def run_case(solver, config, params, name, obstacles, margin_obstacles, speed, r
     initial_exact, initial_smooth = minimum_margins(initial_states, margin_obstacles, config, params)
     for _ in range(repeats):
         solver.reset(reset_qp_solver_mem=True, reset_numerical_values=True)
-        initialize_problem(solver, config, params, obstacles, speed, filler)
+        initialize_problem(solver, config, params, obstacles, speed, filler, boundary_half_width)
         status = solver.solve()
         states = np.vstack([solver.get(stage, "x") for stage in range(config["n_shots"] + 1)])
         controls = np.vstack([solver.get(stage, "u") for stage in range(config["n_shots"])])
@@ -257,6 +269,19 @@ def main():
 
     relevant = [(18.0, 0.0, 0.0, 2.4, 1.0)]
     cases.append(run_case(solver, config, params, "blocking_only", relevant, relevant, args.speed, args.repeats))
+    cases.append(
+        run_case(
+            solver,
+            config,
+            params,
+            "blocking_stop_only",
+            relevant,
+            relevant,
+            args.speed,
+            args.repeats,
+            boundary_half_width=1.25,
+        )
+    )
     for filler_distance in (10.0, 100.0, 1000.0):
         cases.append(
             run_case(
@@ -311,7 +336,7 @@ def main():
 
     baseline = cases[0]["results"][0]
     print(
-        "scenario              status  iter  time_med_ms  max|dx|   max|du|   "
+        "scenario              status  iter  time_med_ms  max|dx|   max|du|   min_v  max|y| "
         "init_exact init_smooth sol_exact sol_smooth max_residual  max_eq max_ineq"
     )
     for case in cases:
@@ -327,6 +352,7 @@ def main():
         print(
             f"{case['name']:<21} {str(statuses):>6} {statistics.median(iterations):5.1f} "
             f"{statistics.median(times):12.3f} {max_state_delta:9.2e} {max_control_delta:9.2e} "
+            f"{np.min(representative['states'][:, 3]):6.2f} {np.max(np.abs(representative['states'][:, 1])):7.2f} "
             f"{format_margin(case['initial_exact']):>10} {format_margin(case['initial_smooth']):>11} "
             f"{format_margin(representative['exact']):>9} {format_margin(representative['smooth']):>10} "
             f"{max_residual:12.2e} {max_eq:7.1e} {max_ineq:8.1e}"

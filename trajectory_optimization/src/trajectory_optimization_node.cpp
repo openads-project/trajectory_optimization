@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <limits>
+#include <optional>
 #include <thread>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
@@ -24,6 +27,31 @@ double elapsedMilliseconds(const SteadyClock::time_point& start) {
 
 double elapsedMilliseconds(const SteadyClock::time_point& start, const SteadyClock::time_point& end) {
   return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+void copySolverStatistics(const PerformanceMetrics& source, PerformanceMetrics& destination) {
+  destination.solver_ran = source.solver_ran;
+  destination.status = source.status;
+  destination.sqp_iter = source.sqp_iter;
+  destination.qp_iter = source.qp_iter;
+  destination.qp_status = source.qp_status;
+  destination.acados_total_ms = source.acados_total_ms;
+  destination.acados_lin_ms = source.acados_lin_ms;
+  destination.acados_sim_ms = source.acados_sim_ms;
+  destination.acados_qp_ms = source.acados_qp_ms;
+  destination.acados_qp_solver_ms = source.acados_qp_solver_ms;
+  destination.acados_qp_xcond_ms = source.acados_qp_xcond_ms;
+  destination.acados_reg_ms = source.acados_reg_ms;
+  destination.acados_glob_ms = source.acados_glob_ms;
+  destination.acados_preparation_ms = source.acados_preparation_ms;
+  destination.acados_feedback_ms = source.acados_feedback_ms;
+  destination.cost_value = source.cost_value;
+  destination.nlp_res = source.nlp_res;
+  destination.kkt_norm_inf = source.kkt_norm_inf;
+  destination.res_stat = source.res_stat;
+  destination.res_eq = source.res_eq;
+  destination.res_ineq = source.res_ineq;
+  destination.res_comp = source.res_comp;
 }
 
 }  // namespace
@@ -67,6 +95,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("high_level_stabilization", high_level_stabilization_,
                                 "Use high-level stabilization strategy for init state (= init with current EgoData)");
   this->declareAndLoadParameter(
+      "multistart_initial_guesses", multistart_initial_guesses_,
+      "Ordered initial guesses for sequential Karl OBB solves: warm_start, braking, left, right, braking_left, braking_right",
+      false, false, true);
+  this->declareAndLoadParameter(
       "consider_objects", consider_objects_,
       "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
   this->declareAndLoadParameter("min_prediction_probability", min_prediction_probability_,
@@ -83,6 +115,15 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
     throw std::invalid_argument("Invalid collision_geometry: " + collision_geometry_);
   }
   solver_model_name_ = collision_geometry_ == "obb_sat" ? model_name_ + "_obb_sat" : model_name_;
+  if (multistart_initial_guesses_.empty()) {
+    throw std::invalid_argument("multistart_initial_guesses must contain at least one mode.");
+  }
+  for (const auto& initial_guess : multistart_initial_guesses_) {
+    parseInitialGuessMode(initial_guess);
+  }
+  if (solver_model_name_ != "karl_obb_sat" && multistart_initial_guesses_.size() > 1) {
+    RCLCPP_WARN(get_logger(), "Sequential multistart is currently restricted to karl_obb_sat; using warm_start only.");
+  }
   if (performance_logging_) {
     try {
       performance_logger_ = std::make_unique<PerformanceLogger>(get_name());
@@ -327,7 +368,10 @@ void TrajectoryOptimizationNode::resetSolver() {
   }
 }
 
-bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp) {
+bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init,
+                                                 const rclcpp::Time& stamp,
+                                                 const InitialGuessMode mode,
+                                                 std::vector<double>& initial_controls) {
   constexpr double MAX_CONTROL_GUESS_AGE_FACTOR = 0.5;
   const int nx = *nlp_dims_->nx;
   const int nu = *nlp_dims_->nu;
@@ -338,9 +382,23 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
     return false;
   }
 
+  if (mode != InitialGuessMode::WARM_START && (solver_model_name_ != "karl_obb_sat" || nx != 7 || nu != 2)) {
+    RCLCPP_ERROR(get_logger(), "Initial guess '%s' requires the seven-state, two-control Karl OBB model.",
+                 initialGuessModeName(mode));
+    return false;
+  }
+
+  auto constraintValues = [&](const int stage, const char* field) {
+    std::array<int, 2> dimensions = {0, 0};
+    ocp_nlp_constraint_dims_get_from_attr(nlp_config_, nlp_dims_, nlp_out_, stage, field, dimensions.data());
+    std::vector<double> values(dimensions[0]);
+    ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, field, values.data());
+    return values;
+  };
+
   // Fall back to zero controls if no sufficiently recent solver output is available.
   std::vector<double> controls(expected_control_size, 0.0);
-  if (control_guess_.size() == expected_control_size) {
+  if (mode == InitialGuessMode::WARM_START && control_guess_.size() == expected_control_size) {
     const double elapsed = (stamp - control_guess_stamp_).seconds();
     if (elapsed >= 0.0 && elapsed < MAX_CONTROL_GUESS_AGE_FACTOR * optimization_horizon_) {
       // Shift the previous controls to the current planning time and interpolate between shooting nodes.
@@ -369,26 +427,61 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
   std::vector<double> intermediate_state(nx);
   std::vector<double> k1(nx), k2(nx), k3(nx), k4(nx);
   const double integration_step = time_step / 2.0;
+  bool braking_release_started = false;
+  std::vector<double> state_lower_bounds;
+  std::vector<double> state_upper_bounds;
+  if (mode != InitialGuessMode::WARM_START) {
+    state_lower_bounds = constraintValues(1, "lbx");
+    state_upper_bounds = constraintValues(1, "ubx");
+    if (state_lower_bounds.size() < 3 || state_upper_bounds.size() < 3) {
+      RCLCPP_ERROR(get_logger(), "Karl initial guess expected velocity, acceleration and steering state bounds.");
+      return false;
+    }
+  }
   for (int stage = 0; stage < n_shots_; ++stage) {
-    double* control = &controls[stage * nu];
+    std::vector<double> stage_control(controls.begin() + stage * nu, controls.begin() + (stage + 1) * nu);
+    const auto control_lower_bounds = constraintValues(stage, "lbu");
+    const auto control_upper_bounds = constraintValues(stage, "ubu");
+    if (control_lower_bounds.size() != static_cast<size_t>(nu) || control_upper_bounds.size() != static_cast<size_t>(nu)) {
+      RCLCPP_ERROR(get_logger(), "Initial guess received unexpected control-bound dimensions at stage %d.", stage);
+      return false;
+    }
+    if (mode != InitialGuessMode::WARM_START) {
+      stage_control[0] = initialGuessUsesBraking(mode)
+                             ? brakingInitialGuessJerk(rollout_state[3], rollout_state[4], time_step, control_lower_bounds[0],
+                                                       control_upper_bounds[0], state_lower_bounds[1], braking_release_started)
+                             : 0.0;
+      stage_control[1] = lateralInitialGuessSteeringRate(mode, stage * time_step, optimization_horizon_, time_step,
+                                                         rollout_state[6], control_lower_bounds[1], control_upper_bounds[1],
+                                                         state_lower_bounds[2], state_upper_bounds[2]);
+    }
+    for (int index = 0; index < nu; ++index) {
+      stage_control[index] = std::clamp(stage_control[index], control_lower_bounds[index], control_upper_bounds[index]);
+      controls[stage * nu + index] = stage_control[index];
+    }
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "x", rollout_state.data());
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", control);
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", stage_control.data());
 
     // Match sim_method_num_stages=4 and sim_method_num_steps=2 from the generated OCP.
     for (int integration = 0; integration < 2; ++integration) {
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, rollout_state.data(), control, k1.data());
+      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, rollout_state.data(), stage_control.data(),
+                                                        k1.data());
       for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k1[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k2.data());
+      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), stage_control.data(),
+                                                        k2.data());
       for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k2[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k3.data());
+      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), stage_control.data(),
+                                                        k3.data());
       for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + integration_step * k3[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k4.data());
+      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), stage_control.data(),
+                                                        k4.data());
       for (int i = 0; i < nx; ++i) {
         rollout_state[i] += integration_step / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
       }
     }
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", rollout_state.data());
+  initial_controls = std::move(controls);
   return true;
 }
 
@@ -481,42 +574,152 @@ void TrajectoryOptimizationNode::planningCycle() {
   metrics.dropped_obstacle_hypotheses = dropped_obstacle_hypotheses_;
   metrics.parameter_update_ms = parameter_update_ms_;
 
-  if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp))) {
+  std::vector<InitialGuessMode> initial_guess_modes;
+  if (solver_model_name_ == "karl_obb_sat") {
+    for (const auto& name : multistart_initial_guesses_) {
+      initial_guess_modes.push_back(parseInitialGuessMode(name));
+    }
+  } else {
+    initial_guess_modes.push_back(InitialGuessMode::WARM_START);
+  }
+
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  struct SolverAttempt {
+    PerformanceMetrics solver_metrics;
+    std::string initial_guess;
+    int attempt = -1;
+    double wall_ms = 0.0;
+    double primal_score = std::numeric_limits<double>::infinity();
+    bool finite = false;
+    bool primal_feasible = false;
+    std::vector<double> states;
+    std::vector<double> controls;
+  };
+  std::optional<SolverAttempt> best_feasible_attempt;
+  std::optional<SolverAttempt> best_recoverable_attempt;
+  std::optional<SolverAttempt> last_attempt;
+  std::vector<std::vector<double>> attempted_initial_controls;
+
+  // Solve all distinct initial guesses sequentially. Resetting the acados QP and integrator memory keeps the attempts
+  // independent while retaining the OCP inputs and global parameters prepared above.
+  const auto solve_start = SteadyClock::now();
+  metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
+  for (const auto mode : initial_guess_modes) {
+    if (!attempted_initial_controls.empty()) {
+      const int reset_status = trajectory_optimization::acados_reset(ocp_capsule_, 1, 0, 0, 0);
+      if (reset_status != ACADOS_SUCCESS) {
+        RCLCPP_ERROR(get_logger(), "%s_acados_reset() returned status %d during multistart.", solver_model_name_.c_str(),
+                     reset_status);
+        break;
+      }
+    }
+
+    std::vector<double> initial_controls;
+    if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp), mode, initial_controls)) {
+      RCLCPP_WARN(get_logger(), "Could not construct initial guess '%s'.", initialGuessModeName(mode));
+      continue;
+    }
+    const bool duplicate =
+        std::any_of(attempted_initial_controls.begin(), attempted_initial_controls.end(), [&](const auto& previous) {
+          return previous.size() == initial_controls.size() &&
+                 std::equal(previous.begin(), previous.end(), initial_controls.begin(),
+                            [](const double lhs, const double rhs) { return std::abs(lhs - rhs) <= 1e-12; });
+        });
+    if (duplicate) {
+      RCLCPP_DEBUG(get_logger(), "Skipping duplicate initial guess '%s'.", initialGuessModeName(mode));
+      continue;
+    }
+    attempted_initial_controls.push_back(initial_controls);
+
+    SolverAttempt attempt;
+    attempt.initial_guess = initialGuessModeName(mode);
+    attempt.attempt = metrics.solver_attempts++;
+    attempt.solver_metrics.solver_ran = true;
+    const auto attempt_start = SteadyClock::now();
+    attempt.solver_metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
+    attempt.wall_ms = elapsedMilliseconds(attempt_start);
+    PerformanceLogger::collectSolverStatistics(attempt.solver_metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                               true);
+    metrics.acados_total_all_attempts_ms += attempt.solver_metrics.acados_total_ms;
+
+    const bool usable_status = attempt.solver_metrics.status == ACADOS_SUCCESS ||
+                               attempt.solver_metrics.status == ACADOS_MAXITER || attempt.solver_metrics.status == ACADOS_TIMEOUT;
+    if (usable_status) {
+      attempt.states.resize(xtraj_.size());
+      attempt.controls.resize(utraj_.size());
+      for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "x", &attempt.states[stage * *nlp_dims_->nx]);
+      }
+      for (int stage = 0; stage < nlp_dims_->N; ++stage) {
+        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "u", &attempt.controls[stage * *nlp_dims_->nu]);
+      }
+      attempt.finite =
+          std::isfinite(attempt.solver_metrics.cost_value) && std::isfinite(attempt.solver_metrics.res_eq) &&
+          std::isfinite(attempt.solver_metrics.res_ineq) &&
+          std::all_of(attempt.states.begin(), attempt.states.end(), [](double value) { return std::isfinite(value); }) &&
+          std::all_of(attempt.controls.begin(), attempt.controls.end(), [](double value) { return std::isfinite(value); });
+    }
+    if (attempt.finite) {
+      attempt.primal_score =
+          std::max(attempt.solver_metrics.res_eq / solver_opts->tol_eq, attempt.solver_metrics.res_ineq / solver_opts->tol_ineq);
+      attempt.primal_feasible =
+          attempt.solver_metrics.res_eq <= solver_opts->tol_eq && attempt.solver_metrics.res_ineq <= solver_opts->tol_ineq;
+    }
+    if (attempt.primal_feasible) {
+      ++metrics.feasible_solver_attempts;
+      if (!best_feasible_attempt || attempt.solver_metrics.cost_value < best_feasible_attempt->solver_metrics.cost_value) {
+        best_feasible_attempt = attempt;
+      }
+    } else if (attempt.finite && (!best_recoverable_attempt || attempt.primal_score < best_recoverable_attempt->primal_score)) {
+      best_recoverable_attempt = attempt;
+    }
+    RCLCPP_DEBUG(
+        get_logger(), "Multistart attempt %d '%s': status=%d feasible=%d cost=%g residuals=[eq=%e, ineq=%e], wall=%.2f ms.",
+        attempt.attempt, attempt.initial_guess.c_str(), attempt.solver_metrics.status, attempt.primal_feasible,
+        attempt.solver_metrics.cost_value, attempt.solver_metrics.res_eq, attempt.solver_metrics.res_ineq, attempt.wall_ms);
+    last_attempt = std::move(attempt);
+  }
+  const auto solve_end = SteadyClock::now();
+  metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
+
+  const SolverAttempt* selected_attempt = nullptr;
+  if (best_feasible_attempt) {
+    selected_attempt = &*best_feasible_attempt;
+  } else if (best_recoverable_attempt) {
+    selected_attempt = &*best_recoverable_attempt;
+  } else if (last_attempt) {
+    selected_attempt = &*last_attempt;
+  }
+  if (selected_attempt == nullptr) {
     control_guess_.clear();
     metrics.outcome = "skipped_initial_guess";
     logCompletedCycle();
     return;
   }
-
-  // solve the optimization problem
-  const auto solve_start = SteadyClock::now();
-  metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
-  metrics.solver_ran = true;
-  metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
-  const auto solve_end = SteadyClock::now();
-  metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
-
-  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
-                                             performance_logger_ != nullptr || verbose_);
-
-  const bool usable_status =
-      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
-  if (usable_status) {
-    for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
-      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
+  copySolverStatistics(selected_attempt->solver_metrics, metrics);
+  metrics.selected_solver_attempt = selected_attempt->attempt;
+  metrics.selected_initial_guess = selected_attempt->initial_guess;
+  metrics.selected_solve_wall_ms = selected_attempt->wall_ms;
+  if (selected_attempt->finite) {
+    xtraj_ = selected_attempt->states;
+    utraj_ = selected_attempt->controls;
+    for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "x", &xtraj_[stage * *nlp_dims_->nx]);
     }
-    for (int ii = 0; ii < nlp_dims_->N; ++ii) {
-      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
+    for (int stage = 0; stage < nlp_dims_->N; ++stage) {
+      ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", &utraj_[stage * *nlp_dims_->nu]);
     }
+    ocp_nlp_eval_cost(nlp_solver_, nlp_in_, nlp_out_);
+    ocp_nlp_eval_residuals(nlp_solver_, nlp_in_, nlp_out_);
   }
-
-  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
-  const bool finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
-                               std::isfinite(metrics.res_ineq) &&
-                               std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
-                               std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
-  const bool primal_feasible =
-      finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
+  const bool finite_solution = selected_attempt->finite;
+  const bool primal_feasible = selected_attempt->primal_feasible;
+  if (metrics.solver_attempts > 1) {
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000,
+                         "Multistart selected '%s' (%d/%d feasible, attempt %d, selected %.2f ms, total %.2f ms).",
+                         metrics.selected_initial_guess.c_str(), metrics.feasible_solver_attempts, metrics.solver_attempts,
+                         metrics.selected_solver_attempt, metrics.selected_solve_wall_ms, metrics.solve_wall_ms);
+  }
 
   if (!primal_feasible) {
     printSolution(metrics);

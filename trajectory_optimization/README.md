@@ -63,6 +63,7 @@ flowchart LR
 | `d_min_boundary_lat` | `float` | `-0.5` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
+| `multistart_initial_guesses` | `string[]` | `["warm_start"]` | Read-only ordered initial guesses for sequential `karl_obb_sat` solves. Supported values: `warm_start`, `braking`, `left`, `right`, `braking_left`, `braking_right`. Distinct feasible solutions are compared by OCP cost. |
 | `consider_objects` | `int` | `2` | consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction) |
 | `min_prediction_probability` | `float` | `0.0` | Minimum probability for predicted object states to be considered |
 | `consider_boundaries` | `int` | `1` | consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space |

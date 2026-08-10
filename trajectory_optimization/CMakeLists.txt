@@ -29,6 +29,7 @@ set(TARGET_NAME trajectory_optimization_node_component)
 add_library(${TARGET_NAME} SHARED 
   src/callbacks.cpp
   src/collision_geometry.cpp
+  src/initial_guess.cpp
   src/performance_logger.cpp
   src/trajectory_optimization_node.cpp
   src/trajectory_optimization_ackermann.cpp
@@ -103,6 +104,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_collision_geometry test/test_collision_geometry.cpp src/collision_geometry.cpp)
   target_include_directories(test_collision_geometry PRIVATE include)
   target_compile_features(test_collision_geometry PUBLIC cxx_std_17)
+
+  ament_add_gtest(test_initial_guess test/test_initial_guess.cpp src/initial_guess.cpp)
+  target_include_directories(test_initial_guess PRIVATE include)
+  target_compile_features(test_initial_guess PUBLIC cxx_std_17)
 endif()
 
 ament_package()

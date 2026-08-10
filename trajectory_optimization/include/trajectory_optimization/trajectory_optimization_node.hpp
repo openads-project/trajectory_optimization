@@ -31,6 +31,7 @@
 
 // acados
 #include <trajectory_optimization/collision_geometry.hpp>
+#include <trajectory_optimization/initial_guess.hpp>
 #include <trajectory_optimization/ocp_model_handler.hpp>
 #include <trajectory_optimization/performance_logger.hpp>
 
@@ -144,9 +145,14 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    *
    * @param[in] x_init Hard initial state of the OCP.
    * @param[in] stamp Absolute time corresponding to x_init.
+   * @param[in] mode Control profile used for the state rollout.
+   * @param[out] initial_controls Controls written into the acados iterate, used to avoid duplicate attempts.
    * @return `true` if the state rollout succeeded.
    */
-  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp);
+  bool setInitialGuess(const std::vector<double>& x_init,
+                       const rclcpp::Time& stamp,
+                       InitialGuessMode mode,
+                       std::vector<double>& initial_controls);
 
   /**
    * @brief Creates the acados solver instance and initializes its state buffers.
@@ -411,6 +417,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
+  std::vector<std::string> multistart_initial_guesses_ = {"warm_start"};
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;

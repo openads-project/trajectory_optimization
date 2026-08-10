@@ -8,6 +8,8 @@
     optimization_frequency: 10.0    # frequency of the optimization loop [Hz]
     standstill_threshold: 0.3       # threshold for standstill detection [m/s]. If all state velocities are below this threshold, publish standstill trajectory
     high_level_stabilization: False # init first trajectory point with: current EgoData (True); interpolation of last trajectory -> bi-level (False)
+    # Sequential multistart is currently applied only to karl_obb_sat. Duplicate control profiles are skipped automatically.
+    multistart_initial_guesses: ['warm_start', 'braking', 'left', 'right', 'braking_left', 'braking_right']
     consider_objects: 2             # consider objects in optimization: 0 = no, 1 = static (no prediction), 2 = dynamic (with prediction)
     min_prediction_probability: 0.0 # consider only predictions with probability > this threshold
     consider_boundaries: 3          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
@@ -23,7 +25,6 @@
 
     ### general parameters defining the ocp
     model_name: 'karl'              # name of the acados model
-    collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
     collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)

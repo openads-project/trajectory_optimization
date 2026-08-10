@@ -37,11 +37,17 @@ struct PerformanceMetrics {
   double max_node_boundary_penetration_m = 0.0;
   double max_intersample_boundary_penetration_m = 0.0;
   bool published = false;
+  int solver_attempts = 0;
+  int feasible_solver_attempts = 0;
+  int selected_solver_attempt = -1;
+  std::string selected_initial_guess = "none";
 
   double cycle_ms = 0.0;
   double preprocessing_ms = 0.0;
   double parameter_update_ms = 0.0;
   double solve_wall_ms = 0.0;
+  double selected_solve_wall_ms = 0.0;
+  double acados_total_all_attempts_ms = 0.0;
   double postprocessing_ms = 0.0;
   double acados_total_ms = 0.0;
   double acados_lin_ms = 0.0;
