@@ -3,7 +3,7 @@
 # Copyright Institute for Automotive Engineering (ika), RWTH Aachen University
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prepare deterministic input-only bags and benchmark circles against OBB-SAT."""
+"""Benchmark circles, OBB single-start, and parallel OBB multistart on input-only bags."""
 
 import argparse
 import json
@@ -49,11 +49,11 @@ def arguments():
         "--playback-start-offset", type=float, default=0.0, help="start each replay this many seconds into the bag"
     )
     parser.add_argument("--playback-duration", type=float, help="limit measured replays; omit for complete bags")
-    parser.add_argument("--node-cpu", type=int, default=2)
-    parser.add_argument("--player-cpu", type=int, default=3)
+    parser.add_argument("--node-cpu", default="2-9", help="taskset CPU list for optimizer threads")
+    parser.add_argument("--player-cpu", type=int, default=10)
     parser.add_argument("--start-zenoh-router", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--run-tag", default="", help="suffix run directories, e.g. v2 (letters, digits, '_' or '-')")
-    parser.add_argument("--resume", action="store_true", help="skip completed schema-v7 runs with matching names")
+    parser.add_argument("--resume", action="store_true", help="skip completed schema-v9 runs with matching names")
     parser.add_argument("--status-interval", type=float, default=5.0, help="seconds between progress updates")
     parser.add_argument("--analyze", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--prepare-only", action="store_true")
@@ -90,13 +90,19 @@ def filtered_bag(source, destination):
     return destination
 
 
-def benchmark_parameters(source, destination, geometry):
+def benchmark_parameters(source, destination, variant):
     """Copy the repo defaults and change only benchmark instrumentation and geometry."""
     with source.open(encoding="utf-8") as parameter_file:
         parameters = yaml.safe_load(parameter_file)
     values = parameters["/**"]["ros__parameters"]
+    geometry = "circles" if variant == "circles" else "obb_sat"
     values["collision_geometry"] = geometry
     values["performance_logging"] = True
+    if variant == "obb_single":
+        values["multistart_initial_guesses"] = ["warm_start"]
+        values["multistart_parallel"] = False
+    elif variant == "obb_multistart":
+        values["multistart_parallel"] = True
     if geometry == "obb_sat":
         # The circle baseline needs its historic negative margin to compensate
         # its geometric over-approximation. The exact OBB does not.
@@ -160,7 +166,7 @@ def wait_with_progress(process, label, expected_seconds, status_interval, watche
 
 
 def completed_metrics(run_directory):
-    """Return the sole schema-v7 metrics CSV for a completed run, otherwise None."""
+    """Return the sole current-schema metrics CSV for a completed run, otherwise None."""
     if not (run_directory / "run.json").exists() or not (run_directory / "optimizer_output" / "metadata.yaml").exists():
         return None
     metrics = list((run_directory / "metrics").glob("*.csv"))
@@ -169,10 +175,10 @@ def completed_metrics(run_directory):
     with metrics[0].open(encoding="utf-8") as source:
         source.readline()
         first_record = source.readline()
-    return metrics[0] if first_record.startswith("7,") else None
+    return metrics[0] if first_record.startswith("9,") else None
 
 
-def run_once(args, bag, geometry, run_name, run_index, total_runs, duration=None):
+def run_once(args, bag, variant, run_name, run_index, total_runs, duration=None):
     """Replay one bag once and capture optimizer metrics and output trajectories."""
     run_directory = args.results / "runs" / run_name
     if run_directory.exists():
@@ -192,7 +198,7 @@ def run_once(args, bag, geometry, run_name, run_index, total_runs, duration=None
     run_directory.mkdir(parents=True, exist_ok=False)
     parameter_path = run_directory / "params.yml"
     default_parameters = args.workspace / "src" / "target" / "trajectory_optimization" / "config" / "params.yml"
-    boundary_margin = benchmark_parameters(default_parameters, parameter_path, geometry)
+    boundary_margin = benchmark_parameters(default_parameters, parameter_path, variant)
 
     environment = os.environ.copy()
     environment["TRAJECTORY_OPTIMIZATION_BENCHMARK_DIR"] = str(run_directory / "metrics")
@@ -257,7 +263,7 @@ def run_once(args, bag, geometry, run_name, run_index, total_runs, duration=None
         try:
             player_status = wait_with_progress(
                 player_process,
-                f"[{run_index}/{total_runs}] {geometry:7}",
+                f"[{run_index}/{total_runs}] {variant:14}",
                 expected_duration,
                 args.status_interval,
                 (
@@ -280,7 +286,7 @@ def run_once(args, bag, geometry, run_name, run_index, total_runs, duration=None
 
     metadata = {
         "bag": str(bag),
-        "geometry": geometry,
+        "variant": variant,
         "run": run_name,
         "node_cpu": args.node_cpu,
         "player_cpu": args.player_cpu,
@@ -292,7 +298,7 @@ def run_once(args, bag, geometry, run_name, run_index, total_runs, duration=None
     (run_directory / "run.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     metrics = completed_metrics(run_directory)
     if metrics is None:
-        raise RuntimeError(f"run completed without a valid schema-v7 metrics CSV: {run_directory}")
+        raise RuntimeError(f"run completed without a valid schema-v9 metrics CSV: {run_directory}")
     print(f"[{run_index}/{total_runs}] DONE  {run_name}", flush=True)
     return metrics
 
@@ -327,23 +333,24 @@ def main():
     tag = f"_{args.run_tag}" if args.run_tag else ""
     for bag in prepared:
         if args.warmup_seconds > 0.0:
-            for geometry in ("circles", "obb_sat"):
-                run_specs.append((bag, geometry, f"{bag.name}{tag}_warmup_{geometry}", args.warmup_seconds, False))
+            for variant in ("circles", "obb_single", "obb_multistart"):
+                run_specs.append((bag, variant, f"{bag.name}{tag}_warmup_{variant}", args.warmup_seconds, False))
         for repetition in range(args.repetitions):
-            order = ("circles", "obb_sat") if repetition % 2 == 0 else ("obb_sat", "circles")
-            for geometry in order:
-                run_specs.append((bag, geometry, f"{bag.name}{tag}_r{repetition + 1}_{geometry}", args.playback_duration, True))
+            variants = ("circles", "obb_single", "obb_multistart")
+            order = variants[repetition % len(variants) :] + variants[: repetition % len(variants)]
+            for variant in order:
+                run_specs.append((bag, variant, f"{bag.name}{tag}_r{repetition + 1}_{variant}", args.playback_duration, True))
 
     router = None
-    measured = {bag: {"circles": [], "obb_sat": []} for bag in prepared}
+    measured = {bag: {variant: [] for variant in ("circles", "obb_single", "obb_multistart")} for bag in prepared}
     if args.start_zenoh_router:
         router = start(["ros2", "run", "rmw_zenoh_cpp", "rmw_zenohd"], os.environ.copy(), args.results / "zenoh_router.log")
         time.sleep(1.0)
     try:
-        for index, (bag, geometry, run_name, duration, is_measured) in enumerate(run_specs, start=1):
-            metrics = run_once(args, bag, geometry, run_name, index, len(run_specs), duration)
+        for index, (bag, variant, run_name, duration, is_measured) in enumerate(run_specs, start=1):
+            metrics = run_once(args, bag, variant, run_name, index, len(run_specs), duration)
             if is_measured:
-                measured[bag][geometry].append(metrics)
+                measured[bag][variant].append(metrics)
     finally:
         if router is not None:
             stop(router)
@@ -353,31 +360,38 @@ def main():
         analyzer = args.workspace / "src" / "target" / "utils" / "analyze_performance.py"
         reports = []
         for bag in prepared:
+            for baseline in ("circles", "obb_single"):
+                command = [
+                    sys.executable,
+                    str(analyzer),
+                    *map(str, measured[bag]["obb_multistart"]),
+                    "--compare",
+                    *map(str, measured[bag][baseline]),
+                    "--color",
+                    "never",
+                ]
+                result = subprocess.run(command, check=True, text=True, capture_output=True)
+                reports.append(
+                    f"===== {bag.name}: obb_multistart vs {baseline} "
+                    f"({args.repetitions} repetitions pooled) =====\n{result.stdout}"
+                )
+
+        for baseline in ("circles", "obb_single"):
+            all_multistart = [path for bag in prepared for path in measured[bag]["obb_multistart"]]
+            all_baseline = [path for bag in prepared for path in measured[bag][baseline]]
             command = [
                 sys.executable,
                 str(analyzer),
-                *map(str, measured[bag]["obb_sat"]),
+                *map(str, all_multistart),
                 "--compare",
-                *map(str, measured[bag]["circles"]),
+                *map(str, all_baseline),
                 "--color",
                 "never",
             ]
             result = subprocess.run(command, check=True, text=True, capture_output=True)
-            reports.append(f"===== {bag.name} ({args.repetitions} repetitions pooled) =====\n{result.stdout}")
-
-        all_obb = [path for bag in prepared for path in measured[bag]["obb_sat"]]
-        all_circles = [path for bag in prepared for path in measured[bag]["circles"]]
-        command = [
-            sys.executable,
-            str(analyzer),
-            *map(str, all_obb),
-            "--compare",
-            *map(str, all_circles),
-            "--color",
-            "never",
-        ]
-        result = subprocess.run(command, check=True, text=True, capture_output=True)
-        reports.append(f"===== ALL BAGS ({args.repetitions} repetitions pooled) =====\n{result.stdout}")
+            reports.append(
+                f"===== ALL BAGS: obb_multistart vs {baseline} " f"({args.repetitions} repetitions pooled) =====\n{result.stdout}"
+            )
         report = "\n".join(reports)
         report_path = args.results / f"analysis{tag}.txt"
         report_path.write_text(report, encoding="utf-8")

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <tracetools/tracetools.h>
+
 #include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
@@ -24,6 +25,7 @@
 // tf2
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_perception_msgs/tf2_perception_msgs.hpp>
 #include <tf2_route_planning_msgs/tf2_route_planning_msgs.hpp>
@@ -36,6 +38,16 @@
 #include <trajectory_optimization/performance_logger.hpp>
 
 namespace trajectory_optimization {
+
+struct OcpSolverInstance {
+  ocp_model_capsule_t capsule;
+  ocp_nlp_config* config = nullptr;
+  ocp_nlp_dims* dims = nullptr;
+  ocp_nlp_in* input = nullptr;
+  ocp_nlp_out* output = nullptr;
+  ocp_nlp_solver* solver = nullptr;
+  void* options = nullptr;
+};
 
 template <typename C>
 struct is_vector : std::false_type {};
@@ -149,7 +161,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[out] initial_controls Controls written into the acados iterate, used to avoid duplicate attempts.
    * @return `true` if the state rollout succeeded.
    */
-  bool setInitialGuess(const std::vector<double>& x_init,
+  bool setInitialGuess(OcpSolverInstance& solver_instance,
+                       const std::vector<double>& x_init,
                        const rclcpp::Time& stamp,
                        InitialGuessMode mode,
                        std::vector<double>& initial_controls);
@@ -418,6 +431,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   std::vector<std::string> multistart_initial_guesses_ = {"warm_start"};
+  bool multistart_parallel_ = true;
+  double solver_timeout_ms_ = 70.0;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;
@@ -469,6 +484,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ocp_nlp_out* nlp_out_;
   ocp_nlp_solver* nlp_solver_;
   void* nlp_opts_;
+
+  // Each multistart attempt owns an independent acados capsule. The first
+  // instance remains the primary instance used by the existing node helpers.
+  std::vector<std::unique_ptr<OcpSolverInstance>> solver_pool_;
 
   std::vector<double> xtraj_;
   std::vector<double> utraj_;

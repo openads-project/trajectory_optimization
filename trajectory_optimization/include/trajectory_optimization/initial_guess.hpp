@@ -7,7 +7,7 @@
 
 namespace trajectory_optimization {
 
-enum class InitialGuessMode { WARM_START, BRAKING, LEFT, RIGHT, BRAKING_LEFT, BRAKING_RIGHT };
+enum class InitialGuessMode { WARM_START, COLD_START, BRAKING, LEFT, RIGHT, BRAKING_LEFT, BRAKING_RIGHT };
 
 /** Parse a configured Ackermann initial-guess mode. */
 InitialGuessMode parseInitialGuessMode(const std::string& name);

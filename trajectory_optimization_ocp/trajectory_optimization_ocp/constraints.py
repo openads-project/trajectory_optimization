@@ -31,6 +31,7 @@ from utils import (
     ego_obb_geometry,
     expand_ego_obb_forward,
     obstacle_parameter_shape,
+    saturate_margin,
     smooth_abs_upper,
     stable_tan,
 )
@@ -224,6 +225,7 @@ def set_constraints(ocp: AcadosOcp, config):
                 "half_width": obstacle_half_width,
             }
             sat_margin = conservative_smooth_sat_margin(safety_ego_obb, obstacle_obb, epsilon, tau)
+            sat_margin = saturate_margin(sat_margin, config["obb_positive_margin_scale"])
             ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, activate_constraint(sat_margin, obstacle_active))
             cons.lh = np.concatenate((cons.lh, [0.0]))
             cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))

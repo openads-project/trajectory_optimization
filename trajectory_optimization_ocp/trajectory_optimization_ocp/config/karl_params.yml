@@ -56,6 +56,7 @@ p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used
 p_obstacle_obbs_shape: [30, 6]    # nObstacleOBBs x [x, y, yaw, half_length, half_width, active]
 obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
 obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]
+obb_positive_margin_scale: 0.5    # sign-preserving saturation scale for already separated OBBs [m]
 
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]

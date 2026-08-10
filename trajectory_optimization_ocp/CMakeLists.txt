@@ -39,6 +39,7 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/c_generated_code/build/
 )
 
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   find_package(ament_cmake_pytest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_clang_format_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/format/.clang-format)
@@ -46,6 +47,10 @@ if(BUILD_TESTING)
   set(ament_cmake_flake8_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/ament_flake8.ini)
   ament_lint_auto_find_test_dependencies()
   ament_add_pytest_test(test_obb_geometry test/test_obb_geometry.py)
+  add_test(NAME test_solver_scenarios
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../utils/run_solver_scenarios.py --repeats 1
+  )
+  set_tests_properties(test_solver_scenarios PROPERTIES TIMEOUT 60)
 endif()
 
 ament_package()

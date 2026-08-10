@@ -18,10 +18,27 @@ from utils import (  # noqa: E402, I202
     conservative_smooth_sat_margin,
     ego_obb_geometry,
     expand_ego_obb_forward,
+    saturate_margin,
     smooth_abs_lower,
     smooth_abs_upper,
     smooth_max_lower,
 )
+
+
+def test_margin_saturation_preserves_feasible_set_and_suppresses_far_gradients():
+    """Saturation must preserve the sign and leave the contact gradient unchanged."""
+    value = ca.MX.sym("margin")
+    saturated = saturate_margin(value, 0.5)
+    function = ca.Function("saturation", [value], [saturated, ca.jacobian(saturated, value)])
+    for sample in (-100.0, -2.0, -1e-6, 0.0, 1e-6, 2.0, 100.0):
+        result, _ = (float(item) for item in function(sample))
+        assert (result >= 0.0) == (sample >= 0.0)
+    _, contact_gradient = (float(item) for item in function(0.0))
+    _, negative_gradient = (float(item) for item in function(-20.0))
+    _, far_gradient = (float(item) for item in function(40.0))
+    assert math.isclose(contact_gradient, 1.0, abs_tol=1e-12)
+    assert math.isclose(negative_gradient, 1.0, abs_tol=1e-12)
+    assert abs(far_gradient) < 1e-8
 
 
 def test_smooth_bounds_are_conservative():

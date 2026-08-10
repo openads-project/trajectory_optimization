@@ -61,11 +61,12 @@ configuration, playback rate, and deadline.
 ## Circle versus OBB-SAT replay
 
 `run_geometry_benchmark.py` creates input-only MCAPs under `/tmp`, leaves the
-original bags untouched, and alternates three full Ackermann replays per
-geometry. It uses the current repository defaults, enables instrumentation,
-and sets `d_min_boundary_lat=0.0` only for the exact OBB geometry; the circle
-baseline retains its configured negative compensation margin. Optimizer and
-player are pinned to separate CPUs. Each replay displays a progress bar (or
+original bags untouched, and alternates three full Ackermann replays for the
+circle baseline, OBB single-start, and parallel OBB multistart. It uses the
+current repository defaults, enables instrumentation, and sets
+`d_min_boundary_lat=0.0` only for the exact OBB geometry; the circle baseline
+retains its configured negative compensation margin. The optimizer gets a CPU
+set (`2-9` by default), while the player is pinned separately. Each replay displays a progress bar (or
 periodic status lines when redirected), stores component logs, and records the
 generated trajectories:
 
@@ -77,14 +78,15 @@ python3 utils/run_geometry_benchmark.py bagfiles/rosbag2_* \
 
 Use `--input-cache` to reuse previously filtered bags and `--run-tag` to keep a
 new experiment separate in an existing results directory. `--resume` skips
-completed schema-v7 runs, making the command safe to restart. At completion,
+completed schema-v9 runs, making the command safe to restart. At completion,
 per-bag and pooled three-repetition reports are written to `analysis_<tag>.txt`.
 `--playback-start-offset` and `--playback-duration` are available for short,
 targeted diagnostics before a complete replay.
 
 Use `--prepare-only` to perform the expensive 243 GB input filtering without
-starting the benchmark. Override `--node-cpu` and `--player-cpu` if CPUs 2 and
-3 are not available.
+starting the benchmark. Override `--node-cpu` and `--player-cpu` if CPUs 2-10
+are not available. The node CPU set must contain enough physical cores for
+parallel multistart.
 
 In both geometry modes the runtime metrics use the physical ego OBB and exact
 object OBBs for every input hypothesis, including hypotheses beyond the
@@ -96,6 +98,26 @@ interval are reported separately and do not affect the spike gate.
 The comparison command applies the agreed performance gates (no more than one
 percentage point publication-rate loss, solver p95 below 100 ms, and at least
 20 percent p95 improvement) together with the exact node-level geometry gate.
+
+## Controlled solver scenarios
+
+`run_solver_scenarios.py` compares the three optimizer variants without bag
+data. The deterministic suite contains a clear road, a stoppable blocker, an
+initially infeasible blocker, a scene with lateral freedom, irrelevant parked
+vehicles, and a blocker combined with irrelevant clutter. Initial feasibility
+is explicit: the infeasible scene already violates the hard obstacle constraint
+at fixed shooting node zero. Every feasible result is checked with exact Ego
+and object polygons at all shooting nodes and ten intersamples per interval.
+
+```bash
+source /docker-ros/ws/install/setup.bash
+python3 utils/run_solver_scenarios.py --repeats 3
+```
+
+The script exits nonzero if parallel OBB multistart misses an expected feasible
+scene, accepts the intentionally infeasible scene, or publishes a node-level
+geometric violation. It is also registered as an automated package test with a
+single deterministic repetition.
 
 ## Synthetic OBB ghost probe
 

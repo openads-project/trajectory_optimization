@@ -7,13 +7,12 @@
 #include <cmath>
 #include <stdexcept>
 #include <string>
-
 #include <trajectory_optimization/initial_guess.hpp>
 
 namespace trajectory_optimization {
 
 TEST(InitialGuess, ParsesAllSupportedModes) {
-  for (const std::string name : {"warm_start", "braking", "left", "right", "braking_left", "braking_right"}) {
+  for (const std::string name : {"warm_start", "cold_start", "braking", "left", "right", "braking_left", "braking_right"}) {
     EXPECT_EQ(name, initialGuessModeName(parseInitialGuessMode(name)));
   }
   EXPECT_THROW(parseInitialGuessMode("unknown"), std::invalid_argument);

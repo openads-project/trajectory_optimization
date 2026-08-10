@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
-
 #include <trajectory_optimization/initial_guess.hpp>
 
 namespace trajectory_optimization {
@@ -12,6 +11,9 @@ namespace trajectory_optimization {
 InitialGuessMode parseInitialGuessMode(const std::string& name) {
   if (name == "warm_start") {
     return InitialGuessMode::WARM_START;
+  }
+  if (name == "cold_start") {
+    return InitialGuessMode::COLD_START;
   }
   if (name == "braking") {
     return InitialGuessMode::BRAKING;
@@ -35,6 +37,8 @@ const char* initialGuessModeName(const InitialGuessMode mode) {
   switch (mode) {
     case InitialGuessMode::WARM_START:
       return "warm_start";
+    case InitialGuessMode::COLD_START:
+      return "cold_start";
     case InitialGuessMode::BRAKING:
       return "braking";
     case InitialGuessMode::LEFT:

@@ -268,6 +268,13 @@ def activate_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.
     return active * value + (1.0 - active) * inactive_margin
 
 
+def saturate_margin(value: ca.MX, scale: float) -> ca.MX:
+    """Saturate positive separation while retaining violated margins exactly."""
+    if scale <= 0.0:
+        raise ValueError("Margin saturation scale must be positive.")
+    return ca.if_else(value > 0.0, scale * (1.0 - ca.exp(-value / scale)), value)
+
+
 def obstacle_parameter_shape(config: dict) -> list[int]:
     """Return the active stage-wise obstacle layout for circles or OBBs."""
     if config.get("collision_geometry", "circles") == "obb_sat":
