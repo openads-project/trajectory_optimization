@@ -1,7 +1,6 @@
 ### general parameters defining the ocp
 model_name: 'shuttle'             # name of the acados model (also used in ROS node)
 model_type: 'RWS'                 # model type on which the acados model is based on (Ackermann or RWS)
-collision_geometry: 'circles'     # collision geometry (circles or obb_sat)
 optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS node)
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
@@ -11,7 +10,6 @@ distance_cg_rear_axle: 1.7        # distance from center of gravity to rear axle
 length: 4.97                      # length [m]
 width: 2.12                       # width [m]
 offset2geocenter: [0.0, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-n_ego_circles: 3                  # number of circles to discretize ego-vehicle geometry
 
 ### constraints
 delta_max: 1.55 # 89°             # max. absolute steering angle [rad]
@@ -45,13 +43,13 @@ c_alpha: 0.15         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
 enable_boundary_slack: False                # activate slack weights for soft constraints (route boundaries)
-boundary_slack_weights:                     # scalar or list (length 2 * n_ego_circles)
+boundary_slack_weights:                     # scalar or list (length 2)
   linear_lower: 10.0
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
 enable_obstacle_slack: False                # activate slack weights for obstacle constraints
-obstacle_slack_weights:                     # scalar or list (length n_obstacles * n_ego_circles)
+obstacle_slack_weights:                     # scalar or list (length n_obstacles)
   linear_lower: 50.0
   linear_upper: 50.0
   quadratic_lower: 500.0
@@ -60,7 +58,6 @@ obstacle_slack_weights:                     # scalar or list (length n_obstacles
 ### parameter vector structure (stage-wise parameters)
 # [dyn_weight (1), obstacles]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
-p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
 p_obstacle_obbs_shape: [30, 6]    # nObstacleOBBs x [x, y, yaw, half_length, half_width, active]
 obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
 obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]

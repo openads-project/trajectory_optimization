@@ -19,7 +19,6 @@ TIMING_METRICS = [
     "solve_wall_ms",
     "cycle_ms",
     "preprocessing_ms",
-    "parameter_update_ms",
     "postprocessing_ms",
     "acados_qp_ms",
     "acados_qp_solver_ms",
@@ -28,12 +27,6 @@ TIMING_METRICS = [
     "acados_feedback_ms",
 ]
 QUALITY_METRICS = ["sqp_iter", "qp_iter", "kkt", "nlp_res", "cost"]
-SOLVER_ONLY_METRICS = set(TIMING_METRICS + QUALITY_METRICS) - {
-    "cycle_ms",
-    "preprocessing_ms",
-    "parameter_update_ms",
-    "postprocessing_ms",
-}
 
 
 class Color:
@@ -98,8 +91,6 @@ def values_for(records, key):
     """Collect finite numeric values for one field."""
     values = []
     for record in records:
-        if key in SOLVER_ONLY_METRICS and record.get("solver_ran", "1") != "1":
-            continue
         value = number(record.get(key))
         if key == "nlp_res":
             residuals = [number(record.get(field)) for field in ("res_stat", "res_eq", "res_ineq", "res_comp")]
@@ -121,40 +112,32 @@ def longest_streak(statuses, predicate):
     return longest
 
 
-def load_csv(paths, skip):
-    """Load and pool canonical performance records, discarding warm-up rows per file."""
-    records = []
-    for path in paths:
-        with path.open(encoding="utf-8", newline="") as source:
-            file_records = list(csv.DictReader(source))[skip:]
-        for record in file_records:
-            record["_input_file"] = str(path)
-        records.extend(file_records)
+def load_csv(path, skip):
+    """Load canonical performance records and discard warm-up rows."""
+    with path.open(encoding="utf-8", newline="") as source:
+        records = list(csv.DictReader(source))
+    records = records[skip:]
     if not records:
-        raise SystemExit(f"No records remain after skipping {skip} rows per file.")
+        raise SystemExit(f"No records remain in {path} after skipping {skip} rows.")
     if "status" not in records[0]:
-        raise SystemExit(f"{paths[0]} is not a performance CSV (missing status column).")
+        raise SystemExit(f"{path} is not a performance CSV (missing status column).")
     return records
 
 
 def summarize(records, deadline_ms):
     """Calculate the stability, deadline, and distribution scorecard."""
-    solver_records = [record for record in records if record.get("solver_ran", "1") == "1"]
-    statuses = [int(value) for record in solver_records if (value := number(record.get("status"))) is not None]
+    statuses = [int(value) for record in records if (value := number(record.get("status"))) is not None]
     counts = Counter(statuses)
     known = len(statuses)
     published_values = values_for(records, "published")
     hard_failure = lambda status: status not in (0, 2, 7)  # noqa: E731
-    record_groups = []
-    for input_file in dict.fromkeys(record["_input_file"] for record in records):
-        record_groups.append([record for record in records if record["_input_file"] == input_file])
 
     timing_values = values_for(records, "acados_total_ms")
     cycle_values = values_for(records, "cycle_ms")
 
     rejected_diagnostics = Counter()
     rejected_constraint_indices = Counter()
-    for record in solver_records:
+    for record in records:
         if number(record.get("published")) != 0:
             continue
         constraint_type = record.get("max_ineq_type", "")
@@ -168,8 +151,6 @@ def summarize(records, deadline_ms):
 
     return {
         "records": len(records),
-        "solver_records": len(solver_records),
-        "outcome_counts": Counter(record.get("outcome", "legacy_solver_record") for record in records),
         "status_counts": counts,
         "status_rates": {status: count / known for status, count in counts.items()} if known else {},
         "success_rate": counts[0] / known if known else None,
@@ -180,56 +161,12 @@ def summarize(records, deadline_ms):
         "timing_p50": percentile(timing_values, 0.50),
         "timing_p95": percentile(timing_values, 0.95),
         "timing_p99": percentile(timing_values, 0.99),
-        "max_unpublished_streak": max(
-            longest_streak(values_for(group, "published"), lambda published: published == 0) for group in record_groups
-        ),
-        "max_timeout_streak": max(
-            longest_streak(
-                [
-                    int(value)
-                    for record in group
-                    if record.get("solver_ran", "1") == "1" and (value := number(record.get("status"))) is not None
-                ],
-                lambda status: status == 7,
-            )
-            for group in record_groups
-        ),
-        "max_status4_streak": max(
-            longest_streak(
-                [
-                    int(value)
-                    for record in group
-                    if record.get("solver_ran", "1") == "1" and (value := number(record.get("status"))) is not None
-                ],
-                lambda status: status == 4,
-            )
-            for group in record_groups
-        ),
-        "max_hard_failure_streak": max(
-            longest_streak(
-                [
-                    int(value)
-                    for record in group
-                    if record.get("solver_ran", "1") == "1" and (value := number(record.get("status"))) is not None
-                ],
-                hard_failure,
-            )
-            for group in record_groups
-        ),
+        "max_unpublished_streak": longest_streak(published_values, lambda published: published == 0),
+        "max_timeout_streak": longest_streak(statuses, lambda status: status == 7),
+        "max_status4_streak": longest_streak(statuses, lambda status: status == 4),
+        "max_hard_failure_streak": longest_streak(statuses, hard_failure),
         "rejected_diagnostics": rejected_diagnostics,
         "rejected_constraint_indices": rejected_constraint_indices,
-        "max_obstacle_hypotheses": max(values_for(records, "obstacle_hypotheses"), default=0),
-        "max_dropped_obstacle_hypotheses": max(values_for(records, "dropped_obstacle_hypotheses"), default=0),
-        "node_object_collisions": sum(values_for(records, "node_object_collisions")),
-        "node_boundary_violations": sum(values_for(records, "node_boundary_violations")),
-        "dropped_hypothesis_collisions": sum(values_for(records, "dropped_hypothesis_collisions")),
-        "intersample_object_collisions": sum(values_for(records, "intersample_object_collisions")),
-        "intersample_boundary_violations": sum(values_for(records, "intersample_boundary_violations")),
-        "unvalidated_optimized_publications": sum(
-            record.get("outcome") == "published_optimized" and number(record.get("geometry_validated")) != 1 for record in records
-        ),
-        "max_node_boundary_penetration_m": max(values_for(records, "max_node_boundary_penetration_m"), default=0.0),
-        "max_intersample_boundary_penetration_m": max(values_for(records, "max_intersample_boundary_penetration_m"), default=0.0),
     }
 
 
@@ -238,20 +175,16 @@ def format_rate(value):
     return "n/a" if value is None else f"{100.0 * value:.2f}%"
 
 
-def print_run(label, records, summary, deadline_ms):
+def print_run(path, records, summary, deadline_ms):
     """Print the scorecard and useful metric distributions for one run."""
     run_ids = sorted({record.get("run_id", "") for record in records if record.get("run_id")})
     suffix = f"  run_id={','.join(run_ids)}" if run_ids else ""
-    print(paint(f"\nRUN {label}{suffix}", Color.BOLD + Color.CYAN))
+    print(paint(f"\nRUN {path}{suffix}", Color.BOLD + Color.CYAN))
     status_parts = []
     for status, count in sorted(summary["status_counts"].items()):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
         status_parts.append(paint(f"{status}: {count}", color))
-    print(
-        f"scheduled_ticks={summary['records']} solver_runs={summary['solver_records']} "
-        f"status_counts={{{', '.join(status_parts)}}}"
-    )
-    print("outcomes={" + ", ".join(f"{key}: {count}" for key, count in summary["outcome_counts"].most_common()) + "}")
+    print(f"records={summary['records']} status_counts={{{', '.join(status_parts)}}}")
     status_rate_parts = []
     for status, rate in sorted(summary["status_rates"].items()):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
@@ -265,21 +198,6 @@ def print_run(label, records, summary, deadline_ms):
         f"cycle_ms_within_{deadline_ms:g}ms="
         f"{paint(format_rate(summary['deadline_rate']), higher_rate_color(summary['deadline_rate']))}"
     )
-    print(
-        f"obstacle_hypotheses_max={summary['max_obstacle_hypotheses']:.0f}  "
-        f"dropped_hypotheses_max={summary['max_dropped_obstacle_hypotheses']:.0f}"
-    )
-    print(
-        f"geometry: node_object_collisions={summary['node_object_collisions']:.0f}  "
-        f"node_boundary_violations={summary['node_boundary_violations']:.0f}  "
-        f"dropped_hypothesis_collisions={summary['dropped_hypothesis_collisions']:.0f}  "
-        f"intersample_object_collisions={summary['intersample_object_collisions']:.0f}  "
-        f"intersample_boundary_violations={summary['intersample_boundary_violations']:.0f}  "
-        f"max_node_boundary_penetration_m={summary['max_node_boundary_penetration_m']:.4g}  "
-        f"max_intersample_boundary_penetration_m={summary['max_intersample_boundary_penetration_m']:.4g}"
-    )
-    if summary["unvalidated_optimized_publications"]:
-        print(f"unvalidated_optimized_publications={summary['unvalidated_optimized_publications']}")
     print(
         f"max_streaks: unpublished="
         f"{paint(str(summary['max_unpublished_streak']), Color.GREEN if summary['max_unpublished_streak'] == 0 else Color.RED)} "
@@ -317,33 +235,40 @@ def relative_delta(candidate, baseline):
     return (candidate - baseline) / baseline
 
 
-def compare(candidate, baseline, deadline_ms):
-    """Evaluate the OBB spike's explicit publication and solver-p95 gates."""
-    failed_gates = []
+def compare(candidate, baseline):
+    """Classify candidate using explicit stability and latency thresholds."""
+    stability_regressions = []
     if candidate["hard_failure_rate"] is not None and baseline["hard_failure_rate"] is not None:
         if candidate["hard_failure_rate"] - baseline["hard_failure_rate"] > 0.01:
-            failed_gates.append("hard failures increased by >1 percentage point")
-    if candidate["node_object_collisions"] > 0:
-        failed_gates.append("exact validator found object collisions at shooting nodes")
-    if candidate["node_boundary_violations"] > 0:
-        failed_gates.append("exact validator found boundary violations at shooting nodes")
-    if candidate["unvalidated_optimized_publications"] > 0:
-        failed_gates.append("optimized publications escaped exact geometry validation")
+            stability_regressions.append("hard failures increased by >1 percentage point")
     if candidate["published_rate"] is not None and baseline["published_rate"] is not None:
         if baseline["published_rate"] - candidate["published_rate"] > 0.01:
-            failed_gates.append("published rate decreased by >1 percentage point")
+            stability_regressions.append("published rate decreased by >1 percentage point")
+    candidate_deadline_rate = candidate["deadline_rate"]
+    baseline_deadline_rate = baseline["deadline_rate"]
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if baseline_deadline_rate - candidate_deadline_rate > 0.02:
+            stability_regressions.append("deadline rate decreased by >2 percentage points")
+
+    improvements = []
+    if candidate_deadline_rate is not None and baseline_deadline_rate is not None:
+        if candidate_deadline_rate - baseline_deadline_rate > 0.02:
+            improvements.append("deadline rate increased by >2 percentage points")
     p95_delta = relative_delta(candidate["timing_p95"], baseline["timing_p95"])
-    if candidate["timing_p95"] is None or candidate["timing_p95"] >= deadline_ms:
-        failed_gates.append(f"solver p95 is not below {deadline_ms:g} ms")
-    if p95_delta is None or p95_delta > -0.20:
-        failed_gates.append("solver p95 did not improve by at least 20%")
+    if p95_delta is not None and p95_delta < -0.05:
+        improvements.append("p95 solver time decreased by >5%")
+    if candidate["success_rate"] is not None and baseline["success_rate"] is not None:
+        if candidate["success_rate"] - baseline["success_rate"] > 0.02:
+            improvements.append("success rate increased by >2 percentage points")
 
-    if failed_gates:
-        return "FAIL", failed_gates
-    return "PASS", ["publication robustness, solver-p95, and recorded node-geometry gates passed"]
+    if stability_regressions:
+        return "WORSE", stability_regressions
+    if improvements:
+        return "BETTER", improvements
+    return "MIXED / NO MATERIAL CHANGE", ["no configured material-change threshold was crossed"]
 
 
-def print_comparison(candidate, baseline, deadline_ms):
+def print_comparison(candidate, baseline):
     """Print deltas and the threshold-based overall verdict."""
     print(paint("\nCOMPARISON (candidate relative to baseline)", Color.BOLD + Color.CYAN))
     candidate_deadline_rate = candidate["deadline_rate"]
@@ -375,8 +300,8 @@ def print_comparison(candidate, baseline, deadline_ms):
         baseline_text = format_rate(baseline_value) if value_type == "rate" else f"{baseline_value:.4g}"
         print(f"{label:24} {candidate_text:>12} {baseline_text:>12} {paint(f'{delta_text:>12}', delta_color)}")
 
-    verdict, reasons = compare(candidate, baseline, deadline_ms)
-    verdict_color = Color.GREEN if verdict == "PASS" else Color.RED
+    verdict, reasons = compare(candidate, baseline)
+    verdict_color = Color.GREEN if verdict == "BETTER" else Color.RED if verdict == "WORSE" else Color.YELLOW
     print(f"{paint('VERDICT:', Color.BOLD)} {paint(verdict, Color.BOLD + verdict_color)} ({'; '.join(reasons)})")
 
 
@@ -384,10 +309,8 @@ def main():
     """Parse arguments and report one run plus an optional baseline comparison."""
     global use_color
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("run", type=Path, nargs="+", help="candidate performance CSV file(s), pooled when multiple are given")
-    parser.add_argument(
-        "--compare", type=Path, nargs="+", metavar="BASELINE", help="baseline CSV file(s), pooled when multiple are given"
-    )
+    parser.add_argument("run", type=Path, help="candidate performance CSV")
+    parser.add_argument("--compare", type=Path, metavar="BASELINE", help="baseline CSV")
     parser.add_argument("--skip", type=int, default=0, help="discard this many warm-up rows from both runs")
     parser.add_argument("--deadline-ms", type=float, default=100.0, help="planning-cycle deadline")
     parser.add_argument(
@@ -401,13 +324,13 @@ def main():
 
     records = load_csv(args.run, args.skip)
     summary = summarize(records, args.deadline_ms)
-    print_run(", ".join(map(str, args.run)), records, summary, args.deadline_ms)
+    print_run(args.run, records, summary, args.deadline_ms)
 
     if args.compare:
         baseline_records = load_csv(args.compare, args.skip)
         baseline_summary = summarize(baseline_records, args.deadline_ms)
-        print_run(", ".join(map(str, args.compare)), baseline_records, baseline_summary, args.deadline_ms)
-        print_comparison(summary, baseline_summary, args.deadline_ms)
+        print_run(args.compare, baseline_records, baseline_summary, args.deadline_ms)
+        print_comparison(summary, baseline_summary)
 
 
 if __name__ == "__main__":

@@ -140,49 +140,6 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     return interpolated_ref_path_point
 
 
-def approximate_ego_geometry(ocp: AcadosOcp, config: dict) -> dict:
-    """Approximates the ego vehicle geometry as a set of circles.
-
-    Args:
-        ocp: The ACADOS OCP object containing the vehicle model.
-        config: Configuration dictionary with parameters like length, width, n_ego_circles, and offset2geocenter.
-
-    Returns:
-        A dictionary containing circle positions (x, y) and their radius.
-    """
-    # rectangular ego-vehicle approximation with n_circles circles
-    psi = ocp.model.x[STATE_INDEX_PSI]
-    cos_psi = ca.cos(psi)
-    sin_psi = ca.sin(psi)
-    offset_long, offset_lat = config["offset2geocenter"]
-    ego_center_x = ocp.model.x[STATE_INDEX_X] + offset_long * cos_psi - offset_lat * sin_psi
-    ego_center_y = ocp.model.x[STATE_INDEX_Y] + offset_long * sin_psi + offset_lat * cos_psi
-    # Calculate the radius using symbolic operations
-    radius = ca.sqrt(ca.power(config["length"] / (2 * config["n_ego_circles"]), 2) + ca.power((config["width"] / 2.0), 2))
-
-    # Initialize an empty list for circle centers coordinates
-    circle_position_x = []
-    circle_position_y = []
-
-    if config["n_ego_circles"] == 1:
-        circle_position_x.append(ego_center_x)
-        circle_position_y.append(ego_center_y)
-    else:
-        # Loop to compute the centers of each circle
-        for i in range(config["n_ego_circles"]):
-            lon_offset = -config["length"] / 2 + (2 * i + 1) * config["length"] / (2 * config["n_ego_circles"])
-            x_offset = lon_offset * cos_psi
-            y_offset = lon_offset * sin_psi
-            circle_position_x.append(ego_center_x + x_offset)
-            circle_position_y.append(ego_center_y + y_offset)
-
-    return {
-        "x": circle_position_x,
-        "y": circle_position_y,
-        "radius": radius,
-    }
-
-
 def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
     """Return the exact oriented ego bounding box in the optimizer frame."""
     psi = ocp.model.x[STATE_INDEX_PSI]
@@ -192,7 +149,6 @@ def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
     return {
         "x": ocp.model.x[STATE_INDEX_X] + offset_long * cos_psi - offset_lat * sin_psi,
         "y": ocp.model.x[STATE_INDEX_Y] + offset_long * sin_psi + offset_lat * cos_psi,
-        "yaw": psi,
         "long_axis": ca.vertcat(cos_psi, sin_psi),
         "lat_axis": ca.vertcat(-sin_psi, cos_psi),
         "half_length": 0.5 * config["length"],
@@ -201,11 +157,7 @@ def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
 
 
 def expand_ego_obb_forward(ego_obb: dict, front_margin: ca.MX, rear_margin: ca.MX, lateral_margin: ca.MX) -> dict:
-    """Expand an ego OBB with independent front, rear, and lateral margins.
-
-    The returned box has the same rear edge when only ``front_margin`` grows.
-    This is the OBB representation of a forward-only time-headway buffer.
-    """
+    """Expand an OBB independently at its front, rear and lateral sides."""
     center_shift = 0.5 * (front_margin - rear_margin)
     return {
         **ego_obb,
@@ -227,59 +179,49 @@ def smooth_abs_lower(value: ca.MX, epsilon: float) -> ca.MX:
 
 
 def smooth_max_lower_pair(first: ca.MX, second: ca.MX, tau: float) -> ca.MX:
-    """Stable differentiable lower bound of the maximum of two values."""
+    """Differentiable lower bound of the maximum of two values."""
     difference = first - second
     return 0.5 * (first + second + ca.sqrt(difference * difference + tau * tau) - tau)
 
 
 def smooth_max_lower(values: list[ca.MX], tau: float) -> ca.MX:
-    """Balanced reduction using the conservative pairwise smooth maximum."""
+    """Balanced conservative reduction of multiple maximum candidates."""
     if not values:
         raise ValueError("smooth_max_lower requires at least one value")
     level = values
     while len(level) > 1:
-        next_level = []
-        for index in range(0, len(level), 2):
-            if index + 1 < len(level):
-                next_level.append(smooth_max_lower_pair(level[index], level[index + 1], tau))
-            else:
-                next_level.append(level[index])
-        level = next_level
+        level = [
+            smooth_max_lower_pair(level[index], level[index + 1], tau) if index + 1 < len(level) else level[index]
+            for index in range(0, len(level), 2)
+        ]
     return level[0]
 
 
 def conservative_smooth_sat_margin(first: dict, second: dict, epsilon: float, tau: float) -> ca.MX:
-    """Return a smooth conservative lower bound of the exact OBB SAT margin."""
+    """Return a smooth lower bound of the exact four-axis OBB SAT margin."""
     center_difference = ca.vertcat(second["x"] - first["x"], second["y"] - first["y"])
     axes = [first["long_axis"], first["lat_axis"], second["long_axis"], second["lat_axis"]]
-    separating_gaps = []
+    gaps = []
     for axis in axes:
         center_projection = smooth_abs_lower(ca.dot(center_difference, axis), epsilon)
         first_support = first["half_length"] * smooth_abs_upper(ca.dot(first["long_axis"], axis), epsilon)
         first_support += first["half_width"] * smooth_abs_upper(ca.dot(first["lat_axis"], axis), epsilon)
         second_support = second["half_length"] * smooth_abs_upper(ca.dot(second["long_axis"], axis), epsilon)
         second_support += second["half_width"] * smooth_abs_upper(ca.dot(second["lat_axis"], axis), epsilon)
-        separating_gaps.append(center_projection - first_support - second_support)
-    return smooth_max_lower(separating_gaps, tau)
+        gaps.append(center_projection - first_support - second_support)
+    return smooth_max_lower(gaps, tau)
 
 
 def activate_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.0) -> ca.MX:
-    """Make a parameterized hard constraint constant and feasible when inactive."""
+    """Turn an unused fixed obstacle slot into a constant feasible constraint."""
     return active * value + (1.0 - active) * inactive_margin
 
 
-def saturate_margin(value: ca.MX, scale: float) -> ca.MX:
-    """Saturate positive separation while retaining violated margins exactly."""
+def saturate_positive_margin(value: ca.MX, scale: float) -> ca.MX:
+    """Limit irrelevant positive SAT margins without changing their sign."""
     if scale <= 0.0:
-        raise ValueError("Margin saturation scale must be positive.")
+        raise ValueError("Margin saturation scale must be positive")
     return ca.if_else(value > 0.0, scale * (1.0 - ca.exp(-value / scale)), value)
-
-
-def obstacle_parameter_shape(config: dict) -> list[int]:
-    """Return the active stage-wise obstacle layout for circles or OBBs."""
-    if config.get("collision_geometry", "circles") == "obb_sat":
-        return config["p_obstacle_obbs_shape"]
-    return config["p_obstacle_circles_shape"]
 
 
 def wrap_angle(angle: ca.MX) -> ca.MX:

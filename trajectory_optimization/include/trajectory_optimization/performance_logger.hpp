@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include <acados_c/ocp_nlp_interface.h>
-
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
+
+#include <acados_c/ocp_nlp_interface.h>
 
 namespace trajectory_optimization {
 
@@ -17,14 +17,17 @@ struct PerformanceMetrics {
   int64_t ego_stamp_ns = 0;
   int64_t reference_stamp_ns = 0;
   int64_t route_stamp_ns = 0;
-  double max_node_boundary_penetration_m = 0.0;
-  double max_intersample_boundary_penetration_m = 0.0;
+  int status = 0;
+  int sqp_iter = 0;
+  int qp_iter = 0;
+  int qp_status = 0;
+  int reference_points = 0;
+  int objects = 0;
+  bool published = false;
+
   double cycle_ms = 0.0;
   double preprocessing_ms = 0.0;
-  double parameter_update_ms = 0.0;
   double solve_wall_ms = 0.0;
-  double selected_solve_wall_ms = 0.0;
-  double acados_total_all_attempts_ms = 0.0;
   double postprocessing_ms = 0.0;
   double acados_total_ms = 0.0;
   double acados_lin_ms = 0.0;
@@ -46,40 +49,13 @@ struct PerformanceMetrics {
   double res_comp = 0.0;
 
   double max_ineq_violation = 0.0;
-  double max_eq_violation = 0.0;
-
-  std::string outcome = "started";
-  std::string collision_geometry = "circles";
-  std::string selected_initial_guess = "none";
-  std::string max_ineq_type = "none";
-  std::string max_ineq_side = "none";
-
-  int status = -1;
-  int sqp_iter = 0;
-  int qp_iter = 0;
-  int qp_status = 0;
-  int reference_points = 0;
-  int objects = 0;
-  int obstacle_hypotheses = 0;
-  int dropped_obstacle_hypotheses = 0;
-  int node_object_collisions = 0;
-  int node_boundary_violations = 0;
-  int dropped_hypothesis_collisions = 0;
-  int intersample_object_collisions = 0;
-  int intersample_boundary_violations = 0;
-  int solver_attempts = 0;
-  int feasible_solver_attempts = 0;
-  int feasible_initial_guesses = 0;
-  int selected_solver_attempt = -1;
   int max_ineq_stage = -1;
+  std::string max_ineq_type = "none";
   int max_ineq_index = -1;
+  std::string max_ineq_side = "none";
+  double max_eq_violation = 0.0;
   int max_eq_stage = -1;
   int max_eq_state = -1;
-
-  bool solver_ran = false;
-  bool geometry_validated = false;
-  bool published = false;
-  bool selected_initial_guess_is_seed = false;
 };
 
 class PerformanceLogger {
@@ -151,14 +127,12 @@ class PerformanceLogger {
    * @param[in,out] metrics Metrics structure populated with constraint diagnostics.
    * @param[in] solver acados NLP solver instance.
    * @param[in] dims acados NLP dimensions.
-   * @param[in] boundary_constraints Number of leading nonlinear boundary constraints.
-   * @param[in] obstacle_constraints Number of following nonlinear obstacle constraints.
+   * @param[in] obstacle_obbs Number of obstacle OBBs represented in the nonlinear constraints.
    */
   static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                            ocp_nlp_solver* solver,
                                            const ocp_nlp_dims* dims,
-                                           int boundary_constraints,
-                                           int obstacle_constraints);
+                                           int obstacle_obbs);
 
   /**
    * @brief Returns the path of the CSV performance log.
@@ -171,9 +145,7 @@ class PerformanceLogger {
   static constexpr uint64_t FLUSH_INTERVAL = 100;
 
   std::filesystem::path path_;
-  std::filesystem::path active_file_;
   std::ofstream stream_;
-  std::string run_id_;
   uint64_t records_since_flush_ = 0;
 };
 

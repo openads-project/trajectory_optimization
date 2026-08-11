@@ -4,7 +4,6 @@
 #pragma once
 
 #include <tracetools/tracetools.h>
-
 #include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
@@ -25,7 +24,6 @@
 // tf2
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_perception_msgs/tf2_perception_msgs.hpp>
 #include <tf2_route_planning_msgs/tf2_route_planning_msgs.hpp>
@@ -33,21 +31,10 @@
 
 // acados
 #include <trajectory_optimization/collision_geometry.hpp>
-#include <trajectory_optimization/initial_guess.hpp>
 #include <trajectory_optimization/ocp_model_handler.hpp>
 #include <trajectory_optimization/performance_logger.hpp>
 
 namespace trajectory_optimization {
-
-struct OcpSolverInstance {
-  ocp_model_capsule_t capsule;
-  ocp_nlp_config* config = nullptr;
-  ocp_nlp_dims* dims = nullptr;
-  ocp_nlp_in* input = nullptr;
-  ocp_nlp_out* output = nullptr;
-  ocp_nlp_solver* solver = nullptr;
-  void* options = nullptr;
-};
 
 template <typename C>
 struct is_vector : std::false_type {};
@@ -96,13 +83,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   TrajectoryOptimizationNode& operator=(TrajectoryOptimizationNode&&) = delete;
 
  protected:
-  struct ObstacleHypothesisMetadata {
-    uint64_t object_id;
-    int prediction_index;
-    double probability;
-    uint8_t classification;
-  };
-
   enum CONSIDER_BOUNDARIES { NO_BOUNDS = 0, SUGGESTED_LANE = 1, INCLUDING_ADJACENT = 2, DRIVABLE_SPACE = 3 };
 
   enum CONSIDER_OBJECTS { NO_OBJECTS = 0, STATIC_OBJECTS = 1, PREDICTED_OBJECTS = 2 };
@@ -157,15 +137,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    *
    * @param[in] x_init Hard initial state of the OCP.
    * @param[in] stamp Absolute time corresponding to x_init.
-   * @param[in] mode Control profile used for the state rollout.
-   * @param[out] initial_controls Controls written into the acados iterate, used to avoid duplicate attempts.
    * @return `true` if the state rollout succeeded.
    */
-  bool setInitialGuess(OcpSolverInstance& solver_instance,
-                       const std::vector<double>& x_init,
-                       const rclcpp::Time& stamp,
-                       InitialGuessMode mode,
-                       std::vector<double>& initial_controls);
+  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp);
 
   /**
    * @brief Creates the acados solver instance and initializes its state buffers.
@@ -296,42 +270,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<std::pair<double, double>> normalBoundaryDistance(
       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
 
-  /**
-   * @brief Keeps the nearest forward objects and discards the remaining entries.
-   *
-   * @param[in,out] object_list Object list to filter.
-   * @param[in] n_objects Maximum number of objects to retain.
-   */
-  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
-
-  /**
-   * @brief Approximates an oriented bounding box with a set of obstacle circles.
-   *
-   * @param[in] x Bounding-box center x-coordinate.
-   * @param[in] y Bounding-box center y-coordinate.
-   * @param[in] yaw Bounding-box heading.
-   * @param[in] length Bounding-box length.
-   * @param[in] width Bounding-box width.
-   * @return Flattened circle list in the configured obstacle parameter layout.
-   */
-  std::vector<double> discretizeBB2Circles(
-      const double x, const double y, const double yaw, const double length, const double width);
-
-  /**
-   * @brief Publishes visualization markers for the obstacle circles currently used by the optimizer.
-   *
-   * @param[in] obstacles Flattened obstacle circle list.
-   */
-  void vizCircles(const std::vector<double>& obstacles);
-
-  /**
-   * @brief Publishes the ego-vehicle circle approximation used by the selected OCP model.
-   *
-   * @param[in] x_trajectory Optimizer state trajectory.
-   * @param[in] model_name Name of the active OCP model.
-   */
-  void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
-
   /** Publishes obstacle OBBs currently passed to the optimizer. */
   void vizObbs(const std::vector<double>& obstacles);
 
@@ -346,9 +284,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    */
   void vizBoundaryPoints(const std::vector<Eigen::Vector2d>& left_boundary_points,
                          const std::vector<Eigen::Vector2d>& right_boundary_points);
-
-  /** Collects exact polygon collision and boundary diagnostics for the OBB spike. */
-  void collectGeometryValidation(PerformanceMetrics& metrics) const;
 
   // virtual functions need to be implemented in derived classes
 
@@ -398,8 +333,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_circles_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obbs_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_obbs_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
@@ -419,8 +354,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::string trajectory_frame_id_ = "base_link";
   std::string fixed_over_time_frame_id_ = "map";
   std::string model_name_ = "karl";
-  std::string collision_geometry_ = "circles";
-  std::string solver_model_name_ = "karl";
   double ego_data_timeout_ = 1.0;
   double optimization_freq_ = 10.0;
   int n_shots_ = 50;
@@ -430,9 +363,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool debug_viz_ = false;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
-  std::vector<std::string> multistart_initial_guesses_ = {"warm_start"};
-  bool multistart_parallel_ = true;
-  double solver_timeout_ms_ = 70.0;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;
@@ -450,15 +380,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Time control_guess_stamp_{0, 0, RCL_ROS_TIME};
 
   // visualization
-  std::vector<double> viz_circles_;
   std::vector<double> viz_obbs_;
-
-  // exact validator snapshots in the optimizer frame
-  std::vector<std::vector<OrientedBox>> validation_obstacle_boxes_;
-  std::vector<bool> validation_selected_hypotheses_;
-  std::vector<ObstacleHypothesisMetadata> selected_hypothesis_metadata_;
-  std::vector<Point2d> validation_left_boundary_;
-  std::vector<Point2d> validation_right_boundary_;
 
   // cost weights
   std::vector<double> cost_weights_ = std::vector<double>(12, 1.0);
@@ -471,10 +393,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};      // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 6};          // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
-  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};  // nObstacleCircles x [x, y, radius]
-  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 6};     // nObstacleOBBs x [x, y, yaw, half-length, half-width, active]
+  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};   // nWeights x weightDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 6};       // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 6};  // nObstacleOBBs x [x, y, yaw, half-length, half-width, active]
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;
@@ -485,16 +406,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   ocp_nlp_solver* nlp_solver_;
   void* nlp_opts_;
 
-  // Each multistart attempt owns an independent acados capsule. The first
-  // instance remains the primary instance used by the existing node helpers.
-  std::vector<std::unique_ptr<OcpSolverInstance>> solver_pool_;
-
   std::vector<double> xtraj_;
   std::vector<double> utraj_;
   uint64_t logging_cycle_ = 0;
-  int obstacle_hypotheses_ = 0;
-  int dropped_obstacle_hypotheses_ = 0;
-  double parameter_update_ms_ = 0.0;
   std::unique_ptr<PerformanceLogger> performance_logger_;
 };
 

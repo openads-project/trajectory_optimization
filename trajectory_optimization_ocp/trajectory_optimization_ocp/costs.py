@@ -17,7 +17,7 @@ from constants import (
     STATE_INDEX_Y,
     V_SCALE_MIN,
 )
-from utils import determine_spacially_matched_ref_path_point, obstacle_parameter_shape, stable_tan, wrap_angle
+from utils import determine_spacially_matched_ref_path_point, stable_tan, wrap_angle
 
 
 def set_costs(ocp: AcadosOcp, config):
@@ -41,7 +41,7 @@ def set_costs(ocp: AcadosOcp, config):
 
     # initialize parameters
     n_params_dynamic_weight = np.prod(config["p_dynamic_weight_shape"])
-    n_params_obstacles = np.prod(obstacle_parameter_shape(config))
+    n_params_obstacles = np.prod(config["p_obstacle_obbs_shape"])
     # total number of parameters
     n_params = n_params_dynamic_weight + n_params_obstacles
     #  set initial parameter values

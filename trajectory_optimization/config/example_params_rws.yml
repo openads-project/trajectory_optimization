@@ -13,7 +13,7 @@
     consider_boundaries: 3          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
     performance_logging: False      # write one CSV record for each completed solver run
-    debug_visualization: True       # publish debug visualization markers (e.g. obstacle circles)
+    debug_visualization: True       # publish debug visualization markers for ego and obstacle OBBs
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
 
     #### thresholds for bi-level stabilization
@@ -23,7 +23,6 @@
 
     ### general parameters defining the ocp
     model_name: 'shuttle'           # name of the acados model
-    collision_geometry: 'circles'   # collision geometry: circles (default) or obb_sat
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
 
@@ -51,4 +50,4 @@
     thw: 2.0                    # time headway [s]
     d_min_obstacle_long: 1.0    # minimum distance to keep to obstacles in longitudinal direction [m]
     d_min_obstacle_lat: 0.1     # minimum distance to keep to obstacles in lateral direction [m]
-    d_min_boundary_lat: -0.5     # minimum distance to keep to boundaries in lateral direction [m]
+    d_min_boundary_lat: 0.0      # minimum distance to keep to boundaries in lateral direction [m]

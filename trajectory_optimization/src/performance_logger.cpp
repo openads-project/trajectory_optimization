@@ -9,8 +9,9 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
-#include <trajectory_optimization/performance_logger.hpp>
 #include <vector>
+
+#include <trajectory_optimization/performance_logger.hpp>
 
 namespace trajectory_optimization {
 
@@ -40,12 +41,6 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
                                               ? std::filesystem::path(configured_directory)
                                               : std::filesystem::temp_directory_path() / "trajectory_optimization_benchmarks";
   path_ = directory / (node_name + '_' + timestamp() + ".csv");
-  const char* configured_run_id = std::getenv("TRAJECTORY_OPTIMIZATION_RUN_ID");
-  run_id_ = configured_run_id != nullptr ? configured_run_id : "";
-  const char* configured_active_file = std::getenv("TRAJECTORY_OPTIMIZATION_LOG_ACTIVE_FILE");
-  if (configured_active_file != nullptr && *configured_active_file != '\0') {
-    active_file_ = configured_active_file;
-  }
 
   std::error_code error;
   std::filesystem::create_directories(directory, error);
@@ -57,21 +52,9 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
   if (!stream_) {
     throw std::runtime_error("could not open '" + path_.string() + "'");
   }
-  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_"
-             "stamp_ns,outcome,solver_ran,"
-             "status,"
-             "published,solver_attempts,feasible_solver_attempts,feasible_initial_guesses,selected_"
-             "solver_attempt,"
-             "selected_initial_guess,selected_initial_guess_is_seed,"
-             "ref_points,objects,collision_geometry,obstacle_hypotheses,dropped_obstacle_hypotheses,"
-             "geometry_validated,node_object_collisions,node_boundary_violations,dropped_hypothesis_"
-             "collisions,"
-             "intersample_object_collisions,intersample_boundary_violations,max_node_boundary_"
-             "penetration_m,"
-             "max_intersample_boundary_penetration_m,sqp_iter,qp_iter,"
-             "qp_status,cycle_ms,preprocessing_ms,parameter_update_ms,solve_wall_ms,selected_solve_wall_"
-             "ms,"
-             "acados_total_all_attempts_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
+  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
+             "published,ref_points,objects,sqp_iter,qp_iter,"
+             "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
              "acados_sim_ms,acados_qp_ms,"
              "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
              "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
@@ -129,8 +112,7 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
 void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                                      ocp_nlp_solver* solver,
                                                      const ocp_nlp_dims* dims,
-                                                     int boundary_constraints,
-                                                     int obstacle_constraints) {
+                                                     int obstacle_obbs) {
   // The acados C API exposes stage-dependent dimensions as raw arrays.
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (int stage = 0; stage <= dims->N; ++stage) {
@@ -181,16 +163,15 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
     metrics.max_ineq_type = "linear";
   } else if (index < nb + ng + nh) {
     const int h_index = index - nb - ng;
-    if (h_index < boundary_constraints) {
-      metrics.max_ineq_type = h_index % 2 == 0 ? "boundary_left" : "boundary_right";
-      metrics.max_ineq_index = h_index / 2;
-    } else if (h_index < boundary_constraints + obstacle_constraints) {
-      const int obstacle_index = h_index - boundary_constraints;
+    if (h_index < 2) {
+      metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
+      metrics.max_ineq_index = 0;
+    } else if (h_index < obstacle_obbs + 2) {
       metrics.max_ineq_type = "obstacle";
-      metrics.max_ineq_index = obstacle_index;
+      metrics.max_ineq_index = h_index - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
-      metrics.max_ineq_index = h_index - boundary_constraints - obstacle_constraints;
+      metrics.max_ineq_index = h_index - obstacle_obbs - 2;
     }
   } else {
     metrics.max_ineq_type = "slack";
@@ -200,29 +181,19 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  if (!active_file_.empty() && !std::filesystem::exists(active_file_)) return;
-  stream_ << std::setprecision(17) << 9 << ",runtime," << run_id_ << ',' << metrics.cycle << ',' << nowNanoseconds() << ','
-          << metrics.ego_stamp_ns << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.outcome
-          << ',' << (metrics.solver_ran ? 1 : 0) << ',' << metrics.status << ',' << (metrics.published ? 1 : 0) << ','
-          << metrics.solver_attempts << ',' << metrics.feasible_solver_attempts << ',' << metrics.feasible_initial_guesses << ','
-          << metrics.selected_solver_attempt << ',' << metrics.selected_initial_guess << ','
-          << (metrics.selected_initial_guess_is_seed ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
-          << metrics.collision_geometry << ',' << metrics.obstacle_hypotheses << ',' << metrics.dropped_obstacle_hypotheses << ','
-          << (metrics.geometry_validated ? 1 : 0) << ',' << metrics.node_object_collisions << ','
-          << metrics.node_boundary_violations << ',' << metrics.dropped_hypothesis_collisions << ','
-          << metrics.intersample_object_collisions << ',' << metrics.intersample_boundary_violations << ','
-          << metrics.max_node_boundary_penetration_m << ',' << metrics.max_intersample_boundary_penetration_m << ','
-          << metrics.sqp_iter << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ','
-          << metrics.preprocessing_ms << ',' << metrics.parameter_update_ms << ',' << metrics.solve_wall_ms << ','
-          << metrics.selected_solve_wall_ms << ',' << metrics.acados_total_all_attempts_ms << ',' << metrics.postprocessing_ms
-          << ',' << metrics.acados_total_ms << ',' << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ','
-          << metrics.acados_qp_ms << ',' << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ','
-          << metrics.acados_reg_ms << ',' << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ','
-          << metrics.acados_feedback_ms << ',' << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res
-          << ',' << metrics.res_stat << ',' << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ','
-          << metrics.max_ineq_violation << ',' << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ','
-          << metrics.max_ineq_index << ',' << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ','
-          << metrics.max_eq_stage << ',' << metrics.max_eq_state << '\n';
+  stream_ << std::setprecision(17) << 5 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+          << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
+          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ',' << metrics.sqp_iter
+          << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms
+          << ',' << metrics.solve_wall_ms << ',' << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ','
+          << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ',' << metrics.acados_qp_ms << ','
+          << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ',' << metrics.acados_reg_ms << ','
+          << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ',' << metrics.acados_feedback_ms << ','
+          << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res << ',' << metrics.res_stat << ','
+          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ',' << metrics.max_ineq_violation << ','
+          << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ',' << metrics.max_ineq_index << ','
+          << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ',' << metrics.max_eq_stage << ','
+          << metrics.max_eq_state << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();
