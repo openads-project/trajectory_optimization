@@ -790,6 +790,8 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
 
     for (const auto& object : object_list.objects) {
       if (consider_objects_ == CONSIDER_OBJECTS::NO_OBJECTS) break;
+      // ignore object with negative x-coordinate (behind the ego vehicle)
+      if (perception_msgs::object_access::getX(object) <= 0.0) continue;
       uint8_t classification = 0;
       double classification_probability = -1.0;
       for (const auto& candidate : object.state.classifications) {
