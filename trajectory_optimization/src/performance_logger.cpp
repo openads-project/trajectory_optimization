@@ -52,14 +52,18 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
   if (!stream_) {
     throw std::runtime_error("could not open '" + path_.string() + "'");
   }
-  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
-             "published,ref_points,objects,sqp_iter,qp_iter,"
-             "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
-             "acados_sim_ms,acados_qp_ms,"
-             "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
-             "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
-             "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
-             "max_eq_violation,max_eq_stage,max_eq_state\n";
+  stream_
+      << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
+         "published,ref_points,objects,relaxed_attempted,relaxed_primal_feasible,failure_phase,relaxed_status,"
+         "relaxed_sqp_iter,relaxed_qp_iter,relaxed_qp_status,sqp_iter,qp_iter,"
+         "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,relaxed_solve_wall_ms,constrained_solve_wall_ms,postprocessing_ms,"
+         "acados_total_ms,relaxed_acados_total_ms,acados_lin_ms,"
+         "acados_sim_ms,acados_qp_ms,"
+         "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
+         "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
+         "relaxed_res_stat,relaxed_res_eq,relaxed_res_ineq,relaxed_res_comp,"
+         "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
+         "max_eq_violation,max_eq_stage,max_eq_state\n";
   stream_.flush();
 }
 
@@ -181,19 +185,24 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 5 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+  stream_ << std::setprecision(17) << 6 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
           << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
-          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ',' << metrics.sqp_iter
-          << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms
-          << ',' << metrics.solve_wall_ms << ',' << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ','
+          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
+          << (metrics.relaxed_attempted ? 1 : 0) << ',' << (metrics.relaxed_primal_feasible ? 1 : 0) << ','
+          << metrics.failure_phase << ',' << metrics.relaxed_status << ',' << metrics.relaxed_sqp_iter << ','
+          << metrics.relaxed_qp_iter << ',' << metrics.relaxed_qp_status << ',' << metrics.sqp_iter << ',' << metrics.qp_iter
+          << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms << ','
+          << metrics.solve_wall_ms << ',' << metrics.relaxed_solve_wall_ms << ',' << metrics.constrained_solve_wall_ms << ','
+          << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ',' << metrics.relaxed_acados_total_ms << ','
           << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ',' << metrics.acados_qp_ms << ','
           << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ',' << metrics.acados_reg_ms << ','
           << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ',' << metrics.acados_feedback_ms << ','
           << metrics.cost_value << ',' << metrics.kkt_norm_inf << ',' << metrics.nlp_res << ',' << metrics.res_stat << ','
-          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ',' << metrics.max_ineq_violation << ','
-          << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ',' << metrics.max_ineq_index << ','
-          << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ',' << metrics.max_eq_stage << ','
-          << metrics.max_eq_state << '\n';
+          << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ',' << metrics.relaxed_res_stat << ','
+          << metrics.relaxed_res_eq << ',' << metrics.relaxed_res_ineq << ',' << metrics.relaxed_res_comp << ','
+          << metrics.max_ineq_violation << ',' << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ','
+          << metrics.max_ineq_index << ',' << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ','
+          << metrics.max_eq_stage << ',' << metrics.max_eq_state << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();

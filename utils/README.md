@@ -21,6 +21,8 @@ Each row describes one completed planning cycle:
 - **Outcome:** ACADOS status and whether a trajectory was published.
 - **Cycle timing:** total cycle time split into preprocessing, solver, and
   postprocessing. These phases add up to `cycle_ms`.
+- **Two-stage initialization:** status, timing, iterations, and residuals of the
+  relaxed initialization solve, plus the phase in which a rejected cycle failed.
 - **Solver timing:** ACADOS total, linearization, simulation, QP, condensing,
   regularization, globalization, preparation, and feedback times.
 - **Solver work:** SQP/QP iterations and the final QP status.

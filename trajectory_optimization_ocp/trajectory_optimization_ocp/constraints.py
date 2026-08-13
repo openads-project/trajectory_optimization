@@ -21,6 +21,7 @@ from constants import (
 )
 from utils import (
     activate_constraint,
+    activate_upper_bounded_constraint,
     conservative_smooth_sat_margin,
     determine_spacially_matched_ref_path_point,
     ego_obb_geometry,
@@ -99,6 +100,10 @@ def set_constraints(ocp: AcadosOcp, config):
 
     ego_obb = ego_obb_geometry(ocp, config)
 
+    # get stage-wise constraint activation parameters
+    idx_params = np.prod(config["p_dynamic_weight_shape"])
+    p_boundary_activation = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_boundary_activation_shape"]))]
+
     # --- Route boundaries ---
 
     # get ref path with boundaries from global parameters
@@ -131,21 +136,23 @@ def set_constraints(ocp: AcadosOcp, config):
     d_center_ref_path = ca.dot(center_ref_diff, normal_vec)
     left_margin = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - boundary_support, 0.0))
     right_margin = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - boundary_support, 0.0))
-    left_constraint = d_center_ref_path + boundary_support + left_margin - ref_inter["d_left_boundary"]
-    right_constraint = -d_center_ref_path + boundary_support + right_margin - ref_inter["d_right_boundary"]
+    left_constraint = activate_upper_bounded_constraint(
+        d_center_ref_path + boundary_support + left_margin - ref_inter["d_left_boundary"], p_boundary_activation[0]
+    )
+    right_constraint = activate_upper_bounded_constraint(
+        -d_center_ref_path + boundary_support + right_margin - ref_inter["d_right_boundary"], p_boundary_activation[0]
+    )
     ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
     cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
     cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
     # --- Obstacle avoidance ---
     # get obstacles from parameters
-    idx_params = 0
-    _ = ocp.model.p[
-        idx_params : (idx_params := idx_params + np.prod(config["p_dynamic_weight_shape"]))
-    ]  # dynamic weights, not used in constraints
     obstacle_shape = config["p_obstacle_obbs_shape"]
     p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(obstacle_shape))]
-    assert idx_params == np.prod(config["p_dynamic_weight_shape"]) + np.prod(obstacle_shape)
+    assert idx_params == (
+        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_boundary_activation_shape"]) + np.prod(obstacle_shape)
+    )
 
     v_t = ocp.model.x[STATE_INDEX_V_T]
     # Both vehicle models are forward-only. THW and d_min_obstacle_long protect

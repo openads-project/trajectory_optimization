@@ -56,8 +56,9 @@ obstacle_slack_weights:                     # scalar or list (length n_obstacles
   quadratic_upper: 500.0
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), obstacles]
+# [dyn_weight (1), boundary_activation (1), obstacles]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
+p_boundary_activation_shape: [1, 1] # one value shared by left/right boundary constraints
 p_obstacle_obbs_shape: [30, 6]    # nObstacleOBBs x [x, y, yaw, half_length, half_width, active]
 obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
 obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]

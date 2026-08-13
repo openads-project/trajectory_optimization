@@ -217,6 +217,11 @@ def activate_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.
     return active * value + (1.0 - active) * inactive_margin
 
 
+def activate_upper_bounded_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.0) -> ca.MX:
+    """Turn an inactive upper-bounded constraint into a constant feasible value."""
+    return active * value - (1.0 - active) * inactive_margin
+
+
 def saturate_positive_margin(value: ca.MX, scale: float) -> ca.MX:
     """Limit irrelevant positive SAT margins without changing their sign."""
     if scale <= 0.0:

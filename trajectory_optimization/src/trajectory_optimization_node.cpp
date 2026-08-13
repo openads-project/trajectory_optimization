@@ -20,6 +20,7 @@ namespace trajectory_optimization {
 
 namespace {
 using SteadyClock = std::chrono::steady_clock;
+constexpr int OBB_ACTIVE_PARAMETER_OFFSET = 5;
 
 double elapsedMilliseconds(const SteadyClock::time_point& start) {
   return std::chrono::duration<double, std::milli>(SteadyClock::now() - start).count();
@@ -469,8 +470,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // Solve the normal dynamically consistent warm start first. Karl gets one
-  // legacy-zero recovery attempt only when that result is not primal feasible.
+  // If safety constraints are active, solve the otherwise identical OCP without
+  // obstacles and boundaries first. Its nlp_out_ initializes the constrained solve.
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
   const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
@@ -496,29 +497,81 @@ void TrajectoryOptimizationNode::planningCycle() {
   };
 
   bool finite_solution = false;
-  bool primal_feasible = solveAndValidate(metrics, finite_solution);
-  if (!primal_feasible && model_name_ == "karl") {
-    const int primary_status = metrics.status;
-    const double primary_res_eq = metrics.res_eq;
-    const double primary_res_ineq = metrics.res_ineq;
-    const int reset_status = trajectory_optimization::acados_reset(ocp_capsule_, 1, 0, 0, 0);
-    if (reset_status == ACADOS_SUCCESS) {
-      ocp_nlp_out_set_values_to_zero(nlp_config_, nlp_dims_, nlp_out_);
-      PerformanceMetrics recovery_metrics = metrics;
-      primal_feasible = solveAndValidate(recovery_metrics, finite_solution);
-      metrics = recovery_metrics;
+  bool primal_feasible = false;
+  const bool safety_constraints_active =
+      consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_obstacle_hypotheses_ > 0;
+  if (safety_constraints_active) {
+    metrics.relaxed_attempted = true;
+    if (!setSafetyConstraintActivation(false)) {
+      // A sparse update can fail after updating only part of the horizon.
+      setSafetyConstraintActivation(true);
+      metrics.status = -1;
+      metrics.failure_phase = "relaxed";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      RCLCPP_ERROR(get_logger(), "Skipping planning cycle because safety constraints could not be disabled consistently.");
+      resetSolver();
+      logCompletedCycle();
+      return;
+    }
+
+    PerformanceMetrics relaxed_metrics = metrics;
+    bool relaxed_finite_solution = false;
+    const auto relaxed_solve_start = SteadyClock::now();
+    const bool relaxed_primal_feasible = solveAndValidate(relaxed_metrics, relaxed_finite_solution);
+    metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
+    metrics.relaxed_primal_feasible = relaxed_primal_feasible;
+    metrics.relaxed_status = relaxed_metrics.status;
+    metrics.relaxed_sqp_iter = relaxed_metrics.sqp_iter;
+    metrics.relaxed_qp_iter = relaxed_metrics.qp_iter;
+    metrics.relaxed_qp_status = relaxed_metrics.qp_status;
+    metrics.relaxed_acados_total_ms = relaxed_metrics.acados_total_ms;
+    metrics.relaxed_res_stat = relaxed_metrics.res_stat;
+    metrics.relaxed_res_eq = relaxed_metrics.res_eq;
+    metrics.relaxed_res_ineq = relaxed_metrics.res_ineq;
+    metrics.relaxed_res_comp = relaxed_metrics.res_comp;
+
+    // Evaluate the relaxed residuals before restoration, but retain its nlp_out_.
+    if (!setSafetyConstraintActivation(true)) {
+      metrics.status = -1;
+      metrics.failure_phase = "relaxed";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      RCLCPP_ERROR(get_logger(), "Skipping planning cycle because safety constraints could not be restored.");
+      resetSolver();
+      logCompletedCycle();
+      return;
+    }
+
+    if (!relaxed_primal_feasible) {
+      metrics.status = relaxed_metrics.status;
+      metrics.sqp_iter = relaxed_metrics.sqp_iter;
+      metrics.qp_iter = relaxed_metrics.qp_iter;
+      metrics.qp_status = relaxed_metrics.qp_status;
+      metrics.cost_value = relaxed_metrics.cost_value;
+      metrics.res_stat = relaxed_metrics.res_stat;
+      metrics.res_eq = relaxed_metrics.res_eq;
+      metrics.res_ineq = relaxed_metrics.res_ineq;
+      metrics.res_comp = relaxed_metrics.res_comp;
+      metrics.failure_phase = "relaxed";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      printSolution(metrics);
       RCLCPP_WARN(get_logger(),
-                  "Karl primary solve was not primal feasible (status=%d, eq=%e, ineq=%e); legacy-zero recovery: "
-                  "status=%d, feasible=%d, eq=%e, ineq=%e.",
-                  primary_status, primary_res_eq, primary_res_ineq, metrics.status, primal_feasible, metrics.res_eq,
-                  metrics.res_ineq);
-    } else {
-      RCLCPP_ERROR(get_logger(), "Skipping Karl legacy-zero recovery because acados_reset() returned status %d.", reset_status);
+                  "Rejecting relaxed initialization: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] "
+                  "tolerances=[eq=%e, ineq=%e].",
+                  metrics.status, relaxed_finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq,
+                  solver_opts->tol_ineq);
+      resetSolver();
+      logCompletedCycle();
+      return;
     }
   }
+
+  const auto constrained_solve_start = SteadyClock::now();
+  primal_feasible = solveAndValidate(metrics, finite_solution);
+  metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
 
   if (!primal_feasible) {
+    metrics.failure_phase = "constrained";
     printSolution(metrics);
     RCLCPP_WARN(this->get_logger(),
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
@@ -527,8 +580,8 @@ void TrajectoryOptimizationNode::planningCycle() {
       PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
                                                       static_cast<int>(p_obstacle_obbs_shape_[0]));
     }
-    // Keep the last published solution as warm-start source. Neither failed
-    // attempt is allowed to replace it.
+    // Keep the last published solution as warm-start source. No failed or
+    // relaxed attempt is allowed to replace it.
     resetSolver();
     logCompletedCycle();
     return;
@@ -803,11 +856,12 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                   hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
       hypotheses.resize(capacity);
     }
+    active_obstacle_hypotheses_ = hypotheses.size();
 
     double floating_dynamic_weight = 1.0;
     for (int stage = 0; stage < stage_count; ++stage) {
       int parameter_index = 0;
-      int parameter_count = 1;
+      int parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
       std::vector<int> dynamic_weight_indices{parameter_index};
       int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, dynamic_weight_indices.data(),
                                                                         &floating_dynamic_weight, parameter_count);
@@ -815,6 +869,16 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
         throw std::runtime_error("acados dynamic-weight update failed with status " + std::to_string(status));
       }
       floating_dynamic_weight *= dynamic_weight_;
+
+      parameter_index += parameter_count;
+      parameter_count = static_cast<int>(p_boundary_activation_shape_[0] * p_boundary_activation_shape_[1]);
+      std::vector<int> boundary_activation_indices{parameter_index};
+      double boundary_activation = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0;
+      status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, boundary_activation_indices.data(),
+                                                                    &boundary_activation, parameter_count);
+      if (status != ACADOS_SUCCESS) {
+        throw std::runtime_error("acados boundary-activation update failed with status " + std::to_string(status));
+      }
 
       parameter_index += parameter_count;
       parameter_count = static_cast<int>(p_obstacle_obbs_shape_[0] * p_obstacle_obbs_shape_[1]);
@@ -841,6 +905,39 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     RCLCPP_DEBUG(get_logger(), "setOcpParameters OBB duration: %.3f ms", elapsed_ms);
     return;
   }
+}
+
+bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
+  const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
+  const int boundary_parameter_count = static_cast<int>(p_boundary_activation_shape_[0] * p_boundary_activation_shape_[1]);
+  const int obstacle_count = static_cast<int>(p_obstacle_obbs_shape_[0]);
+  const int obstacle_width = static_cast<int>(p_obstacle_obbs_shape_[1]);
+  const int obstacle_parameters_begin = dynamic_parameter_count + boundary_parameter_count;
+  const bool boundary_is_configured = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS;
+
+  std::vector<int> indices;
+  std::vector<double> values;
+  indices.reserve(static_cast<size_t>(boundary_parameter_count + obstacle_count));
+  values.reserve(indices.capacity());
+  for (int index = 0; index < boundary_parameter_count; ++index) {
+    indices.push_back(dynamic_parameter_count + index);
+    values.push_back(use_configured_activation && boundary_is_configured ? 1.0 : 0.0);
+  }
+  for (int obstacle = 0; obstacle < obstacle_count; ++obstacle) {
+    indices.push_back(obstacle_parameters_begin + obstacle * obstacle_width + OBB_ACTIVE_PARAMETER_OFFSET);
+    values.push_back(use_configured_activation && static_cast<size_t>(obstacle) < active_obstacle_hypotheses_ ? 1.0 : 0.0);
+  }
+
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, indices.data(), values.data(),
+                                                                            static_cast<int>(indices.size()));
+    if (status != ACADOS_SUCCESS) {
+      RCLCPP_ERROR(get_logger(), "Failed to %s safety constraints at stage %d (acados status %d).",
+                   use_configured_activation ? "restore" : "disable", stage, status);
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace trajectory_optimization

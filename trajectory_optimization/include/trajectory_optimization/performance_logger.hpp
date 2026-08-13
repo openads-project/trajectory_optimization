@@ -24,11 +24,16 @@ struct PerformanceMetrics {
   int reference_points = 0;
   int objects = 0;
   bool published = false;
+  bool relaxed_attempted = false;
+  bool relaxed_primal_feasible = false;
+  std::string failure_phase = "none";
 
   double cycle_ms = 0.0;
   double preprocessing_ms = 0.0;
   double solve_wall_ms = 0.0;
   double postprocessing_ms = 0.0;
+  double relaxed_solve_wall_ms = 0.0;
+  double constrained_solve_wall_ms = 0.0;
   double acados_total_ms = 0.0;
   double acados_lin_ms = 0.0;
   double acados_sim_ms = 0.0;
@@ -47,6 +52,16 @@ struct PerformanceMetrics {
   double res_eq = 0.0;
   double res_ineq = 0.0;
   double res_comp = 0.0;
+
+  int relaxed_status = 0;
+  int relaxed_sqp_iter = 0;
+  int relaxed_qp_iter = 0;
+  int relaxed_qp_status = 0;
+  double relaxed_acados_total_ms = 0.0;
+  double relaxed_res_stat = 0.0;
+  double relaxed_res_eq = 0.0;
+  double relaxed_res_ineq = 0.0;
+  double relaxed_res_comp = 0.0;
 
   double max_ineq_violation = 0.0;
   int max_ineq_stage = -1;

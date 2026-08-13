@@ -70,9 +70,10 @@ flowchart LR
 | `bi_level_dYaw` | `float` | `89.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
 
 Both vehicle models use one smooth conservative SAT constraint per obstacle OBB and two OBB-support constraints for the route
-boundaries. Their longitudinal obstacle margin is applied in front of the vehicle; the rear uses a fixed 0.1 m clearance. For Karl,
-if the regular dynamically consistent warm-start does not return a primal-feasible result, the node performs one sequential retry
-with a zeroed NLP iterate. The retry is accepted only through the same acados primal-feasibility test and is never preferred by cost.
+boundaries. Their longitudinal obstacle margin is applied in front of the vehicle; the rear uses a fixed 0.1 m clearance. If object
+or boundary constraints are active, both vehicle models first solve the same OCP with only these safety constraints disabled. The
+result initializes a second solve with all configured constraints restored. Only a primal-feasible result of the second solve may be
+published; the intermediate trajectory is never an output candidate.
 
 ## Launch Files
 

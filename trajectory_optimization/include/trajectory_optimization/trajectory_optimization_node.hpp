@@ -261,6 +261,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                         const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
 
   /**
+   * @brief Enables the configured object and boundary constraints or temporarily disables all of them.
+   *
+   * @param[in] use_configured_activation Restore the activation prepared for the current cycle if true; disable all
+   * safety constraints if false.
+   * @return `true` if every shooting-stage parameter update succeeded.
+   */
+  bool setSafetyConstraintActivation(bool use_configured_activation);
+
+  /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
    *
    * @param[in] reference_trajectory Reference trajectory in optimizer frame.
@@ -393,9 +402,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};   // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 6};       // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};  // nWeights x weightDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
+  std::vector<int64_t> p_boundary_activation_shape_ = {1, 1};
   std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 6};  // nObstacleOBBs x [x, y, yaw, half-length, half-width, active]
+  size_t active_obstacle_hypotheses_ = 0;
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

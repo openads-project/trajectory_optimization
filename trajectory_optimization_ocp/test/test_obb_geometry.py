@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "trajectory_optimization_ocp"
 
 from utils import (  # noqa: E402, I202
     activate_constraint,
+    activate_upper_bounded_constraint,
     conservative_smooth_sat_margin,
     ego_obb_geometry,
     expand_ego_obb_forward,
@@ -92,6 +93,22 @@ def test_offsets_forward_expansion_and_inactive_slots():
     assert math.isclose(float(half_length), 12.05, abs_tol=1e-12)
     assert math.isclose(float(inactive), 1.0, abs_tol=1e-12)
     np.testing.assert_array_equal(np.asarray(derivative), np.zeros((1, 7)))
+
+
+def test_inactive_upper_bounded_constraint_is_constant_and_feasible():
+    """Disabled boundary constraints must not depend on the state and must satisfy h <= 0."""
+    value = ca.MX.sym("value")
+    active = ca.MX.sym("active")
+    constraint = activate_upper_bounded_constraint(value, active)
+    function = ca.Function("upper_activation", [value, active], [constraint, ca.jacobian(constraint, value)])
+
+    inactive, inactive_derivative = (float(result) for result in function(42.0, 0.0))
+    assert inactive == -1.0
+    assert inactive_derivative == 0.0
+
+    active_value, active_derivative = (float(result) for result in function(0.25, 1.0))
+    assert active_value == 0.25
+    assert active_derivative == 1.0
 
 
 def test_positive_margin_saturation_preserves_sign_and_contact_gradient():
