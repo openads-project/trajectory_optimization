@@ -8,6 +8,7 @@
 #include <limits>
 #include <numeric>
 #include <sstream>
+#include <stdexcept>
 #include <thread>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
@@ -54,6 +55,19 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers for obstacle OBBs");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
+  this->declareAndLoadParameter("double_solve", double_solve_,
+                                "Use a safety-constraint-relaxed solve to initialize the fully constrained solve", false, false,
+                                true);
+  this->declareAndLoadParameter("relaxed_solve_timeout_ms", relaxed_solve_timeout_ms_,
+                                "ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout", false, false,
+                                true);
+  this->declareAndLoadParameter("constrained_solve_timeout_ms", constrained_solve_timeout_ms_,
+                                "ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout", false, false,
+                                true);
+  if (!std::isfinite(relaxed_solve_timeout_ms_) || relaxed_solve_timeout_ms_ < 0.0 ||
+      !std::isfinite(constrained_solve_timeout_ms_) || constrained_solve_timeout_ms_ < 0.0) {
+    throw std::invalid_argument("relaxed_solve_timeout_ms and constrained_solve_timeout_ms must be finite and non-negative");
+  }
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
@@ -293,6 +307,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
   nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
+  setSolverTimeout(constrained_solve_timeout_ms_);
   if (nlp_dims_->N != n_shots_) {
     RCLCPP_FATAL(this->get_logger(), "Created solver has N=%d, expected n_shots=%d. Exiting.", nlp_dims_->N, n_shots_);
     exit(1);
@@ -323,6 +338,11 @@ void TrajectoryOptimizationNode::resetSolver() {
     freeSolver();
     setupSolver();
   }
+}
+
+void TrajectoryOptimizationNode::setSolverTimeout(const double timeout_ms) {
+  double timeout_seconds = timeout_ms * 1e-3;
+  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
 }
 
 bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp) {
@@ -470,8 +490,8 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // If safety constraints are active, solve the otherwise identical OCP without
-  // obstacles and boundaries first. Its nlp_out_ initializes the constrained solve.
+  // If configured and safety constraints are active, solve the otherwise identical OCP without obstacles and boundaries first.
+  // Its nlp_out_ initializes the constrained solve.
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
   const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
@@ -500,7 +520,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   bool primal_feasible = false;
   const bool safety_constraints_active =
       consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_obstacle_hypotheses_ > 0;
-  if (safety_constraints_active) {
+  if (double_solve_ && safety_constraints_active) {
     metrics.relaxed_attempted = true;
     if (!setSafetyConstraintActivation(false)) {
       // A sparse update can fail after updating only part of the horizon.
@@ -516,9 +536,11 @@ void TrajectoryOptimizationNode::planningCycle() {
 
     PerformanceMetrics relaxed_metrics = metrics;
     bool relaxed_finite_solution = false;
+    setSolverTimeout(relaxed_solve_timeout_ms_);
     const auto relaxed_solve_start = SteadyClock::now();
     const bool relaxed_primal_feasible = solveAndValidate(relaxed_metrics, relaxed_finite_solution);
     metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
+    setSolverTimeout(constrained_solve_timeout_ms_);
     metrics.relaxed_primal_feasible = relaxed_primal_feasible;
     metrics.relaxed_status = relaxed_metrics.status;
     metrics.relaxed_sqp_iter = relaxed_metrics.sqp_iter;
@@ -565,6 +587,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     }
   }
 
+  setSolverTimeout(constrained_solve_timeout_ms_);
   const auto constrained_solve_start = SteadyClock::now();
   primal_feasible = solveAndValidate(metrics, finite_solution);
   metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);

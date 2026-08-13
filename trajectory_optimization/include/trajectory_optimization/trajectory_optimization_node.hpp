@@ -133,6 +133,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void resetSolver();
 
   /**
+   * @brief Sets the wall-time limit used by the next ACADOS solve.
+   *
+   * @param[in] timeout_ms Timeout in milliseconds. A value of zero disables the timeout.
+   */
+  void setSolverTimeout(double timeout_ms);
+
+  /**
    * @brief Builds and sets a dynamically consistent NLP initial guess from the current state and cached controls.
    *
    * @param[in] x_init Hard initial state of the OCP.
@@ -370,6 +377,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool verbose_ = false;
   bool performance_logging_ = false;
   bool debug_viz_ = false;
+  bool double_solve_ = true;
+  double relaxed_solve_timeout_ms_ = 100.0;
+  double constrained_solve_timeout_ms_ = 100.0;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;

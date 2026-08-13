@@ -54,6 +54,9 @@ flowchart LR
 | `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego and obstacle OBBs |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
+| `double_solve` | `bool` | `true` | Initialize the fully constrained OCP with a solve that ignores object and boundary constraints |
+| `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve in milliseconds; `0` disables the timeout |
+| `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve in milliseconds; `0` disables the timeout |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
@@ -71,9 +74,11 @@ flowchart LR
 
 Both vehicle models use one smooth conservative SAT constraint per obstacle OBB and two OBB-support constraints for the route
 boundaries. Their longitudinal obstacle margin is applied in front of the vehicle; the rear uses a fixed 0.1 m clearance. If object
-or boundary constraints are active, both vehicle models first solve the same OCP with only these safety constraints disabled. The
-result initializes a second solve with all configured constraints restored. Only a primal-feasible result of the second solve may be
-published; the intermediate trajectory is never an output candidate.
+or boundary constraints are active and `double_solve` is enabled, both vehicle models first solve the same OCP with only these safety
+constraints disabled. The result initializes a second solve with all configured constraints restored. Only a primal-feasible result
+of the second solve may be published; the intermediate trajectory is never an output candidate. If `double_solve` is disabled, the
+fully constrained OCP is solved directly from the normal dynamically consistent warm start. Both solve phases have independently
+configurable timeouts.
 
 ## Launch Files
 
