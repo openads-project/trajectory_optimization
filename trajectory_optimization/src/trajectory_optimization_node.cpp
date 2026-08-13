@@ -639,7 +639,18 @@ void TrajectoryOptimizationNode::planningCycle() {
   metrics.published = true;
   logCompletedCycle();
   const char* cycle_time_color = metrics.cycle_ms <= 100.0 ? "\x1b[32m" : "\x1b[31m";
-  RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
+  if (metrics.cycle_ms > 100.0) {
+    if (metrics.relaxed_attempted) {
+      RCLCPP_INFO(this->get_logger(),
+                  "Published trajectory (cycle: %s%.2f ms\x1b[0m; relaxed solve: %.2f ms; constrained solve: %.2f ms)",
+                  cycle_time_color, metrics.cycle_ms, metrics.relaxed_solve_wall_ms, metrics.constrained_solve_wall_ms);
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m; constrained solve: %.2f ms)",
+                  cycle_time_color, metrics.cycle_ms, metrics.constrained_solve_wall_ms);
+    }
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
+  }
 }
 
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
@@ -875,8 +886,8 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
         dropped << hypotheses[index].object_id << ':' << hypotheses[index].prediction_index << ':'
                 << hypotheses[index].probability << ':' << static_cast<int>(hypotheses[index].classification);
       }
-      RCLCPP_WARN(get_logger(), "Dropped %zu of %zu OBB hypotheses after deterministic risk ranking: [%s]",
-                  hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
+      RCLCPP_DEBUG(get_logger(), "Dropped %zu of %zu OBB hypotheses after deterministic risk ranking: [%s]",
+                   hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
       hypotheses.resize(capacity);
     }
     active_obstacle_hypotheses_ = hypotheses.size();
