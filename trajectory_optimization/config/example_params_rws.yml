@@ -13,11 +13,8 @@
     consider_boundaries: 3          # consider route boundaries in optimization: 0 = no, 1 = suggested lane, 2 = including adjacent, 3 = drivable space
     verbose: False                  # print debug infromation and solver statistics
     performance_logging: False      # write one CSV record for each completed solver run
-    debug_visualization: True       # publish debug visualization markers for ego and obstacle OBBs
+    debug_visualization: True       # publish debug visualization markers for ego, objects and boundaries
     run_as_callback: False          # run OCP once for each received reference trajectory (true) or on a timer (false)
-    double_solve: True              # initialize the constrained OCP with a solve that ignores object and boundary constraints
-    relaxed_solve_timeout_ms: 100.0 # timeout of the relaxed initialization solve [ms]; 0 disables the timeout
-    constrained_solve_timeout_ms: 100.0 # timeout of the fully constrained solve [ms]; 0 disables the timeout
 
     #### thresholds for bi-level stabilization
     bi_level_dV: 5.0                # maximum v difference before bi-level stabilization hits [m/s]
@@ -28,6 +25,9 @@
     model_name: 'shuttle'           # name of the acados model
     optimization_horizon: 5.0       # optimization horizon [s] (also used as build parameter in OCP)
     n_shots: 50                     # number of shooting intervals in optimization horizon (also used as build parameter in OCP)
+    two_stage_optimization: True    # initialize the constrained OCP with a solve without object and boundary constraints
+    relaxed_solve_timeout_ms: 100.0 # timeout of the relaxed initialization solve [ms]; 0 disables the timeout
+    constrained_solve_timeout_ms: 100.0 # timeout of the fully constrained solve [ms]; 0 disables the timeout
 
     #### vehicle specific parameters
     distance_front_axle: 1.7         # distance from center of gravity to front axle [m]

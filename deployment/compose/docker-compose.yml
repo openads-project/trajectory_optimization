@@ -14,8 +14,8 @@ services:
       # --- outputs ---
       TRAJECTORY_TOPIC: ~/trajectory
       BOUNDARY_MARKER_TOPIC: ~/visualization/boundaries
-      EGO_OBBS_TOPIC: ~/visualization/ego_obbs
-      OBJECT_OBBS_TOPIC: ~/visualization/object_obbs
+      EGO_MARKER_TOPIC: ~/visualization/ego
+      OBJECT_MARKER_TOPIC: ~/visualization/objects
       # --- other -----
       LOG_LEVEL: ${LOG_LEVEL:-info}
       USE_SIM_TIME: ${USE_SIM_TIME:-false}
@@ -40,7 +40,7 @@ services:
           route_topic:=$${ROUTE_TOPIC} \
           trajectory_topic:=$${TRAJECTORY_TOPIC} \
           boundary_marker_topic:=$${BOUNDARY_MARKER_TOPIC} \
-          ego_obbs_topic:=$${EGO_OBBS_TOPIC} \
-          object_obbs_topic:=$${OBJECT_OBBS_TOPIC}
+          ego_marker_topic:=$${EGO_MARKER_TOPIC} \
+          object_marker_topic:=$${OBJECT_MARKER_TOPIC}
     # volumes:
     #   - ./params.yml:/docker-ros/ws/install/trajectory_optimization/share/trajectory_optimization/config/params.yml

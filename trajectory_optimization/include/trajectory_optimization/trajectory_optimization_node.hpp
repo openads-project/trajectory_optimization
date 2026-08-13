@@ -30,7 +30,6 @@
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
 // acados
-#include <trajectory_optimization/collision_geometry.hpp>
 #include <trajectory_optimization/ocp_model_handler.hpp>
 #include <trajectory_optimization/performance_logger.hpp>
 
@@ -131,13 +130,6 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @brief Resets the optimizer memory while retaining the generated solver instance.
    */
   void resetSolver();
-
-  /**
-   * @brief Sets the wall-time limit used by the next ACADOS solve.
-   *
-   * @param[in] timeout_ms Timeout in milliseconds. A value of zero disables the timeout.
-   */
-  void setSolverTimeout(double timeout_ms);
 
   /**
    * @brief Builds and sets a dynamically consistent NLP initial guess from the current state and cached controls.
@@ -286,11 +278,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<std::pair<double, double>> normalBoundaryDistance(
       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
 
-  /** Publishes obstacle OBBs currently passed to the optimizer. */
-  void vizObbs(const std::vector<double>& obstacles);
+  /** Publishes the object boxes currently passed to the optimizer. */
+  void vizObjectBoxes(const std::vector<double>& obstacles);
 
-  /** Publishes the exact ego OBB along the optimized trajectory. */
-  void vizEgoObbs(const std::vector<double>& x_trajectory, const std::string& model_name);
+  /** Publishes the ego box along the optimized trajectory. */
+  void vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name);
 
   /**
    * @brief Publishes the boundary intersections corresponding to the distances passed to the OCP.
@@ -349,8 +341,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obbs_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_obbs_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr object_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
@@ -377,7 +369,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool verbose_ = false;
   bool performance_logging_ = false;
   bool debug_viz_ = false;
-  bool double_solve_ = true;
+  bool two_stage_optimization_ = true;
   double relaxed_solve_timeout_ms_ = 100.0;
   double constrained_solve_timeout_ms_ = 100.0;
   double standstill_threshold_ = 0.45;
@@ -399,7 +391,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Time control_guess_stamp_{0, 0, RCL_ROS_TIME};
 
   // visualization
-  std::vector<double> viz_obbs_;
+  std::vector<double> viz_object_boxes_;
 
   // cost weights
   std::vector<double> cost_weights_ = std::vector<double>(12, 1.0);
@@ -416,7 +408,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
   std::vector<int64_t> p_boundary_activation_shape_ = {1, 1};
-  std::vector<int64_t> p_obstacle_obbs_shape_ = {30, 6};  // nObstacleOBBs x [x, y, yaw, half-length, half-width, active]
+  std::vector<int64_t> p_obstacle_boxes_shape_ = {30, 6};  // nBoxes x [x, y, yaw, half-length, half-width, active]
   size_t active_obstacle_hypotheses_ = 0;
 
   // ocp variables

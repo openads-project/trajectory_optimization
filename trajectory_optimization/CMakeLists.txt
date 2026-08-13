@@ -28,7 +28,6 @@ set(TARGET_NAME trajectory_optimization_node_component)
 
 add_library(${TARGET_NAME} SHARED 
   src/callbacks.cpp
-  src/collision_geometry.cpp
   src/performance_logger.cpp
   src/trajectory_optimization_node.cpp
   src/trajectory_optimization_ackermann.cpp
@@ -93,16 +92,11 @@ install(DIRECTORY config
 )
 
 if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_clang_format_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/format/.clang-format)
   set(ament_cmake_clang_tidy_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/.clang-tidy)
   set(ament_cmake_flake8_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/ament_flake8.ini)
   ament_lint_auto_find_test_dependencies()
-
-  ament_add_gtest(test_collision_geometry test/test_collision_geometry.cpp src/collision_geometry.cpp)
-  target_include_directories(test_collision_geometry PRIVATE include)
-  target_compile_features(test_collision_geometry PUBLIC cxx_std_17)
 endif()
 
 ament_package()

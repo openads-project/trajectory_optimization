@@ -14,8 +14,8 @@ flowchart LR
     S2:::hidden -->|~/route| NODE
     S3:::hidden -->|~/reference_trajectory| NODE
     NODE -->|~/trajectory| P0:::hidden
-    NODE -->|~/visualization/object_obbs| P1:::hidden
-    NODE -->|~/visualization/ego_obbs| P2:::hidden
+    NODE -->|~/visualization/objects| P1:::hidden
+    NODE -->|~/visualization/ego| P2:::hidden
     NODE -->|~/visualization/boundaries| P3:::hidden
     classDef hidden display: none;
 ```
@@ -34,8 +34,8 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
-| `~/visualization/object_obbs` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the obstacle OBBs used by the OCP. |
-| `~/visualization/ego_obbs` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego OBB used inside the OCP. |
+| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP. |
+| `~/visualization/ego` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego box used inside the OCP. |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
 #### Parameters
@@ -50,13 +50,13 @@ flowchart LR
 | `optimization_frequency` | `float` | `10.0` | Optimization frequency in Hz |
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
-| `verbose` | `bool` | `false` | Print solver statistics |
-| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
-| `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego and obstacle OBBs |
-| `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
-| `double_solve` | `bool` | `true` | Initialize the fully constrained OCP with a solve that ignores object and boundary constraints |
+| `two_stage_optimization` | `bool` | `true` | Initialize the fully constrained OCP with a solve that ignores object and boundary constraints |
 | `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve in milliseconds; `0` disables the timeout |
 | `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve in milliseconds; `0` disables the timeout |
+| `verbose` | `bool` | `false` | Print solver statistics |
+| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
+| `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
+| `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
@@ -74,9 +74,9 @@ flowchart LR
 
 Both vehicle models use one smooth conservative SAT constraint per obstacle OBB and two OBB-support constraints for the route
 boundaries. Their longitudinal obstacle margin is applied in front of the vehicle; the rear uses a fixed 0.1 m clearance. If object
-or boundary constraints are active and `double_solve` is enabled, both vehicle models first solve the same OCP with only these safety
+or boundary constraints are active and `two_stage_optimization` is enabled, both vehicle models first solve the same OCP with only these safety
 constraints disabled. The result initializes a second solve with all configured constraints restored. Only a primal-feasible result
-of the second solve may be published; the intermediate trajectory is never an output candidate. If `double_solve` is disabled, the
+of the second solve may be published; the intermediate trajectory is never an output candidate. If `two_stage_optimization` is disabled, the
 fully constrained OCP is solved directly from the normal dynamically consistent warm start. Both solve phases have independently
 configurable timeouts.
 
@@ -92,8 +92,8 @@ configurable timeouts.
 | `route_topic` | `"~/route"` | Topic on which to subscribe route |
 | `trajectory_topic` | `"~/trajectory"` | Topic on which to publish optimized trajectory |
 | `boundary_marker_topic` | `"~/visualization/boundaries"` | Topic on which to publish boundary visualization markers |
-| `ego_obbs_topic` | `"~/visualization/ego_obbs"` | Topic on which to publish ego OBB visualization markers |
-| `object_obbs_topic` | `"~/visualization/object_obbs"` | Topic on which to publish object OBB visualization markers |
+| `ego_marker_topic` | `"~/visualization/ego"` | Topic on which to publish ego visualization markers |
+| `object_marker_topic` | `"~/visualization/objects"` | Topic on which to publish object visualization markers |
 | `name` | `executable_name` | node name |
 | `namespace` | `""` | node namespace |
 | `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |

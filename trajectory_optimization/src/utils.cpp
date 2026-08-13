@@ -277,9 +277,9 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
   boundary_pub_->publish(marker_array);
 }
 
-void TrajectoryOptimizationNode::vizObbs(const std::vector<double>& obstacles) {
+void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& obstacles) {
   visualization_msgs::msg::MarkerArray marker_array;
-  const size_t width = static_cast<size_t>(p_obstacle_obbs_shape_[1]);
+  const size_t width = static_cast<size_t>(p_obstacle_boxes_shape_[1]);
   for (size_t index = 0; index < obstacles.size() / width; ++index) {
     const size_t offset = index * width;
     if (obstacles[offset + 5] < 0.5) continue;
@@ -287,7 +287,7 @@ void TrajectoryOptimizationNode::vizObbs(const std::vector<double>& obstacles) {
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
     marker.lifetime = rclcpp::Duration::from_seconds(0.5);
-    marker.ns = "obstacle-obbs";
+    marker.ns = "object-boxes";
     marker.id = static_cast<int>(index);
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
@@ -302,46 +302,46 @@ void TrajectoryOptimizationNode::vizObbs(const std::vector<double>& obstacles) {
     marker.color.r = 1.0F;
     marker_array.markers.push_back(marker);
   }
-  obbs_pub_->publish(marker_array);
+  object_marker_pub_->publish(marker_array);
 }
-void TrajectoryOptimizationNode::vizEgoObbs(const std::vector<double>& x_trajectory, const std::string& model_name) {
+void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name) {
   visualization_msgs::msg::MarkerArray marker_array;
   if (x_trajectory.empty()) {
     visualization_msgs::msg::Marker delete_marker;
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
     marker_array.markers.push_back(delete_marker);
-    ego_obbs_pub_->publish(marker_array);
+    ego_marker_pub_->publish(marker_array);
     return;
   }
 
-  const auto geometry = vehicleGeometry(model_name);
+  const double length = model_name == "karl" ? 5.173 : 4.97;
+  const double width = model_name == "karl" ? 1.94 : 2.12;
+  const double center_offset_long = model_name == "karl" ? 1.4895 : 0.0;
   const int state_dim = *nlp_dims_->nx;
   for (int stage = 0; stage <= n_shots_; ++stage) {
     const size_t offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
-    const auto box =
-        orientedBoxFromReference(x_trajectory[offset], x_trajectory[offset + 1], x_trajectory[offset + 5], geometry.length,
-                                 geometry.width, geometry.center_offset_long, geometry.center_offset_lat);
+    const double yaw = x_trajectory[offset + 5];
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
     marker.lifetime = rclcpp::Duration::from_seconds(0.5);
-    marker.ns = "ego-obbs";
+    marker.ns = "ego-boxes";
     marker.id = stage;
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.position.x = box.x;
-    marker.pose.position.y = box.y;
-    marker.pose.orientation.z = std::sin(0.5 * box.yaw);
-    marker.pose.orientation.w = std::cos(0.5 * box.yaw);
-    marker.scale.x = 2.0 * box.half_length;
-    marker.scale.y = 2.0 * box.half_width;
+    marker.pose.position.x = x_trajectory[offset] + center_offset_long * std::cos(yaw);
+    marker.pose.position.y = x_trajectory[offset + 1] + center_offset_long * std::sin(yaw);
+    marker.pose.orientation.z = std::sin(0.5 * yaw);
+    marker.pose.orientation.w = std::cos(0.5 * yaw);
+    marker.scale.x = length;
+    marker.scale.y = width;
     marker.scale.z = 0.05;
     marker.color.a = 0.35F;
     marker.color.g = 0.6F;
     marker.color.b = 1.0F;
     marker_array.markers.push_back(marker);
   }
-  ego_obbs_pub_->publish(marker_array);
+  ego_marker_pub_->publish(marker_array);
 }
 
 void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics) {

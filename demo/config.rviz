@@ -192,27 +192,27 @@ Visualization Manager:
       Width: 350
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Ego OBBs
+      Name: Ego Boxes
       Namespaces:
-        ego-obbs: true
+        ego-boxes: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_optimization_ackermann_node/visualization/ego_obbs
+        Value: /trajectory_optimization_ackermann_node/visualization/ego
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Object OBBs
+      Name: Object Boxes
       Namespaces:
-        obstacle-obbs: true
+        object-boxes: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_optimization_ackermann_node/visualization/object_obbs
+        Value: /trajectory_optimization_ackermann_node/visualization/objects
       Value: true
     - Acceleration arrow:
         Acceleration Color: 255; 0; 0
