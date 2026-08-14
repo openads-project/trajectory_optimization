@@ -36,11 +36,6 @@ Model/config parameterizations are defined in:
 - [`trajectory_optimization_ocp/config/karl_params.yml`](trajectory_optimization_ocp/config/karl_params.yml)
 - [`trajectory_optimization_ocp/config/shuttle_params.yml`](trajectory_optimization_ocp/config/shuttle_params.yml)
 
-Both vehicle models use physical ego and obstacle OBBs. Collision avoidance is represented by a conservative smooth four-axis
-SAT margin with active flags for the fixed 30 obstacle slots. Boundary constraints use the support function of the same ego OBB and
-a shared stage-wise activation parameter. These activations allow the ROS node to use a constraint-relaxed solve as initialization
-without generating or allocating a second solver.
-
 ### Generated artifacts
 
 During build/install, this package provides:

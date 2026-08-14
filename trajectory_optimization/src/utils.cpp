@@ -277,12 +277,12 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
   boundary_pub_->publish(marker_array);
 }
 
-void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& obstacles) {
+void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& objects) {
   visualization_msgs::msg::MarkerArray marker_array;
-  const size_t width = static_cast<size_t>(p_obstacle_boxes_shape_[1]);
-  for (size_t index = 0; index < obstacles.size() / width; ++index) {
+  const size_t width = static_cast<size_t>(p_objects_shape_[1]);
+  for (size_t index = 0; index < objects.size() / width; ++index) {
     const size_t offset = index * width;
-    if (obstacles[offset + 5] < 0.5) continue;
+    if (objects[offset + 5] < 0.5) continue;
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
@@ -291,12 +291,12 @@ void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& obsta
     marker.id = static_cast<int>(index);
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.position.x = obstacles[offset];
-    marker.pose.position.y = obstacles[offset + 1];
-    marker.pose.orientation.z = std::sin(0.5 * obstacles[offset + 2]);
-    marker.pose.orientation.w = std::cos(0.5 * obstacles[offset + 2]);
-    marker.scale.x = 2.0 * obstacles[offset + 3];
-    marker.scale.y = 2.0 * obstacles[offset + 4];
+    marker.pose.position.x = objects[offset];
+    marker.pose.position.y = objects[offset + 1];
+    marker.pose.orientation.z = std::sin(0.5 * objects[offset + 2]);
+    marker.pose.orientation.w = std::cos(0.5 * objects[offset + 2]);
+    marker.scale.x = 2.0 * objects[offset + 3];
+    marker.scale.y = 2.0 * objects[offset + 4];
     marker.scale.z = 0.1;
     marker.color.a = 0.25F;
     marker.color.r = 1.0F;

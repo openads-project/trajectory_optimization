@@ -134,10 +134,10 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
-  this->declareAndLoadParameter("d_min_obstacle_long", d_min_obstacle_long_,
-                                "Minimum distance to keep to obstacle in longitudinal direction [m]");
-  this->declareAndLoadParameter("d_min_obstacle_lat", d_min_obstacle_lat_,
-                                "Minimum distance to keep to obstacle in lateral direction [m]");
+  this->declareAndLoadParameter("d_min_object_long", d_min_object_long_,
+                                "Minimum distance to keep to objects in longitudinal direction [m]");
+  this->declareAndLoadParameter("d_min_object_lat", d_min_object_lat_,
+                                "Minimum distance to keep to objects in lateral direction [m]");
   this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
                                 "Minimum distance to keep to boundary in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
@@ -549,7 +549,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // If configured and safety constraints are active, solve the otherwise identical OCP without obstacles and boundaries first.
+  // If configured and safety constraints are active, solve the otherwise identical OCP without objects and boundaries first.
   // Its nlp_out_ initializes the constrained solve.
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
@@ -577,8 +577,7 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   bool finite_solution = false;
   bool primal_feasible = false;
-  const bool safety_constraints_active =
-      consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_obstacle_hypotheses_ > 0;
+  const bool safety_constraints_active = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_object_hypotheses_ > 0;
   if (two_stage_optimization_ && safety_constraints_active) {
     metrics.relaxed_attempted = true;
     if (!setSafetyConstraintActivation(false)) {
@@ -653,8 +652,7 @@ void TrajectoryOptimizationNode::planningCycle() {
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
     if (finite_solution && performance_logger_) {
-      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
-                                                      static_cast<int>(p_obstacle_boxes_shape_[0]));
+      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_, static_cast<int>(p_objects_shape_[0]));
     }
     // Keep the last published solution as warm-start source. No failed or
     // relaxed attempt is allowed to replace it.
@@ -772,8 +770,8 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 
   // other cost params
   global_params.push_back(thw_);
-  global_params.push_back(d_min_obstacle_long_);
-  global_params.push_back(d_min_obstacle_lat_);
+  global_params.push_back(d_min_object_long_);
+  global_params.push_back(d_min_object_lat_);
   global_params.push_back(d_min_boundary_lat_);
 
   // reference path (including boundaries)
@@ -821,7 +819,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                                                   const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
   const auto start_time = std::chrono::steady_clock::now();
 
-  struct ObstacleHypothesis {
+  struct ObjectHypothesis {
     uint64_t object_id;
     int prediction_index;
     double probability;
@@ -840,7 +838,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   const double ego_length = model_name_ == "karl" ? 5.173 : 4.97;
   const double ego_width = model_name_ == "karl" ? 1.94 : 2.12;
   const double ego_center_offset_long = model_name_ == "karl" ? 1.4895 : 0.0;
-  std::vector<ObstacleHypothesis> hypotheses;
+  std::vector<ObjectHypothesis> hypotheses;
 
   for (const auto& object : object_list.objects) {
     if (consider_objects_ == CONSIDER_OBJECTS::NO_OBJECTS) break;
@@ -869,13 +867,13 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
         }
       }
 
-      ObstacleHypothesis hypothesis{object.id,
-                                    prediction_index,
-                                    prediction != nullptr ? prediction->probability : 1.0,
-                                    classification,
-                                    {},
-                                    std::numeric_limits<double>::infinity(),
-                                    0};
+      ObjectHypothesis hypothesis{object.id,
+                                  prediction_index,
+                                  prediction != nullptr ? prediction->probability : 1.0,
+                                  classification,
+                                  {},
+                                  std::numeric_limits<double>::infinity(),
+                                  0};
       hypothesis.boxes.reserve(stage_count);
       const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
       const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
@@ -898,12 +896,12 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                                      reference_yaw, ego_length, ego_width, ego_center_offset_long, 0.0);
         const double reference_velocity =
             std::max(0.0, trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
-        const double front_margin = std::max(std::max(0.0, d_min_obstacle_long_), thw_ * reference_velocity);
+        const double front_margin = std::max(std::max(0.0, d_min_object_long_), thw_ * reference_velocity);
         const double center_shift = 0.5 * (front_margin - REAR_MARGIN);
         reference_ego.x += center_shift * std::cos(reference_ego.yaw);
         reference_ego.y += center_shift * std::sin(reference_ego.yaw);
         reference_ego.half_length += 0.5 * (front_margin + REAR_MARGIN);
-        reference_ego.half_width += std::max(0.0, d_min_obstacle_lat_);
+        reference_ego.half_width += std::max(0.0, d_min_object_lat_);
         const double gap = exactSatSeparationMargin(reference_ego, box);
         if (gap < hypothesis.minimum_reference_gap) {
           hypothesis.minimum_reference_gap = gap;
@@ -931,7 +929,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
            std::tie(rhs.minimum_reference_gap, rhs.earliest_minimum_stage, rhs.object_id, rhs.prediction_index);
   });
 
-  const size_t capacity = static_cast<size_t>(p_obstacle_boxes_shape_[0]);
+  const size_t capacity = static_cast<size_t>(p_objects_shape_[0]);
   if (hypotheses.size() > capacity) {
     std::ostringstream dropped;
     for (size_t index = capacity; index < hypotheses.size(); ++index) {
@@ -943,7 +941,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                  hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
     hypotheses.resize(capacity);
   }
-  active_obstacle_hypotheses_ = hypotheses.size();
+  active_object_hypotheses_ = hypotheses.size();
 
   double floating_dynamic_weight = 1.0;
   for (int stage = 0; stage < stage_count; ++stage) {
@@ -968,7 +966,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     }
 
     parameter_index += parameter_count;
-    parameter_count = static_cast<int>(p_obstacle_boxes_shape_[0] * p_obstacle_boxes_shape_[1]);
+    parameter_count = static_cast<int>(p_objects_shape_[0] * p_objects_shape_[1]);
     std::vector<double> object_boxes;
     object_boxes.reserve(parameter_count);
     for (const auto& hypothesis : hypotheses) {
@@ -980,10 +978,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     }
     if (debug_viz_) viz_object_boxes_.insert(viz_object_boxes_.end(), object_boxes.begin(), object_boxes.end());
 
-    std::vector<int> obstacle_indices(parameter_count);
-    std::iota(obstacle_indices.begin(), obstacle_indices.end(), parameter_index);
-    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, obstacle_indices.data(),
-                                                                  object_boxes.data(), parameter_count);
+    std::vector<int> object_indices(parameter_count);
+    std::iota(object_indices.begin(), object_indices.end(), parameter_index);
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, object_indices.data(), object_boxes.data(),
+                                                                  parameter_count);
     if (status != ACADOS_SUCCESS) {
       throw std::runtime_error("acados object-box update failed with status " + std::to_string(status));
     }
@@ -995,22 +993,22 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
 bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
   const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
   const int boundary_parameter_count = static_cast<int>(p_boundary_activation_shape_[0] * p_boundary_activation_shape_[1]);
-  const int obstacle_count = static_cast<int>(p_obstacle_boxes_shape_[0]);
-  const int obstacle_width = static_cast<int>(p_obstacle_boxes_shape_[1]);
-  const int obstacle_parameters_begin = dynamic_parameter_count + boundary_parameter_count;
+  const int object_count = static_cast<int>(p_objects_shape_[0]);
+  const int object_width = static_cast<int>(p_objects_shape_[1]);
+  const int object_parameters_begin = dynamic_parameter_count + boundary_parameter_count;
   const bool boundary_is_configured = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS;
 
   std::vector<int> indices;
   std::vector<double> values;
-  indices.reserve(static_cast<size_t>(boundary_parameter_count + obstacle_count));
+  indices.reserve(static_cast<size_t>(boundary_parameter_count + object_count));
   values.reserve(indices.capacity());
   for (int index = 0; index < boundary_parameter_count; ++index) {
     indices.push_back(dynamic_parameter_count + index);
     values.push_back(use_configured_activation && boundary_is_configured ? 1.0 : 0.0);
   }
-  for (int obstacle = 0; obstacle < obstacle_count; ++obstacle) {
-    indices.push_back(obstacle_parameters_begin + obstacle * obstacle_width + OBJECT_BOX_ACTIVE_PARAMETER_OFFSET);
-    values.push_back(use_configured_activation && static_cast<size_t>(obstacle) < active_obstacle_hypotheses_ ? 1.0 : 0.0);
+  for (int object = 0; object < object_count; ++object) {
+    indices.push_back(object_parameters_begin + object * object_width + OBJECT_BOX_ACTIVE_PARAMETER_OFFSET);
+    values.push_back(use_configured_activation && static_cast<size_t>(object) < active_object_hypotheses_ ? 1.0 : 0.0);
   }
 
   for (int stage = 0; stage <= n_shots_; ++stage) {

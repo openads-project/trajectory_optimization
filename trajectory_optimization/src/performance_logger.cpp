@@ -114,7 +114,7 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
 void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                                      ocp_nlp_solver* solver,
                                                      const ocp_nlp_dims* dims,
-                                                     int obstacle_boxes) {
+                                                     int object_boxes) {
   // The acados C API exposes stage-dependent dimensions as raw arrays.
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (int stage = 0; stage <= dims->N; ++stage) {
@@ -168,12 +168,12 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
     if (h_index < 2) {
       metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
       metrics.max_ineq_index = 0;
-    } else if (h_index < obstacle_boxes + 2) {
-      metrics.max_ineq_type = "obstacle";
+    } else if (h_index < object_boxes + 2) {
+      metrics.max_ineq_type = "object";
       metrics.max_ineq_index = h_index - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
-      metrics.max_ineq_index = h_index - obstacle_boxes - 2;
+      metrics.max_ineq_index = h_index - object_boxes - 2;
     }
   } else {
     metrics.max_ineq_type = "slack";

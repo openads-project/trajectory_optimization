@@ -8,12 +8,12 @@ from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
     CONTROL_INDEX_J_T,
-    P_OBSTACLES_INDEX_ACTIVE,
-    P_OBSTACLES_INDEX_HALF_LENGTH,
-    P_OBSTACLES_INDEX_HALF_WIDTH,
-    P_OBSTACLES_INDEX_X,
-    P_OBSTACLES_INDEX_Y,
-    P_OBSTACLES_INDEX_YAW,
+    P_OBJECTS_INDEX_ACTIVE,
+    P_OBJECTS_INDEX_HALF_LENGTH,
+    P_OBJECTS_INDEX_HALF_WIDTH,
+    P_OBJECTS_INDEX_X,
+    P_OBJECTS_INDEX_Y,
+    P_OBJECTS_INDEX_YAW,
     STATE_INDEX_A_T,
     STATE_INDEX_DELTA_F,
     STATE_INDEX_DELTA_R,
@@ -121,8 +121,8 @@ def set_constraints(ocp: AcadosOcp, config):
         config["p_ref_path_shape"]
     )
     p_thw = p_cost_params[0]
-    d_min_obstacle_long = p_cost_params[1]
-    d_min_obstacle_lat = p_cost_params[2]
+    d_min_object_long = p_cost_params[1]
+    d_min_object_lat = p_cost_params[2]
     d_min_boundary_lat = p_cost_params[3]
 
     # calc normal vector from interpolated reference point to the current position
@@ -146,36 +146,36 @@ def set_constraints(ocp: AcadosOcp, config):
     cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
     cons.uh = np.concatenate((cons.uh, [0.0, 0.0]))
 
-    # --- Obstacle avoidance ---
-    # get obstacles from parameters
-    obstacle_shape = config["p_obstacle_obbs_shape"]
-    p_obstacles = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(obstacle_shape))]
+    # --- Object avoidance ---
+    # get objects from parameters
+    object_shape = config["p_objects_shape"]
+    p_objects = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(object_shape))]
     assert idx_params == (
-        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_boundary_activation_shape"]) + np.prod(obstacle_shape)
+        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_boundary_activation_shape"]) + np.prod(object_shape)
     )
 
     v_t = ocp.model.x[STATE_INDEX_V_T]
-    # Both vehicle models are forward-only. THW and d_min_obstacle_long protect
+    # Both vehicle models are forward-only. THW and d_min_object_long protect
     # the front; the rear only needs a small physical clearance.
-    front_margin = ca.fmax(ca.fmax(d_min_obstacle_long, 0.0), p_thw * ca.fmax(v_t, 0.0))
-    lateral_margin = ca.fmax(d_min_obstacle_lat, 0.0)
+    front_margin = ca.fmax(ca.fmax(d_min_object_long, 0.0), p_thw * ca.fmax(v_t, 0.0))
+    lateral_margin = ca.fmax(d_min_object_lat, 0.0)
     safety_ego_obb = expand_ego_obb_forward(ego_obb, front_margin, OBB_REAR_MARGIN_M, lateral_margin)
-    for i in range(obstacle_shape[0]):
-        base = i * obstacle_shape[1]
-        obstacle_yaw = p_obstacles[base + P_OBSTACLES_INDEX_YAW]
-        obstacle_obb = {
-            "x": p_obstacles[base + P_OBSTACLES_INDEX_X],
-            "y": p_obstacles[base + P_OBSTACLES_INDEX_Y],
-            "long_axis": ca.vertcat(ca.cos(obstacle_yaw), ca.sin(obstacle_yaw)),
-            "lat_axis": ca.vertcat(-ca.sin(obstacle_yaw), ca.cos(obstacle_yaw)),
-            "half_length": p_obstacles[base + P_OBSTACLES_INDEX_HALF_LENGTH],
-            "half_width": p_obstacles[base + P_OBSTACLES_INDEX_HALF_WIDTH],
+    for i in range(object_shape[0]):
+        base = i * object_shape[1]
+        object_yaw = p_objects[base + P_OBJECTS_INDEX_YAW]
+        object_box = {
+            "x": p_objects[base + P_OBJECTS_INDEX_X],
+            "y": p_objects[base + P_OBJECTS_INDEX_Y],
+            "long_axis": ca.vertcat(ca.cos(object_yaw), ca.sin(object_yaw)),
+            "lat_axis": ca.vertcat(-ca.sin(object_yaw), ca.cos(object_yaw)),
+            "half_length": p_objects[base + P_OBJECTS_INDEX_HALF_LENGTH],
+            "half_width": p_objects[base + P_OBJECTS_INDEX_HALF_WIDTH],
         }
         sat_margin = conservative_smooth_sat_margin(
-            safety_ego_obb, obstacle_obb, config["obb_smoothing_epsilon"], config["obb_smoothing_tau"]
+            safety_ego_obb, object_box, config["obb_smoothing_epsilon"], config["obb_smoothing_tau"]
         )
         sat_margin = saturate_positive_margin(sat_margin, config["obb_positive_margin_scale"])
-        constraint = activate_constraint(sat_margin, p_obstacles[base + P_OBSTACLES_INDEX_ACTIVE])
+        constraint = activate_constraint(sat_margin, p_objects[base + P_OBJECTS_INDEX_ACTIVE])
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)
         cons.lh = np.concatenate((cons.lh, [0.0]))
         cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
@@ -244,7 +244,7 @@ def set_constraints(ocp: AcadosOcp, config):
     slack_indices = []
     slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}
     boundary_constraints = 2
-    obstacle_constraints = obstacle_shape[0]
+    object_constraints = object_shape[0]
 
     if config["enable_boundary_slack"]:
         slack_indices.extend(range(0, boundary_constraints))
@@ -266,24 +266,20 @@ def set_constraints(ocp: AcadosOcp, config):
             )
         )
 
-    if config["enable_obstacle_slack"]:
-        slack_indices.extend(range(boundary_constraints, boundary_constraints + obstacle_constraints))
-        obstacle_weights = config["obstacle_slack_weights"]
+    if config["enable_object_slack"]:
+        slack_indices.extend(range(boundary_constraints, boundary_constraints + object_constraints))
+        object_weights = config["object_slack_weights"]
         slack_weights["zl"].append(
-            _expand_slack_weights(obstacle_weights["linear_lower"], obstacle_constraints, "obstacle_slack_weights.linear_lower")
+            _expand_slack_weights(object_weights["linear_lower"], object_constraints, "object_slack_weights.linear_lower")
         )
         slack_weights["zu"].append(
-            _expand_slack_weights(obstacle_weights["linear_upper"], obstacle_constraints, "obstacle_slack_weights.linear_upper")
+            _expand_slack_weights(object_weights["linear_upper"], object_constraints, "object_slack_weights.linear_upper")
         )
         slack_weights["Zl"].append(
-            _expand_slack_weights(
-                obstacle_weights["quadratic_lower"], obstacle_constraints, "obstacle_slack_weights.quadratic_lower"
-            )
+            _expand_slack_weights(object_weights["quadratic_lower"], object_constraints, "object_slack_weights.quadratic_lower")
         )
         slack_weights["Zu"].append(
-            _expand_slack_weights(
-                obstacle_weights["quadratic_upper"], obstacle_constraints, "obstacle_slack_weights.quadratic_upper"
-            )
+            _expand_slack_weights(object_weights["quadratic_upper"], object_constraints, "object_slack_weights.quadratic_upper")
         )
 
     if slack_indices:

@@ -213,7 +213,7 @@ def conservative_smooth_sat_margin(first: dict, second: dict, epsilon: float, ta
 
 
 def activate_constraint(value: ca.MX, active: ca.MX, inactive_margin: float = 1.0) -> ca.MX:
-    """Turn an unused fixed obstacle slot into a constant feasible constraint."""
+    """Turn an unused fixed object slot into a constant feasible constraint."""
     return active * value + (1.0 - active) * inactive_margin
 
 

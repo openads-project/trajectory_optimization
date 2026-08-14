@@ -132,12 +132,12 @@ class PerformanceLogger {
    * @param[in,out] metrics Metrics structure populated with constraint diagnostics.
    * @param[in] solver acados NLP solver instance.
    * @param[in] dims acados NLP dimensions.
-   * @param[in] obstacle_boxes Number of obstacle boxes represented in the nonlinear constraints.
+   * @param[in] object_boxes Number of object boxes represented in the nonlinear constraints.
    */
   static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                            ocp_nlp_solver* solver,
                                            const ocp_nlp_dims* dims,
-                                           int obstacle_boxes);
+                                           int object_boxes);
 
   /**
    * @brief Returns the path of the CSV performance log.

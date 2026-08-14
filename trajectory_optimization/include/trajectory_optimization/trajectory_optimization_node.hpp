@@ -250,10 +250,12 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                               const route_planning_msgs::msg::Route& route);
 
   /**
-   * @brief Writes stage-wise obstacle and dynamic weighting parameters into the OCP.
+   * @brief Writes stage-wise object, boundary-activation, and dynamic-weighting parameters into the OCP.
    *
    * @param[in] ego_data Current ego state.
    * @param[in] object_list Object list in optimizer frame.
+   * @param[in] reference_trajectory Reference trajectory in optimizer frame, used to rank object hypotheses if the
+   * fixed object capacity is exceeded.
    */
   void setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                         const perception_msgs::msg::ObjectList& object_list,
@@ -279,7 +281,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
 
   /** Publishes the object boxes currently passed to the optimizer. */
-  void vizObjectBoxes(const std::vector<double>& obstacles);
+  void vizObjectBoxes(const std::vector<double>& objects);
 
   /** Publishes the ego box along the optimized trajectory. */
   void vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name);
@@ -397,8 +399,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<double> cost_weights_ = std::vector<double>(12, 1.0);
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
-  double d_min_obstacle_long_ = 5.0;
-  double d_min_obstacle_lat_ = 0.5;
+  double d_min_object_long_ = 5.0;
+  double d_min_object_lat_ = 0.5;
   double d_min_boundary_lat_ = 0.0;
   double min_prediction_probability_ = 0.0;
 
@@ -408,8 +410,10 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
   std::vector<int64_t> p_boundary_activation_shape_ = {1, 1};
-  std::vector<int64_t> p_obstacle_boxes_shape_ = {30, 6};  // nBoxes x [x, y, yaw, half-length, half-width, active]
-  size_t active_obstacle_hypotheses_ = 0;
+  std::vector<int64_t> p_objects_shape_ = {30, 6};  // nObjects x [x, y, yaw, half-length, half-width, active]
+
+  // Number of packed object-hypothesis slots to restore after the relaxed solve.
+  size_t active_object_hypotheses_ = 0;
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

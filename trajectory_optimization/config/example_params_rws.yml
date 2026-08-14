@@ -51,6 +51,6 @@
 
     # other cost params
     thw: 2.0                    # time headway [s]
-    d_min_obstacle_long: 1.0    # minimum distance to keep to obstacles in longitudinal direction [m]
-    d_min_obstacle_lat: 0.1     # minimum distance to keep to obstacles in lateral direction [m]
+    d_min_object_long: 1.0      # minimum distance to keep to objects in longitudinal direction [m]
+    d_min_object_lat: 0.1       # minimum distance to keep to objects in lateral direction [m]
     d_min_boundary_lat: 0.0      # minimum distance to keep to boundaries in lateral direction [m]

@@ -48,18 +48,18 @@ boundary_slack_weights:                     # scalar or list (length 2)
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
-enable_obstacle_slack: False                # activate slack weights for obstacle constraints
-obstacle_slack_weights:                     # scalar or list (length n_obstacles)
+enable_object_slack: False                  # activate slack weights for object constraints
+object_slack_weights:                       # scalar or list (length n_objects)
   linear_lower: 50.0
   linear_upper: 50.0
   quadratic_lower: 500.0
   quadratic_upper: 500.0
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), boundary_activation (1), obstacles]
+# [dyn_weight (1), boundary_activation (1), objects]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
-p_boundary_activation_shape: [1, 1] # one value shared by left/right boundary constraints
-p_obstacle_obbs_shape: [30, 6]    # nObstacleOBBs x [x, y, yaw, half_length, half_width, active]
+p_boundary_activation_shape: [1, 1] # stage-wise value shared by left/right constraints; supports sparse solve-phase toggling
+p_objects_shape: [30, 6]          # nObjects x [x, y, yaw, half_length, half_width, active]
 obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
 obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]
 obb_positive_margin_scale: 0.5    # sign-preserving saturation scale for already separated OBBs [m]
@@ -67,5 +67,5 @@ obb_positive_margin_scale: 0.5    # sign-preserving saturation scale for already
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]
 p_cost_weights_shape: [12, 1]     # nWeights x weightDim (also used in ROS node)
-p_cost_params_shape: [4, 1]       # [thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
+p_cost_params_shape: [4, 1]       # [thw, d_min_object_long, d_min_object_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
 p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)

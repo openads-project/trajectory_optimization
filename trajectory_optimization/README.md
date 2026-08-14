@@ -25,7 +25,7 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/ego_data` | `perception_msgs/msg/EgoData` | Current ego vehicle state used to initialize and time-stamp the optimization problem. |
-| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects, that are considered as obstacles in the OCP to avoid collisions. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
+| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects considered by the OCP for collision avoidance. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
 | `~/route` | `route_planning_msgs/msg/Route` | Route and lane boundary information used to constrain the OCP. |
 | `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run once for each received reference trajectory. |
 
@@ -50,9 +50,9 @@ flowchart LR
 | `optimization_frequency` | `float` | `10.0` | Optimization frequency in Hz |
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
-| `two_stage_optimization` | `bool` | `true` | Initialize the fully constrained OCP with a solve that ignores object and boundary constraints |
-| `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve in milliseconds; `0` disables the timeout |
-| `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve in milliseconds; `0` disables the timeout |
+| `two_stage_optimization` | `bool` | `true` | Initialize the constrained OCP with a solve without object and boundary constraints |
+| `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout |
+| `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout |
 | `verbose` | `bool` | `false` | Print solver statistics |
 | `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
@@ -60,8 +60,8 @@ flowchart LR
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
-| `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
-| `d_min_obstacle_lat` | `float` | `0.5` | Minimum distance to keep to obstacle in lateral direction [m] |
+| `d_min_object_long` | `float` | `5.0` | Minimum distance to keep to objects in longitudinal direction [m] |
+| `d_min_object_lat` | `float` | `0.5` | Minimum distance to keep to objects in lateral direction [m] |
 | `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
@@ -71,14 +71,6 @@ flowchart LR
 | `bi_level_dV` | `float` | `2.0` | Threshold for bi-level stabilization: maximum velocity difference [m/s] |
 | `bi_level_dY` | `float` | `0.3` | Threshold for bi-level stabilization: maximum y-offset [m] |
 | `bi_level_dYaw` | `float` | `89.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
-
-Both vehicle models use one smooth conservative SAT constraint per obstacle OBB and two OBB-support constraints for the route
-boundaries. Their longitudinal obstacle margin is applied in front of the vehicle; the rear uses a fixed 0.1 m clearance. If object
-or boundary constraints are active and `two_stage_optimization` is enabled, both vehicle models first solve the same OCP with only these safety
-constraints disabled. The result initializes a second solve with all configured constraints restored. Only a primal-feasible result
-of the second solve may be published; the intermediate trajectory is never an output candidate. If `two_stage_optimization` is disabled, the
-fully constrained OCP is solved directly from the normal dynamically consistent warm start. Both solve phases have independently
-configurable timeouts.
 
 ## Launch Files
 

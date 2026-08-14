@@ -23,7 +23,7 @@ This repository provides a ROS 2 node for periodically solving a nonlinear optim
 The open-source framework [acados](https://github.com/acados/acados) is used to define the OCP and generate the libraries for solving it online in the ROS 2 node. Key features:
 - **Vehicle models**: single-track model with ackermann steering and optionally rear-wheel steering.
 - **Cost function**: minimizing tracking error to reference trajectory, acceleration, jerk, and steering actuation with configurable weights.
-- **Constraints**: dynamic obstacles, route boundaries, state/control/dynamics constraints.
+- **Constraints**: dynamic objects, route boundaries, state/control/dynamics constraints.
 
 The ROS 2 node uses the open-source ROS 2 message definitions [perception_interfaces](https://github.com/ika-rwth-aachen/perception_interfaces) and [planning_interfaces](https://github.com/ika-rwth-aachen/planning_interfaces) for all inputs and outputs, making it easy to integrate into a larger ROS 2-based system. The node is designed to be flexible and configurable, with support for different driving modes, model variants, and execution modes.
 
