@@ -102,7 +102,11 @@ def set_constraints(ocp: AcadosOcp, config):
 
     # get stage-wise constraint activation parameters
     idx_params = np.prod(config["p_dynamic_weight_shape"])
-    p_boundary_activation = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_boundary_activation_shape"]))]
+    p_constraint_activation = ocp.model.p[
+        idx_params : (idx_params := idx_params + np.prod(config["p_constraint_activation_shape"]))
+    ]
+    p_object_activation = p_constraint_activation[0]
+    p_boundary_activation = p_constraint_activation[1]
 
     # --- Route boundaries ---
 
@@ -137,10 +141,10 @@ def set_constraints(ocp: AcadosOcp, config):
     left_margin = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_left_boundary"] - boundary_support, 0.0))
     right_margin = ca.fmin(d_min_boundary_lat, ca.fmax(ref_inter["d_right_boundary"] - boundary_support, 0.0))
     left_constraint = activate_upper_bounded_constraint(
-        d_center_ref_path + boundary_support + left_margin - ref_inter["d_left_boundary"], p_boundary_activation[0]
+        d_center_ref_path + boundary_support + left_margin - ref_inter["d_left_boundary"], p_boundary_activation
     )
     right_constraint = activate_upper_bounded_constraint(
-        -d_center_ref_path + boundary_support + right_margin - ref_inter["d_right_boundary"], p_boundary_activation[0]
+        -d_center_ref_path + boundary_support + right_margin - ref_inter["d_right_boundary"], p_boundary_activation
     )
     ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, left_constraint, right_constraint)
     cons.lh = np.concatenate((cons.lh, [-ACADOS_INFTY, -ACADOS_INFTY]))
@@ -151,7 +155,7 @@ def set_constraints(ocp: AcadosOcp, config):
     object_shape = config["p_objects_shape"]
     p_objects = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(object_shape))]
     assert idx_params == (
-        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_boundary_activation_shape"]) + np.prod(object_shape)
+        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_constraint_activation_shape"]) + np.prod(object_shape)
     )
 
     v_t = ocp.model.x[STATE_INDEX_V_T]
@@ -175,7 +179,8 @@ def set_constraints(ocp: AcadosOcp, config):
             safety_ego_obb, object_box, config["obb_smoothing_epsilon"], config["obb_smoothing_tau"]
         )
         sat_margin = saturate_positive_margin(sat_margin, config["obb_positive_margin_scale"])
-        constraint = activate_constraint(sat_margin, p_objects[base + P_OBJECTS_INDEX_ACTIVE])
+        active = p_object_activation * p_objects[base + P_OBJECTS_INDEX_ACTIVE]
+        constraint = activate_constraint(sat_margin, active)
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)
         cons.lh = np.concatenate((cons.lh, [0.0]))
         cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))

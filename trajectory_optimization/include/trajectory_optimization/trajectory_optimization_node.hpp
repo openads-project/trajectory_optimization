@@ -270,6 +270,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    */
   bool setSafetyConstraintActivation(bool use_configured_activation);
 
+  /** Sets the ACADOS wall-time limit for the next solve. */
+  void setSolverTimeout(double timeout_ms);
+
   /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
    *
@@ -409,8 +412,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_cost_weights_shape_ = {12, 1};  // nWeights x weightDim
   std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
   std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
-  std::vector<int64_t> p_boundary_activation_shape_ = {1, 1};
-  std::vector<int64_t> p_objects_shape_ = {30, 6};  // nObjects x [x, y, yaw, half-length, half-width, active]
+  std::vector<int64_t> p_constraint_activation_shape_ = {2, 1};  // [objects, boundaries]
+  std::vector<int64_t> p_objects_shape_ = {30, 6};               // nObjects x [x, y, yaw, half-length, half-width, active]
 
   // Number of packed object-hypothesis slots to restore after the relaxed solve.
   size_t active_object_hypotheses_ = 0;

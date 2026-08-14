@@ -56,9 +56,9 @@ object_slack_weights:                       # scalar or list (length n_objects)
   quadratic_upper: 500.0
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), boundary_activation (1), objects]
+# [dyn_weight (1), constraint_activation (2), objects]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
-p_boundary_activation_shape: [1, 1] # stage-wise value shared by left/right constraints; supports sparse solve-phase toggling
+p_constraint_activation_shape: [2, 1] # stage-wise [objects, boundaries] flags for sparse solve-phase toggling
 p_objects_shape: [30, 6]          # nObjects x [x, y, yaw, half_length, half_width, active]
 obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
 obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]

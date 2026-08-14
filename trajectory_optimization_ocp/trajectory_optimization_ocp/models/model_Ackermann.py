@@ -74,9 +74,9 @@ def set_model(ocp, config):
 
     # parameters
     p_dynamic_weight = MX.sym("dynamic_weight", np.prod(config["p_dynamic_weight_shape"]))  # 1
-    p_boundary_activation = MX.sym("boundary_activation", np.prod(config["p_boundary_activation_shape"]))
+    p_constraint_activation = MX.sym("constraint_activation", np.prod(config["p_constraint_activation_shape"]))
     p_objects = MX.sym("objects", np.prod(config["p_objects_shape"]))
-    params = vertcat(p_dynamic_weight, p_boundary_activation, p_objects)
+    params = vertcat(p_dynamic_weight, p_constraint_activation, p_objects)
     model.p = params
 
     # global parameters

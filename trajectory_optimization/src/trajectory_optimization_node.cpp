@@ -23,8 +23,6 @@ namespace trajectory_optimization {
 
 namespace {
 using SteadyClock = std::chrono::steady_clock;
-constexpr int OBJECT_BOX_ACTIVE_PARAMETER_OFFSET = 5;
-
 struct OrientedBox {
   double x;
   double y;
@@ -112,21 +110,14 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
   this->declareAndLoadParameter("two_stage_optimization", two_stage_optimization_,
-                                "Initialize the constrained OCP with a solve without object and boundary constraints", false,
-                                false, true);
+                                "Initialize the constrained OCP with a solve without object and boundary constraints");
   this->declareAndLoadParameter("relaxed_solve_timeout_ms", relaxed_solve_timeout_ms_,
-                                "ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout", false, false,
-                                true);
+                                "ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout");
   this->declareAndLoadParameter("constrained_solve_timeout_ms", constrained_solve_timeout_ms_,
-                                "ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout", false, false,
-                                true);
-  if (!std::isfinite(relaxed_solve_timeout_ms_) || relaxed_solve_timeout_ms_ < 0.0 ||
-      !std::isfinite(constrained_solve_timeout_ms_) || constrained_solve_timeout_ms_ < 0.0) {
-    throw std::invalid_argument("relaxed_solve_timeout_ms and constrained_solve_timeout_ms must be finite and non-negative");
-  }
+                                "ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("performance_logging", performance_logging_,
-                                "Write one CSV record for every completed solver run", false, false, true);
+                                "Write one CSV record for every completed solver run");
   this->declareAndLoadParameter("debug_visualization", debug_viz_,
                                 "Publish debug visualization markers for ego, objects and boundaries");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
@@ -370,8 +361,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
   nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
-  double timeout_seconds = constrained_solve_timeout_ms_ * 1e-3;
-  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+  setSolverTimeout(constrained_solve_timeout_ms_);
   if (nlp_dims_->N != n_shots_) {
     RCLCPP_FATAL(this->get_logger(), "Created solver has N=%d, expected n_shots=%d. Exiting.", nlp_dims_->N, n_shots_);
     exit(1);
@@ -549,11 +539,12 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // If configured and safety constraints are active, solve the otherwise identical OCP without objects and boundaries first.
+  // if configured and safety constraints are active, solve the otherwise identical OCP without objects and boundaries first.
   // Its nlp_out_ initializes the constrained solve.
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
   const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+
   auto solveAndValidate = [&](PerformanceMetrics& attempt_metrics, bool& finite_solution) {
     attempt_metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
     PerformanceLogger::collectSolverStatistics(attempt_metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
@@ -580,39 +571,18 @@ void TrajectoryOptimizationNode::planningCycle() {
   const bool safety_constraints_active = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_object_hypotheses_ > 0;
   if (two_stage_optimization_ && safety_constraints_active) {
     metrics.relaxed_attempted = true;
-    if (!setSafetyConstraintActivation(false)) {
-      // A sparse update can fail after updating only part of the horizon.
-      setSafetyConstraintActivation(true);
-      metrics.status = -1;
-      metrics.failure_phase = "relaxed";
-      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
-      RCLCPP_ERROR(get_logger(), "Skipping planning cycle because safety constraints could not be disabled consistently.");
-      resetSolver();
-      logCompletedCycle();
-      return;
-    }
+    if (!setSafetyConstraintActivation(false)) return;
 
     PerformanceMetrics relaxed_metrics = metrics;
     bool relaxed_finite_solution = false;
-    double timeout_seconds = relaxed_solve_timeout_ms_ * 1e-3;
-    ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+    setSolverTimeout(relaxed_solve_timeout_ms_);
     const auto relaxed_solve_start = SteadyClock::now();
     const bool relaxed_primal_feasible = solveAndValidate(relaxed_metrics, relaxed_finite_solution);
     metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
-    timeout_seconds = constrained_solve_timeout_ms_ * 1e-3;
-    ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
     metrics.relaxed_status = relaxed_metrics.status;
 
     // Evaluate the relaxed residuals before restoration, but retain its nlp_out_.
-    if (!setSafetyConstraintActivation(true)) {
-      metrics.status = -1;
-      metrics.failure_phase = "relaxed";
-      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
-      RCLCPP_ERROR(get_logger(), "Skipping planning cycle because safety constraints could not be restored.");
-      resetSolver();
-      logCompletedCycle();
-      return;
-    }
+    if (!setSafetyConstraintActivation(true)) return;
 
     if (!relaxed_primal_feasible) {
       metrics.status = relaxed_metrics.status;
@@ -638,8 +608,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     }
   }
 
-  double timeout_seconds = constrained_solve_timeout_ms_ * 1e-3;
-  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+  setSolverTimeout(constrained_solve_timeout_ms_);
   const auto constrained_solve_start = SteadyClock::now();
   primal_feasible = solveAndValidate(metrics, finite_solution);
   metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);
@@ -956,13 +925,14 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     floating_dynamic_weight *= dynamic_weight_;
 
     parameter_index += parameter_count;
-    parameter_count = static_cast<int>(p_boundary_activation_shape_[0] * p_boundary_activation_shape_[1]);
-    std::vector<int> boundary_activation_indices{parameter_index};
-    double boundary_activation = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0;
-    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, boundary_activation_indices.data(),
-                                                                  &boundary_activation, parameter_count);
+    parameter_count = static_cast<int>(p_constraint_activation_shape_[0] * p_constraint_activation_shape_[1]);
+    std::array<int, 2> constraint_activation_indices{parameter_index, parameter_index + 1};
+    std::array<double, 2> constraint_activation{active_object_hypotheses_ > 0 ? 1.0 : 0.0,
+                                                consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, constraint_activation_indices.data(),
+                                                                  constraint_activation.data(), parameter_count);
     if (status != ACADOS_SUCCESS) {
-      throw std::runtime_error("acados boundary-activation update failed with status " + std::to_string(status));
+      throw std::runtime_error("acados constraint-activation update failed with status " + std::to_string(status));
     }
 
     parameter_index += parameter_count;
@@ -992,30 +962,17 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
 
 bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
   const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
-  const int boundary_parameter_count = static_cast<int>(p_boundary_activation_shape_[0] * p_boundary_activation_shape_[1]);
-  const int object_count = static_cast<int>(p_objects_shape_[0]);
-  const int object_width = static_cast<int>(p_objects_shape_[1]);
-  const int object_parameters_begin = dynamic_parameter_count + boundary_parameter_count;
   const bool boundary_is_configured = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS;
 
-  std::vector<int> indices;
-  std::vector<double> values;
-  indices.reserve(static_cast<size_t>(boundary_parameter_count + object_count));
-  values.reserve(indices.capacity());
-  for (int index = 0; index < boundary_parameter_count; ++index) {
-    indices.push_back(dynamic_parameter_count + index);
-    values.push_back(use_configured_activation && boundary_is_configured ? 1.0 : 0.0);
-  }
-  for (int object = 0; object < object_count; ++object) {
-    indices.push_back(object_parameters_begin + object * object_width + OBJECT_BOX_ACTIVE_PARAMETER_OFFSET);
-    values.push_back(use_configured_activation && static_cast<size_t>(object) < active_object_hypotheses_ ? 1.0 : 0.0);
-  }
+  std::array<int, 2> indices{dynamic_parameter_count, dynamic_parameter_count + 1};
+  std::array<double, 2> values{use_configured_activation && active_object_hypotheses_ > 0 ? 1.0 : 0.0,
+                               use_configured_activation && boundary_is_configured ? 1.0 : 0.0};
 
   for (int stage = 0; stage <= n_shots_; ++stage) {
     const int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, indices.data(), values.data(),
                                                                             static_cast<int>(indices.size()));
     if (status != ACADOS_SUCCESS) {
-      RCLCPP_ERROR(get_logger(), "Failed to %s safety constraints at stage %d (acados status %d).",
+      RCLCPP_ERROR(get_logger(), "Could not %s safety constraints at stage %d (ACADOS status %d); skipping planning cycle.",
                    use_configured_activation ? "restore" : "disable", stage, status);
       return false;
     }

@@ -344,6 +344,11 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
   ego_marker_pub_->publish(marker_array);
 }
 
+void TrajectoryOptimizationNode::setSolverTimeout(double timeout_ms) {
+  double timeout_seconds = timeout_ms * 1e-3;
+  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+}
+
 void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics) {
   // Status codes:
   // 0: Success (ACADOS_SUCCESS)
