@@ -274,6 +274,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setSolverTimeout(double timeout_ms);
 
   /**
+   * @brief Solves the OCP, reads its output and checks primal feasibility.
+   *
+   * @param[out] metrics Solver status, statistics, cost and residuals.
+   * @param[out] finite_solution Whether the solver returned finite state, control, cost and residual values.
+   * @return `true` if the solution is finite and satisfies the configured equality and inequality tolerances.
+   */
+  bool solveAndValidate(PerformanceMetrics& metrics, bool& finite_solution);
+
+  /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
    *
    * @param[in] reference_trajectory Reference trajectory in optimizer frame.

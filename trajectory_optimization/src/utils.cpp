@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 
@@ -347,6 +348,49 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
 void TrajectoryOptimizationNode::setSolverTimeout(double timeout_ms) {
   double timeout_seconds = timeout_ms * 1e-3;
   ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+}
+
+bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
+  const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
+
+  std::array<int, 2> indices{dynamic_parameter_count, dynamic_parameter_count + 1};
+  std::array<double, 2> values{use_configured_activation && active_object_hypotheses_ > 0 ? 1.0 : 0.0,
+                               use_configured_activation && consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
+
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, indices.data(), values.data(),
+                                                                            static_cast<int>(indices.size()));
+    if (status != ACADOS_SUCCESS) {
+      RCLCPP_ERROR(get_logger(), "Could not %s safety constraints at stage %d (ACADOS status %d); skipping planning cycle.",
+                   use_configured_activation ? "restore" : "disable", stage, status);
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TrajectoryOptimizationNode::solveAndValidate(PerformanceMetrics& metrics, bool& finite_solution) {
+  metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
+  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                             performance_logger_ != nullptr || verbose_);
+
+  const bool usable_status =
+      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
+  if (usable_status) {
+    for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "x", &xtraj_[stage * *nlp_dims_->nx]);
+    }
+    for (int stage = 0; stage < nlp_dims_->N; ++stage) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "u", &utraj_[stage * *nlp_dims_->nu]);
+    }
+  }
+
+  finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
+                    std::isfinite(metrics.res_ineq) &&
+                    std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
+                    std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  return finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
 }
 
 void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics) {

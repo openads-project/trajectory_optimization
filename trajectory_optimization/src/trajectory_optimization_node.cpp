@@ -539,75 +539,44 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // if configured and safety constraints are active, solve the otherwise identical OCP without objects and boundaries first.
-  // Its nlp_out_ initializes the constrained solve.
+  // start solving the OCP
+  // first solve the relaxed OCP (if configured and necessary)
+  // then solve the constrained OCP using either the relaxed solution or the regular warm start
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
   const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
-
-  auto solveAndValidate = [&](PerformanceMetrics& attempt_metrics, bool& finite_solution) {
-    attempt_metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
-    PerformanceLogger::collectSolverStatistics(attempt_metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
-                                               performance_logger_ != nullptr || verbose_);
-    const bool usable_status = attempt_metrics.status == ACADOS_SUCCESS || attempt_metrics.status == ACADOS_MAXITER ||
-                               attempt_metrics.status == ACADOS_TIMEOUT;
-    if (usable_status) {
-      for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "x", &xtraj_[stage * *nlp_dims_->nx]);
-      }
-      for (int stage = 0; stage < nlp_dims_->N; ++stage) {
-        ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "u", &utraj_[stage * *nlp_dims_->nu]);
-      }
-    }
-    finite_solution = usable_status && std::isfinite(attempt_metrics.cost_value) && std::isfinite(attempt_metrics.res_eq) &&
-                      std::isfinite(attempt_metrics.res_ineq) &&
-                      std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
-                      std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
-    return finite_solution && attempt_metrics.res_eq <= solver_opts->tol_eq && attempt_metrics.res_ineq <= solver_opts->tol_ineq;
-  };
-
   bool finite_solution = false;
   bool primal_feasible = false;
-  const bool safety_constraints_active = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_object_hypotheses_ > 0;
-  if (two_stage_optimization_ && safety_constraints_active) {
+
+  // solve the relaxed OCP (if configured and necessary)
+  if (two_stage_optimization_ && (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_object_hypotheses_ > 0)) {
     metrics.relaxed_attempted = true;
     if (!setSafetyConstraintActivation(false)) return;
 
-    PerformanceMetrics relaxed_metrics = metrics;
-    bool relaxed_finite_solution = false;
     setSolverTimeout(relaxed_solve_timeout_ms_);
     const auto relaxed_solve_start = SteadyClock::now();
-    const bool relaxed_primal_feasible = solveAndValidate(relaxed_metrics, relaxed_finite_solution);
+    const bool relaxed_primal_feasible = solveAndValidate(metrics, finite_solution);
     metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
-    metrics.relaxed_status = relaxed_metrics.status;
+    metrics.relaxed_status = metrics.status;
 
-    // Evaluate the relaxed residuals before restoration, but retain its nlp_out_.
+    // evaluate the relaxed residuals before restoration, but retain its nlp_out_
     if (!setSafetyConstraintActivation(true)) return;
 
     if (!relaxed_primal_feasible) {
-      metrics.status = relaxed_metrics.status;
-      metrics.sqp_iter = relaxed_metrics.sqp_iter;
-      metrics.qp_iter = relaxed_metrics.qp_iter;
-      metrics.qp_status = relaxed_metrics.qp_status;
-      metrics.cost_value = relaxed_metrics.cost_value;
-      metrics.res_stat = relaxed_metrics.res_stat;
-      metrics.res_eq = relaxed_metrics.res_eq;
-      metrics.res_ineq = relaxed_metrics.res_ineq;
-      metrics.res_comp = relaxed_metrics.res_comp;
       metrics.failure_phase = "relaxed";
       metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
       printSolution(metrics);
       RCLCPP_WARN(get_logger(),
                   "Rejecting relaxed initialization: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] "
                   "tolerances=[eq=%e, ineq=%e].",
-                  metrics.status, relaxed_finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq,
-                  solver_opts->tol_ineq);
+                  metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
       resetSolver();
       logCompletedCycle();
       return;
     }
   }
 
+  // solve the constrained OCP using either the relaxed solution or the regular warm start
   setSolverTimeout(constrained_solve_timeout_ms_);
   const auto constrained_solve_start = SteadyClock::now();
   primal_feasible = solveAndValidate(metrics, finite_solution);
@@ -623,8 +592,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     if (finite_solution && performance_logger_) {
       PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_, static_cast<int>(p_objects_shape_[0]));
     }
-    // Keep the last published solution as warm-start source. No failed or
-    // relaxed attempt is allowed to replace it.
+    // keep the last published solution as warm-start source
     resetSolver();
     logCompletedCycle();
     return;
@@ -958,26 +926,6 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
   RCLCPP_DEBUG(get_logger(), "setOcpParameters object-box duration: %.3f ms", elapsed_ms);
-}
-
-bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
-  const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
-  const bool boundary_is_configured = consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS;
-
-  std::array<int, 2> indices{dynamic_parameter_count, dynamic_parameter_count + 1};
-  std::array<double, 2> values{use_configured_activation && active_object_hypotheses_ > 0 ? 1.0 : 0.0,
-                               use_configured_activation && boundary_is_configured ? 1.0 : 0.0};
-
-  for (int stage = 0; stage <= n_shots_; ++stage) {
-    const int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, indices.data(), values.data(),
-                                                                            static_cast<int>(indices.size()));
-    if (status != ACADOS_SUCCESS) {
-      RCLCPP_ERROR(get_logger(), "Could not %s safety constraints at stage %d (ACADOS status %d); skipping planning cycle.",
-                   use_configured_activation ? "restore" : "disable", stage, status);
-      return false;
-    }
-  }
-  return true;
 }
 
 }  // namespace trajectory_optimization
