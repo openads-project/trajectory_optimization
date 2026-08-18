@@ -424,8 +424,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_constraint_activation_shape_ = {2, 1};  // [objects, boundaries]
   std::vector<int64_t> p_objects_shape_ = {30, 6};               // nObjects x [x, y, yaw, half-length, half-width, active]
 
-  // Number of packed object-hypothesis slots to restore after the relaxed solve.
-  size_t active_object_hypotheses_ = 0;
+  // whether the current OCP parameters contain at least one active object hypothesis.
+  bool object_constraints_active_ = false;
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

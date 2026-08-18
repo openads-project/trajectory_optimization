@@ -32,6 +32,9 @@ from utils import (
 )
 
 OBB_REAR_MARGIN_M = 0.1
+GEOMETRY_SMOOTHING_EPSILON_M = 1e-3
+SAT_SMOOTHING_TAU_M = 0.02
+SAT_POSITIVE_MARGIN_SCALE_M = 0.5
 
 
 def _expand_slack_weights(values, count, name):
@@ -133,7 +136,7 @@ def set_constraints(ocp: AcadosOcp, config):
     ref_inter = determine_spacially_matched_ref_path_point(config, p_ref_path, ego_obb["x"], ego_obb["y"])
     normal_vec = ca.vertcat(-ca.sin(ref_inter["psi"]), ca.cos(ref_inter["psi"]))
 
-    epsilon = config["obb_smoothing_epsilon"]
+    epsilon = GEOMETRY_SMOOTHING_EPSILON_M
     boundary_support = ego_obb["half_length"] * smooth_abs_upper(ca.dot(normal_vec, ego_obb["long_axis"]), epsilon)
     boundary_support += ego_obb["half_width"] * smooth_abs_upper(ca.dot(normal_vec, ego_obb["lat_axis"]), epsilon)
     center_ref_diff = ca.vertcat(ego_obb["x"] - ref_inter["x"], ego_obb["y"] - ref_inter["y"])
@@ -175,10 +178,8 @@ def set_constraints(ocp: AcadosOcp, config):
             "half_length": p_objects[base + P_OBJECTS_INDEX_HALF_LENGTH],
             "half_width": p_objects[base + P_OBJECTS_INDEX_HALF_WIDTH],
         }
-        sat_margin = conservative_smooth_sat_margin(
-            safety_ego_obb, object_box, config["obb_smoothing_epsilon"], config["obb_smoothing_tau"]
-        )
-        sat_margin = saturate_positive_margin(sat_margin, config["obb_positive_margin_scale"])
+        sat_margin = conservative_smooth_sat_margin(safety_ego_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
+        sat_margin = saturate_positive_margin(sat_margin, SAT_POSITIVE_MARGIN_SCALE_M)
         active = p_object_activation * p_objects[base + P_OBJECTS_INDEX_ACTIVE]
         constraint = activate_constraint(sat_margin, active)
         ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)

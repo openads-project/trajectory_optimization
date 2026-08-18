@@ -549,7 +549,7 @@ void TrajectoryOptimizationNode::planningCycle() {
   bool primal_feasible = false;
 
   // solve the relaxed OCP (if configured and necessary)
-  if (two_stage_optimization_ && (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || active_object_hypotheses_ > 0)) {
+  if (two_stage_optimization_ && (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || object_constraints_active_)) {
     metrics.relaxed_attempted = true;
     if (!setSafetyConstraintActivation(false)) return;
 
@@ -772,9 +772,22 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   const double dt = optimization_horizon_ / n_shots_;
   const double ego_stamp = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9;
   const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
-  const double ego_length = model_name_ == "karl" ? 5.173 : 4.97;
-  const double ego_width = model_name_ == "karl" ? 1.94 : 2.12;
-  const double ego_center_offset_long = model_name_ == "karl" ? 1.4895 : 0.0;
+  double ego_length = 0.0;
+  double ego_width = 0.0;
+  std::array<double, 2> ego_offset_to_geometric_center{};
+
+  // define vehicle geometry based on model name (should match the OCP definition)
+  if (model_name_ == "karl") {
+    ego_length = 5.173;
+    ego_width = 1.94;
+    ego_offset_to_geometric_center = {1.4895, 0.0};
+  } else if (model_name_ == "shuttle") {
+    ego_length = 4.97;
+    ego_width = 2.12;
+    ego_offset_to_geometric_center = {0.0, 0.0};
+  } else {
+    throw std::invalid_argument("Unknown model '" + model_name_ + "'. Could not define ego geometry.");
+  }
   std::vector<ObjectHypothesis> hypotheses;
 
   for (const auto& object : object_list.objects) {
@@ -826,11 +839,11 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
         hypothesis.boxes.push_back(box);
 
         const int reference_index = std::min(stage, reference_points - 1);
+        const double reference_x = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, reference_index);
+        const double reference_y = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, reference_index);
         const double reference_yaw = trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, reference_index);
-        auto reference_ego =
-            orientedBoxFromReference(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, reference_index),
-                                     trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, reference_index),
-                                     reference_yaw, ego_length, ego_width, ego_center_offset_long, 0.0);
+        auto reference_ego = orientedBoxFromReference(reference_x, reference_y, reference_yaw, ego_length, ego_width,
+                                                      ego_offset_to_geometric_center[0], ego_offset_to_geometric_center[1]);
         const double reference_velocity =
             std::max(0.0, trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
         const double front_margin = std::max(std::max(0.0, d_min_object_long_), thw_ * reference_velocity);
@@ -878,7 +891,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
                  hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
     hypotheses.resize(capacity);
   }
-  active_object_hypotheses_ = hypotheses.size();
+  object_constraints_active_ = !hypotheses.empty();
 
   double floating_dynamic_weight = 1.0;
   for (int stage = 0; stage < stage_count; ++stage) {
@@ -895,7 +908,7 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     parameter_index += parameter_count;
     parameter_count = static_cast<int>(p_constraint_activation_shape_[0] * p_constraint_activation_shape_[1]);
     std::array<int, 2> constraint_activation_indices{parameter_index, parameter_index + 1};
-    std::array<double, 2> constraint_activation{active_object_hypotheses_ > 0 ? 1.0 : 0.0,
+    std::array<double, 2> constraint_activation{object_constraints_active_ ? 1.0 : 0.0,
                                                 consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
     status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, constraint_activation_indices.data(),
                                                                   constraint_activation.data(), parameter_count);

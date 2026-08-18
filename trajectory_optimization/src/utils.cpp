@@ -315,9 +315,24 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
     return;
   }
 
-  const double length = model_name == "karl" ? 5.173 : 4.97;
-  const double width = model_name == "karl" ? 1.94 : 2.12;
-  const double center_offset_long = model_name == "karl" ? 1.4895 : 0.0;
+  double length = 0.0;
+  double width = 0.0;
+  std::array<double, 2> offset_to_geometric_center{};
+
+  // define vehicle geometry based on model name (should match the OCP definition)
+  if (model_name == "karl") {
+    length = 5.173;
+    width = 1.94;
+    offset_to_geometric_center = {1.4895, 0.0};
+  } else if (model_name == "shuttle") {
+    length = 4.97;
+    width = 2.12;
+    offset_to_geometric_center = {0.0, 0.0};
+  } else {
+    RCLCPP_WARN(get_logger(), "Unknown model '%s'. Could not visualize ego boxes.", model_name.c_str());
+    return;
+  }
+
   const int state_dim = *nlp_dims_->nx;
   for (int stage = 0; stage <= n_shots_; ++stage) {
     const size_t offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
@@ -330,8 +345,10 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
     marker.id = stage;
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.position.x = x_trajectory[offset] + center_offset_long * std::cos(yaw);
-    marker.pose.position.y = x_trajectory[offset + 1] + center_offset_long * std::sin(yaw);
+    marker.pose.position.x =
+        x_trajectory[offset] + offset_to_geometric_center[0] * std::cos(yaw) - offset_to_geometric_center[1] * std::sin(yaw);
+    marker.pose.position.y =
+        x_trajectory[offset + 1] + offset_to_geometric_center[0] * std::sin(yaw) + offset_to_geometric_center[1] * std::cos(yaw);
     marker.pose.orientation.z = std::sin(0.5 * yaw);
     marker.pose.orientation.w = std::cos(0.5 * yaw);
     marker.scale.x = length;
@@ -354,7 +371,7 @@ bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configur
   const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
 
   std::array<int, 2> indices{dynamic_parameter_count, dynamic_parameter_count + 1};
-  std::array<double, 2> values{use_configured_activation && active_object_hypotheses_ > 0 ? 1.0 : 0.0,
+  std::array<double, 2> values{use_configured_activation && object_constraints_active_ ? 1.0 : 0.0,
                                use_configured_activation && consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
 
   for (int stage = 0; stage <= n_shots_; ++stage) {

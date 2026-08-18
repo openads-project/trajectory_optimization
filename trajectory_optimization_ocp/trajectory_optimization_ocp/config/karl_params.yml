@@ -52,9 +52,6 @@ object_slack_weights:                       # scalar or list (length n_objects)
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
 p_constraint_activation_shape: [2, 1] # stage-wise [objects, boundaries] flags for sparse solve-phase toggling
 p_objects_shape: [30, 6]          # nObjects x [x, y, yaw, half_length, half_width, active]
-obb_smoothing_epsilon: 0.001      # smooth absolute-value bound [m]
-obb_smoothing_tau: 0.02           # conservative smooth maximum scale [m]
-obb_positive_margin_scale: 0.5    # sign-preserving saturation scale for already separated OBBs [m]
 
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]

@@ -50,11 +50,9 @@ def set_costs(ocp: AcadosOcp, config):
     # get parameters
     idx_params = 0
     p_dynamic_weight = ocp.model.p[idx_params : (idx_params := idx_params + n_params_dynamic_weight)]
-    _ = ocp.model.p[
-        idx_params : (idx_params := idx_params + n_params_constraint_activation)
-    ]  # constraint activation, not used in cost function
-    # p_objects = ocp.model.p[idx_params:(idx_params := idx_params + n_params_objects)] # not used in cost function
-    assert idx_params == n_params - n_params_objects
+    # p_constraint_activation = ocp.model.p[idx_params : (idx_params := idx_params + n_params_constraint_activation)] # not used
+    # p_objects = ocp.model.p[idx_params:(idx_params := idx_params + n_params_objects)] # not used
+    assert idx_params == n_params - n_params_constraint_activation - n_params_objects
 
     # initialize global parameters
     n_params_cost_weights = np.prod(config["p_cost_weights_shape"])
