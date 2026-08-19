@@ -6,9 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
-#include <limits>
 #include <numeric>
-#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <tuple>
@@ -23,65 +21,6 @@ namespace trajectory_optimization {
 
 namespace {
 using SteadyClock = std::chrono::steady_clock;
-struct OrientedBox {
-  double x;
-  double y;
-  double yaw;
-  double half_length;
-  double half_width;
-};
-
-using Vector2 = std::array<double, 2>;
-
-double dot(const Vector2& first, const Vector2& second) { return first[0] * second[0] + first[1] * second[1]; }
-
-std::array<Vector2, 2> axes(const OrientedBox& box) {
-  return {{{std::cos(box.yaw), std::sin(box.yaw)}, {-std::sin(box.yaw), std::cos(box.yaw)}}};
-}
-
-double support(const OrientedBox& box, const Vector2& axis) {
-  const auto box_axes = axes(box);
-  return box.half_length * std::abs(dot(box_axes[0], axis)) + box.half_width * std::abs(dot(box_axes[1], axis));
-}
-
-OrientedBox orientedBoxFromReference(
-    double x, double y, double yaw, double length, double width, double center_offset_long, double center_offset_lat) {
-  const double cos_yaw = std::cos(yaw);
-  const double sin_yaw = std::sin(yaw);
-  return {x + center_offset_long * cos_yaw - center_offset_lat * sin_yaw,
-          y + center_offset_long * sin_yaw + center_offset_lat * cos_yaw, yaw, std::max(0.0, 0.5 * length),
-          std::max(0.0, 0.5 * width)};
-}
-
-double exactSatSeparationMargin(const OrientedBox& first, const OrientedBox& second) {
-  const auto first_axes = axes(first);
-  const auto second_axes = axes(second);
-  const std::array<Vector2, 4> separating_axes = {first_axes[0], first_axes[1], second_axes[0], second_axes[1]};
-  const Vector2 center_difference = {second.x - first.x, second.y - first.y};
-  double maximum_gap = -std::numeric_limits<double>::infinity();
-  for (const auto& axis : separating_axes) {
-    maximum_gap = std::max(maximum_gap, std::abs(dot(center_difference, axis)) - support(first, axis) - support(second, axis));
-  }
-  return maximum_gap;
-}
-
-double interpolateSample(const std::vector<double>& times,
-                         const std::vector<double>& values,
-                         double desired_time,
-                         bool wrap_angle = false) {
-  if (times.empty() || times.size() != values.size()) throw std::invalid_argument("Invalid interpolation samples");
-  if (desired_time <= times.front()) return values.front();
-  if (desired_time >= times.back()) return values.back();
-  const auto upper = std::upper_bound(times.begin(), times.end(), desired_time);
-  const size_t upper_index = static_cast<size_t>(std::distance(times.begin(), upper));
-  const size_t lower_index = upper_index - 1;
-  const double duration = times[upper_index] - times[lower_index];
-  if (duration <= 0.0) return values[upper_index];
-  double difference = values[upper_index] - values[lower_index];
-  if (wrap_angle) difference = std::remainder(difference, 2.0 * M_PI);
-  const double result = values[lower_index] + (desired_time - times[lower_index]) / duration * difference;
-  return wrap_angle ? std::remainder(result, 2.0 * M_PI) : result;
-}
 
 double elapsedMilliseconds(const SteadyClock::time_point& start) {
   return std::chrono::duration<double, std::milli>(SteadyClock::now() - start).count();
@@ -661,6 +600,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     } else {
       tf_object_list = object_list;
     }
+    keepNClosestObjects(tf_object_list, static_cast<int>(p_objects_shape_[0]));
     // route
     if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
       tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
@@ -681,7 +621,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
   // update ocp parameters
   try {
     this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory, tf_route);
-    this->setOcpParameters(ego_data, tf_object_list, tf_reference_trajectory);
+    this->setOcpParameters(ego_data, tf_object_list);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
     return false;
@@ -752,152 +692,59 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 }
 
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
-                                                  const perception_msgs::msg::ObjectList& object_list,
-                                                  const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+                                                  const perception_msgs::msg::ObjectList& object_list) {
   const auto start_time = std::chrono::steady_clock::now();
 
-  struct ObjectHypothesis {
-    uint64_t object_id;
-    int prediction_index;
-    double probability;
-    uint8_t classification;
-    std::vector<OrientedBox> boxes;
-    double minimum_reference_gap;
-    int earliest_minimum_stage;
+  // prepare object predictions
+  struct PredictionData {
+    std::vector<double> time;
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> yaw;
   };
 
-  constexpr double MIN_HALF_EXTENT = 0.05;
-  constexpr double REAR_MARGIN = 0.1;
-  const int stage_count = n_shots_ + 1;
-  const double dt = optimization_horizon_ / n_shots_;
-  const double ego_stamp = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9;
+  std::vector<std::vector<PredictionData>> object_predictions(object_list.objects.size());
   const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
-  double ego_length = 0.0;
-  double ego_width = 0.0;
-  std::array<double, 2> ego_offset_to_geometric_center{};
+  if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS) {
+    for (size_t object_index = 0; object_index < object_list.objects.size(); ++object_index) {
+      const auto& object = object_list.objects[object_index];
+      auto append_prediction = [&](const auto& prediction) {
+        PredictionData prediction_data{{object_stamp},
+                                       {perception_msgs::object_access::getX(object)},
+                                       {perception_msgs::object_access::getY(object)},
+                                       {perception_msgs::object_access::getYaw(object)}};
+        for (const auto& state : prediction.states) {
+          prediction_data.time.push_back(static_cast<double>(rclcpp::Time(state.header.stamp).nanoseconds()) / 1e9);
+          prediction_data.x.push_back(perception_msgs::object_access::getX(state));
+          prediction_data.y.push_back(perception_msgs::object_access::getY(state));
+          prediction_data.yaw.push_back(perception_msgs::object_access::getYaw(state));
+        }
+        object_predictions[object_index].push_back(std::move(prediction_data));
+      };
 
-  // define vehicle geometry based on model name (should match the OCP definition)
-  if (model_name_ == "karl") {
-    ego_length = 5.173;
-    ego_width = 1.94;
-    ego_offset_to_geometric_center = {1.4895, 0.0};
-  } else if (model_name_ == "shuttle") {
-    ego_length = 4.97;
-    ego_width = 2.12;
-    ego_offset_to_geometric_center = {0.0, 0.0};
-  } else {
-    throw std::invalid_argument("Unknown model '" + model_name_ + "'. Could not define ego geometry.");
-  }
-  std::vector<ObjectHypothesis> hypotheses;
+      // keep all predictions above the configured probability threshold
+      for (const auto& prediction : object.state_predictions) {
+        if (prediction.probability > min_prediction_probability_) append_prediction(prediction);
+      }
 
-  for (const auto& object : object_list.objects) {
-    if (consider_objects_ == CONSIDER_OBJECTS::NO_OBJECTS) break;
-    // ignore object with negative x-coordinate (behind the ego vehicle)
-    if (perception_msgs::object_access::getX(object) <= 0.0) continue;
-    uint8_t classification = 0;
-    double classification_probability = -1.0;
-    for (const auto& candidate : object.state.classifications) {
-      if (candidate.probability > classification_probability) {
-        classification = candidate.type;
-        classification_probability = candidate.probability;
+      // fall back to the first prediction if none satisfies the threshold
+      if (object_predictions[object_index].empty() && !object.state_predictions.empty()) {
+        append_prediction(object.state_predictions[0]);
       }
     }
-
-    auto appendHypothesis = [&](const perception_msgs::msg::ObjectStatePrediction* prediction, int prediction_index) {
-      std::vector<double> times{object_stamp};
-      std::vector<double> x{perception_msgs::object_access::getX(object)};
-      std::vector<double> y{perception_msgs::object_access::getY(object)};
-      std::vector<double> yaw{perception_msgs::object_access::getYaw(object)};
-      if (prediction != nullptr) {
-        for (const auto& state : prediction->states) {
-          times.push_back(static_cast<double>(rclcpp::Time(state.header.stamp).nanoseconds()) / 1e9);
-          x.push_back(perception_msgs::object_access::getX(state));
-          y.push_back(perception_msgs::object_access::getY(state));
-          yaw.push_back(perception_msgs::object_access::getYaw(state));
-        }
-      }
-
-      ObjectHypothesis hypothesis{object.id,
-                                  prediction_index,
-                                  prediction != nullptr ? prediction->probability : 1.0,
-                                  classification,
-                                  {},
-                                  std::numeric_limits<double>::infinity(),
-                                  0};
-      hypothesis.boxes.reserve(stage_count);
-      const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
-      const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
-      const double length = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getLength(object));
-      const double width = std::max(2.0 * MIN_HALF_EXTENT, perception_msgs::object_access::getWidth(object));
-      const int reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
-
-      for (int stage = 0; stage < stage_count; ++stage) {
-        const double desired_time = ego_stamp + dt * stage;
-        const auto box =
-            orientedBoxFromReference(interpolateSample(times, x, desired_time), interpolateSample(times, y, desired_time),
-                                     interpolateSample(times, yaw, desired_time, true), length, width, offset_long, offset_lat);
-        hypothesis.boxes.push_back(box);
-
-        const int reference_index = std::min(stage, reference_points - 1);
-        const double reference_x = trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, reference_index);
-        const double reference_y = trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, reference_index);
-        const double reference_yaw = trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, reference_index);
-        auto reference_ego = orientedBoxFromReference(reference_x, reference_y, reference_yaw, ego_length, ego_width,
-                                                      ego_offset_to_geometric_center[0], ego_offset_to_geometric_center[1]);
-        const double reference_velocity =
-            std::max(0.0, trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, reference_index));
-        const double front_margin = std::max(std::max(0.0, d_min_object_long_), thw_ * reference_velocity);
-        const double center_shift = 0.5 * (front_margin - REAR_MARGIN);
-        reference_ego.x += center_shift * std::cos(reference_ego.yaw);
-        reference_ego.y += center_shift * std::sin(reference_ego.yaw);
-        reference_ego.half_length += 0.5 * (front_margin + REAR_MARGIN);
-        reference_ego.half_width += std::max(0.0, d_min_object_lat_);
-        const double gap = exactSatSeparationMargin(reference_ego, box);
-        if (gap < hypothesis.minimum_reference_gap) {
-          hypothesis.minimum_reference_gap = gap;
-          hypothesis.earliest_minimum_stage = stage;
-        }
-      }
-      hypotheses.push_back(std::move(hypothesis));
-    };
-
-    bool prediction_added = false;
-    if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS) {
-      for (size_t prediction_index = 0; prediction_index < object.state_predictions.size(); ++prediction_index) {
-        const auto& prediction = object.state_predictions[prediction_index];
-        if (prediction.probability > min_prediction_probability_) {
-          appendHypothesis(&prediction, static_cast<int>(prediction_index));
-          prediction_added = true;
-        }
-      }
-    }
-    if (!prediction_added) appendHypothesis(nullptr, -1);
   }
 
-  std::stable_sort(hypotheses.begin(), hypotheses.end(), [](const auto& lhs, const auto& rhs) {
-    return std::tie(lhs.minimum_reference_gap, lhs.earliest_minimum_stage, lhs.object_id, lhs.prediction_index) <
-           std::tie(rhs.minimum_reference_gap, rhs.earliest_minimum_stage, rhs.object_id, rhs.prediction_index);
-  });
+  object_constraints_active_ = consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS && !object_list.objects.empty();
+  constexpr double MIN_HALF_EXTENT = 0.05;
 
-  const size_t capacity = static_cast<size_t>(p_objects_shape_[0]);
-  if (hypotheses.size() > capacity) {
-    std::ostringstream dropped;
-    for (size_t index = capacity; index < hypotheses.size(); ++index) {
-      if (index != capacity) dropped << ',';
-      dropped << hypotheses[index].object_id << ':' << hypotheses[index].prediction_index << ':' << hypotheses[index].probability
-              << ':' << static_cast<int>(hypotheses[index].classification);
-    }
-    RCLCPP_DEBUG(get_logger(), "Dropped %zu of %zu object hypotheses after deterministic risk ranking: [%s]",
-                 hypotheses.size() - capacity, hypotheses.size(), dropped.str().c_str());
-    hypotheses.resize(capacity);
-  }
-  object_constraints_active_ = !hypotheses.empty();
-
+  // loop over shooting intervals
+  const double dt = optimization_horizon_ / n_shots_;
   double floating_dynamic_weight = 1.0;
-  for (int stage = 0; stage < stage_count; ++stage) {
-    int parameter_index = 0;
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    // dynamic weight
+    int idx = 0;
     int parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
-    std::vector<int> dynamic_weight_indices{parameter_index};
+    std::vector<int> dynamic_weight_indices{idx};
     int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, dynamic_weight_indices.data(),
                                                                       &floating_dynamic_weight, parameter_count);
     if (status != ACADOS_SUCCESS) {
@@ -905,9 +752,10 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
     }
     floating_dynamic_weight *= dynamic_weight_;
 
-    parameter_index += parameter_count;
+    // constraint activation
+    idx += parameter_count;
     parameter_count = static_cast<int>(p_constraint_activation_shape_[0] * p_constraint_activation_shape_[1]);
-    std::array<int, 2> constraint_activation_indices{parameter_index, parameter_index + 1};
+    std::array<int, 2> constraint_activation_indices{idx, idx + 1};
     std::array<double, 2> constraint_activation{object_constraints_active_ ? 1.0 : 0.0,
                                                 consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
     status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, constraint_activation_indices.data(),
@@ -916,21 +764,55 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       throw std::runtime_error("acados constraint-activation update failed with status " + std::to_string(status));
     }
 
-    parameter_index += parameter_count;
+    // objects
+    idx += parameter_count;
     parameter_count = static_cast<int>(p_objects_shape_[0] * p_objects_shape_[1]);
     std::vector<double> object_boxes;
     object_boxes.reserve(parameter_count);
-    for (const auto& hypothesis : hypotheses) {
-      const auto& box = hypothesis.boxes[stage];
-      object_boxes.insert(object_boxes.end(), {box.x, box.y, box.yaw, box.half_length, box.half_width, 1.0});
+    for (size_t object_index = 0; object_index < object_list.objects.size(); ++object_index) {
+      const auto& object = object_list.objects[object_index];
+      std::vector<std::array<double, 3>> target_states;
+      if (!object_predictions[object_index].empty()) {
+        for (const auto& prediction : object_predictions[object_index]) {
+          const double desired_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * stage;
+          std::array<double, 3> state{};
+          linearInterpolation(prediction.time, prediction.x, desired_time, state[0]);
+          linearInterpolation(prediction.time, prediction.y, desired_time, state[1]);
+          linearInterpolation(prediction.time, prediction.yaw, desired_time, state[2], true);
+          target_states.push_back(state);
+        }
+      } else {
+        // treat objects without a selected prediction as static
+        target_states.push_back({perception_msgs::object_access::getX(object), perception_msgs::object_access::getY(object),
+                                 perception_msgs::object_access::getYaw(object)});
+      }
+
+      const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
+      const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
+      const double half_length = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getLength(object));
+      const double half_width = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getWidth(object));
+      for (const auto& state : target_states) {
+        // ensure that the object position represents its geometric center
+        const double cos_yaw = std::cos(state[2]);
+        const double sin_yaw = std::sin(state[2]);
+        const double center_x = state[0] + offset_long * cos_yaw - offset_lat * sin_yaw;
+        const double center_y = state[1] + offset_long * sin_yaw + offset_lat * cos_yaw;
+        object_boxes.insert(object_boxes.end(), {center_x, center_y, state[2], half_length, half_width, 1.0});
+        if (object_boxes.size() >= static_cast<size_t>(parameter_count)) {
+          object_boxes.resize(parameter_count);
+          break;
+        }
+      }
+      if (object_boxes.size() >= static_cast<size_t>(parameter_count)) break;
     }
+    // fill remaining object slots with inactive boxes
     while (object_boxes.size() < static_cast<size_t>(parameter_count)) {
       object_boxes.insert(object_boxes.end(), {0.0, 0.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT, 0.0});
     }
     if (debug_viz_) viz_object_boxes_.insert(viz_object_boxes_.end(), object_boxes.begin(), object_boxes.end());
 
     std::vector<int> object_indices(parameter_count);
-    std::iota(object_indices.begin(), object_indices.end(), parameter_index);
+    std::iota(object_indices.begin(), object_indices.end(), idx);
     status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, object_indices.data(), object_boxes.data(),
                                                                   parameter_count);
     if (status != ACADOS_SUCCESS) {

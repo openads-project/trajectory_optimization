@@ -254,12 +254,16 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    *
    * @param[in] ego_data Current ego state.
    * @param[in] object_list Object list in optimizer frame.
-   * @param[in] reference_trajectory Reference trajectory in optimizer frame, used to rank object hypotheses if the
-   * fixed object capacity is exceeded.
    */
-  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
-                        const perception_msgs::msg::ObjectList& object_list,
-                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
+  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
+
+  /**
+   * @brief Keeps the nearest forward objects and discards the remaining entries.
+   *
+   * @param[in,out] object_list Object list to filter.
+   * @param[in] n_objects Maximum number of objects to retain.
+   */
+  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, int n_objects);
 
   /**
    * @brief Enables the configured object and boundary constraints or temporarily disables all of them.
@@ -424,7 +428,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<int64_t> p_constraint_activation_shape_ = {2, 1};  // [objects, boundaries]
   std::vector<int64_t> p_objects_shape_ = {30, 6};               // nObjects x [x, y, yaw, half-length, half-width, active]
 
-  // whether the current OCP parameters contain at least one active object hypothesis.
+  // whether object constraints are enabled for the current input data
   bool object_constraints_active_ = false;
 
   // ocp variables
