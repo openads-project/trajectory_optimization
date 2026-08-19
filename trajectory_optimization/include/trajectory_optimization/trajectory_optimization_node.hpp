@@ -263,7 +263,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in,out] object_list Object list to filter.
    * @param[in] n_objects Maximum number of objects to retain.
    */
-  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, int n_objects);
+  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
 
   /**
    * @brief Enables the configured object and boundary constraints or temporarily disables all of them.
