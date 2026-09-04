@@ -6,4 +6,4 @@ description: ROS 2 Trajectory Optimization for Automated Driving based on an Opt
 dependencies:
   - repository: oci://ghcr.io/openads-project/openads-helm
     name: openadservice
-    version: 1.0.0
+    version: 1.1.0
