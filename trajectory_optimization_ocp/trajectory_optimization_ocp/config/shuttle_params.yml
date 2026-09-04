@@ -10,7 +10,6 @@ distance_cg_rear_axle: 1.7        # distance from center of gravity to rear axle
 length: 4.97                      # length [m]
 width: 2.12                       # width [m]
 offset2geocenter: [0.0, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
-n_ego_circles: 3                  # number of circles to discretize ego-vehicle geometry
 
 ### constraints
 delta_max: 1.55 # 89°             # max. absolute steering angle [rad]
@@ -44,25 +43,26 @@ c_alpha: 0.15         # distance to scale the steering rate costs [rad/s]
 
 ### slack weights for soft constraints
 enable_boundary_slack: False                # activate slack weights for soft constraints (route boundaries)
-boundary_slack_weights:                     # scalar or list (length 2 * n_ego_circles)
+boundary_slack_weights:                     # scalar or list (length 2)
   linear_lower: 10.0
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
-enable_obstacle_slack: False                # activate slack weights for obstacle constraints
-obstacle_slack_weights:                     # scalar or list (length n_obstacles * n_ego_circles)
+enable_object_slack: False                  # activate slack weights for object constraints
+object_slack_weights:                       # scalar or list (length n_objects)
   linear_lower: 50.0
   linear_upper: 50.0
   quadratic_lower: 500.0
   quadratic_upper: 500.0
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), obstacles]
+# [dyn_weight (1), constraint_activation (2), objects]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
-p_obstacle_circles_shape: [30, 3] # nObstacleCircles x [x, y, radius] (also used in ROS node)
+p_constraint_activation_shape: [2, 1] # stage-wise [objects, boundaries] flags for sparse solve-phase toggling
+p_objects_shape: [30, 6]          # nObjects x [x, y, yaw, half_length, half_width, active]
 
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]
 p_cost_weights_shape: [12, 1]     # nWeights x weightDim (also used in ROS node)
-p_cost_params_shape: [4, 1]       # [thw, d_min_obstacle_long, d_min_obstacle_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
+p_cost_params_shape: [4, 1]       # [thw, d_min_object_long, d_min_object_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
 p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)

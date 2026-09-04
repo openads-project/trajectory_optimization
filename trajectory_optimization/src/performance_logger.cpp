@@ -52,14 +52,16 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
   if (!stream_) {
     throw std::runtime_error("could not open '" + path_.string() + "'");
   }
-  stream_ << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
-             "published,ref_points,objects,sqp_iter,qp_iter,"
-             "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,postprocessing_ms,acados_total_ms,acados_lin_ms,"
-             "acados_sim_ms,acados_qp_ms,"
-             "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
-             "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
-             "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
-             "max_eq_violation,max_eq_stage,max_eq_state\n";
+  stream_
+      << "schema_version,source,run_id,cycle,record_stamp_ns,ego_stamp_ns,reference_stamp_ns,route_stamp_ns,status,"
+         "published,ref_points,objects,relaxed_attempted,failure_phase,relaxed_status,sqp_iter,qp_iter,"
+         "qp_status,cycle_ms,preprocessing_ms,solve_wall_ms,relaxed_solve_wall_ms,constrained_solve_wall_ms,postprocessing_ms,"
+         "acados_total_ms,acados_lin_ms,"
+         "acados_sim_ms,acados_qp_ms,"
+         "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
+         "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
+         "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
+         "max_eq_violation,max_eq_stage,max_eq_state\n";
   stream_.flush();
 }
 
@@ -112,7 +114,7 @@ void PerformanceLogger::collectSolverStatistics(PerformanceMetrics& metrics,
 void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                                      ocp_nlp_solver* solver,
                                                      const ocp_nlp_dims* dims,
-                                                     int obstacle_circles) {
+                                                     int object_boxes) {
   // The acados C API exposes stage-dependent dimensions as raw arrays.
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (int stage = 0; stage <= dims->N; ++stage) {
@@ -163,17 +165,15 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
     metrics.max_ineq_type = "linear";
   } else if (index < nb + ng + nh) {
     const int h_index = index - nb - ng;
-    const int ego_circles = nh / (obstacle_circles + 2);
-    if (h_index < 2 * ego_circles) {
-      metrics.max_ineq_type = h_index % 2 == 0 ? "boundary_left" : "boundary_right";
-      metrics.max_ineq_index = h_index / 2;
-    } else if (h_index < (obstacle_circles + 2) * ego_circles) {
-      const int obstacle_index = h_index - 2 * ego_circles;
-      metrics.max_ineq_type = "obstacle_" + std::to_string(obstacle_index / ego_circles);
-      metrics.max_ineq_index = obstacle_index % ego_circles;
+    if (h_index < 2) {
+      metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
+      metrics.max_ineq_index = 0;
+    } else if (h_index < object_boxes + 2) {
+      metrics.max_ineq_type = "object";
+      metrics.max_ineq_index = h_index - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
-      metrics.max_ineq_index = h_index - (obstacle_circles + 2) * ego_circles;
+      metrics.max_ineq_index = h_index - object_boxes - 2;
     }
   } else {
     metrics.max_ineq_type = "slack";
@@ -183,11 +183,13 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 5 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+  stream_ << std::setprecision(17) << 6 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
           << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
-          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ',' << metrics.sqp_iter
-          << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ',' << metrics.preprocessing_ms
-          << ',' << metrics.solve_wall_ms << ',' << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ','
+          << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
+          << (metrics.relaxed_attempted ? 1 : 0) << ',' << metrics.failure_phase << ',' << metrics.relaxed_status << ','
+          << metrics.sqp_iter << ',' << metrics.qp_iter << ',' << metrics.qp_status << ',' << metrics.cycle_ms << ','
+          << metrics.preprocessing_ms << ',' << metrics.solve_wall_ms << ',' << metrics.relaxed_solve_wall_ms << ','
+          << metrics.constrained_solve_wall_ms << ',' << metrics.postprocessing_ms << ',' << metrics.acados_total_ms << ','
           << metrics.acados_lin_ms << ',' << metrics.acados_sim_ms << ',' << metrics.acados_qp_ms << ','
           << metrics.acados_qp_solver_ms << ',' << metrics.acados_qp_xcond_ms << ',' << metrics.acados_reg_ms << ','
           << metrics.acados_glob_ms << ',' << metrics.acados_preparation_ms << ',' << metrics.acados_feedback_ms << ','

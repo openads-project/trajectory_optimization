@@ -14,8 +14,8 @@ flowchart LR
     S2:::hidden -->|~/route| NODE
     S3:::hidden -->|~/reference_trajectory| NODE
     NODE -->|~/trajectory| P0:::hidden
-    NODE -->|~/visualization/object_circles| P1:::hidden
-    NODE -->|~/visualization/ego_circles| P2:::hidden
+    NODE -->|~/visualization/objects| P1:::hidden
+    NODE -->|~/visualization/ego| P2:::hidden
     NODE -->|~/visualization/boundaries| P3:::hidden
     classDef hidden display: none;
 ```
@@ -25,7 +25,7 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/ego_data` | `perception_msgs/msg/EgoData` | Current ego vehicle state used to initialize and time-stamp the optimization problem. |
-| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects, that are considered as obstacles in the OCP to avoid collisions. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
+| `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects considered by the OCP for collision avoidance. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
 | `~/route` | `route_planning_msgs/msg/Route` | Route and lane boundary information used to constrain the OCP. |
 | `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run once for each received reference trajectory. |
 
@@ -34,8 +34,8 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
-| `~/visualization/object_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the circular obstacle approximation used by the OCP. |
-| `~/visualization/ego_circles` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego vehicle circle approximation used inside the OCP. |
+| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP. |
+| `~/visualization/ego` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego box used inside the OCP. |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
 #### Parameters
@@ -50,15 +50,18 @@ flowchart LR
 | `optimization_frequency` | `float` | `10.0` | Optimization frequency in Hz |
 | `n_shots` | `int` | `50` | Number of shooting intervals in optimization horizon |
 | `optimization_horizon` | `float` | `1.0` | Optimization Horizon in seconds |
+| `two_stage_optimization` | `bool` | `true` | Initialize the constrained OCP with a solve without object and boundary constraints |
+| `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout |
+| `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout |
 | `verbose` | `bool` | `false` | Print solver statistics |
 | `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
-| `debug_visualization` | `bool` | `false` | Publish debug visualization markers (e.g. obstacle circles) |
+| `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Time headway to front vehicle |
-| `d_min_obstacle_long` | `float` | `5.0` | Minimum distance to keep to obstacle in longitudinal direction [m] |
-| `d_min_obstacle_lat` | `float` | `0.5` | Minimum distance to keep to obstacle in lateral direction [m] |
+| `d_min_object_long` | `float` | `5.0` | Minimum distance to keep to objects in longitudinal direction [m] |
+| `d_min_object_lat` | `float` | `0.5` | Minimum distance to keep to objects in lateral direction [m] |
 | `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
@@ -81,8 +84,8 @@ flowchart LR
 | `route_topic` | `"~/route"` | Topic on which to subscribe route |
 | `trajectory_topic` | `"~/trajectory"` | Topic on which to publish optimized trajectory |
 | `boundary_marker_topic` | `"~/visualization/boundaries"` | Topic on which to publish boundary visualization markers |
-| `ego_circles_topic` | `"~/visualization/ego_circles"` | Topic on which to publish ego circle visualization markers |
-| `object_circles_topic` | `"~/visualization/object_circles"` | Topic on which to publish object circle visualization markers |
+| `ego_marker_topic` | `"~/visualization/ego"` | Topic on which to publish ego visualization markers |
+| `object_marker_topic` | `"~/visualization/objects"` | Topic on which to publish object visualization markers |
 | `name` | `executable_name` | node name |
 | `namespace` | `""` | node namespace |
 | `params` | `os.path.join(get_package_share_directory("trajectory_optimization"), "config", "params.yml")` | path to parameter file |

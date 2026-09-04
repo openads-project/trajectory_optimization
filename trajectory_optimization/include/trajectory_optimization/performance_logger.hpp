@@ -24,11 +24,16 @@ struct PerformanceMetrics {
   int reference_points = 0;
   int objects = 0;
   bool published = false;
+  bool relaxed_attempted = false;
+  std::string failure_phase = "none";
+  int relaxed_status = 0;
 
   double cycle_ms = 0.0;
   double preprocessing_ms = 0.0;
   double solve_wall_ms = 0.0;
   double postprocessing_ms = 0.0;
+  double relaxed_solve_wall_ms = 0.0;
+  double constrained_solve_wall_ms = 0.0;
   double acados_total_ms = 0.0;
   double acados_lin_ms = 0.0;
   double acados_sim_ms = 0.0;
@@ -127,12 +132,12 @@ class PerformanceLogger {
    * @param[in,out] metrics Metrics structure populated with constraint diagnostics.
    * @param[in] solver acados NLP solver instance.
    * @param[in] dims acados NLP dimensions.
-   * @param[in] obstacle_circles Number of obstacle circles represented in the nonlinear constraints.
+   * @param[in] object_boxes Number of object boxes represented in the nonlinear constraints.
    */
   static void collectConstraintDiagnostics(PerformanceMetrics& metrics,
                                            ocp_nlp_solver* solver,
                                            const ocp_nlp_dims* dims,
-                                           int obstacle_circles);
+                                           int object_boxes);
 
   /**
    * @brief Returns the path of the CSV performance log.

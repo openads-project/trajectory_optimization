@@ -250,12 +250,41 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
                               const route_planning_msgs::msg::Route& route);
 
   /**
-   * @brief Writes stage-wise obstacle and dynamic weighting parameters into the OCP.
+   * @brief Writes stage-wise object, boundary-activation, and dynamic-weighting parameters into the OCP.
    *
    * @param[in] ego_data Current ego state.
    * @param[in] object_list Object list in optimizer frame.
    */
   void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
+
+  /**
+   * @brief Keeps the nearest forward objects and discards the remaining entries.
+   *
+   * @param[in,out] object_list Object list to filter.
+   * @param[in] n_objects Maximum number of objects to retain.
+   */
+  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
+
+  /**
+   * @brief Enables the configured object and boundary constraints or temporarily disables all of them.
+   *
+   * @param[in] use_configured_activation Restore the activation prepared for the current cycle if true; disable all
+   * safety constraints if false.
+   * @return `true` if every shooting-stage parameter update succeeded.
+   */
+  bool setSafetyConstraintActivation(bool use_configured_activation);
+
+  /** Sets the ACADOS wall-time limit for the next solve. */
+  void setSolverTimeout(double timeout_ms);
+
+  /**
+   * @brief Solves the OCP, reads its output and checks primal feasibility.
+   *
+   * @param[out] metrics Solver status, statistics, cost and residuals.
+   * @param[out] finite_solution Whether the solver returned finite state, control, cost and residual values.
+   * @return `true` if the solution is finite and satisfies the configured equality and inequality tolerances.
+   */
+  bool solveAndValidate(PerformanceMetrics& metrics, bool& finite_solution);
 
   /**
    * @brief Computes minimum normal distances from the reference path to the active route boundaries.
@@ -267,41 +296,11 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   std::vector<std::pair<double, double>> normalBoundaryDistance(
       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
 
-  /**
-   * @brief Keeps the nearest forward objects and discards the remaining entries.
-   *
-   * @param[in,out] object_list Object list to filter.
-   * @param[in] n_objects Maximum number of objects to retain.
-   */
-  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
+  /** Publishes the object boxes currently passed to the optimizer. */
+  void vizObjectBoxes(const std::vector<double>& objects);
 
-  /**
-   * @brief Approximates an oriented bounding box with a set of obstacle circles.
-   *
-   * @param[in] x Bounding-box center x-coordinate.
-   * @param[in] y Bounding-box center y-coordinate.
-   * @param[in] yaw Bounding-box heading.
-   * @param[in] length Bounding-box length.
-   * @param[in] width Bounding-box width.
-   * @return Flattened circle list in the configured obstacle parameter layout.
-   */
-  std::vector<double> discretizeBB2Circles(
-      const double x, const double y, const double yaw, const double length, const double width);
-
-  /**
-   * @brief Publishes visualization markers for the obstacle circles currently used by the optimizer.
-   *
-   * @param[in] obstacles Flattened obstacle circle list.
-   */
-  void vizCircles(const std::vector<double>& obstacles);
-
-  /**
-   * @brief Publishes the ego-vehicle circle approximation used by the selected OCP model.
-   *
-   * @param[in] x_trajectory Optimizer state trajectory.
-   * @param[in] model_name Name of the active OCP model.
-   */
-  void vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name);
+  /** Publishes the ego box along the optimized trajectory. */
+  void vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name);
 
   /**
    * @brief Publishes the boundary intersections corresponding to the distances passed to the OCP.
@@ -360,8 +359,8 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Subscription<trajectory_planning_msgs::msg::Trajectory>::SharedPtr reference_trajectory_sub_;
 
   rclcpp::Publisher<trajectory_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr circles_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_circles_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr object_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ego_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
@@ -388,6 +387,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   bool verbose_ = false;
   bool performance_logging_ = false;
   bool debug_viz_ = false;
+  bool two_stage_optimization_ = true;
+  double relaxed_solve_timeout_ms_ = 100.0;
+  double constrained_solve_timeout_ms_ = 100.0;
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
@@ -407,22 +409,27 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Time control_guess_stamp_{0, 0, RCL_ROS_TIME};
 
   // visualization
-  std::vector<double> viz_circles_;
+  std::vector<double> viz_object_boxes_;
 
   // cost weights
   std::vector<double> cost_weights_ = std::vector<double>(12, 1.0);
   double dynamic_weight_ = 1.0;
   double thw_ = 2.0;
-  double d_min_obstacle_long_ = 5.0;
-  double d_min_obstacle_lat_ = 0.5;
+  double d_min_object_long_ = 5.0;
+  double d_min_object_lat_ = 0.5;
   double d_min_boundary_lat_ = 0.0;
   double min_prediction_probability_ = 0.0;
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
-  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};      // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 6};          // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
-  std::vector<int64_t> p_obstacle_circles_shape_ = {30, 3};  // nObstacleCircles x [x, y, radius]
+  std::vector<int64_t> p_cost_weights_shape_ = {12, 1};  // nWeights x weightDim
+  std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
+  std::vector<int64_t> p_constraint_activation_shape_ = {2, 1};  // [objects, boundaries]
+  std::vector<int64_t> p_objects_shape_ = {30, 6};               // nObjects x [x, y, yaw, half-length, half-width, active]
+
+  // whether object constraints are enabled for the current input data
+  bool object_constraints_active_ = false;
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

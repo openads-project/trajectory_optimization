@@ -192,27 +192,27 @@ Visualization Manager:
       Width: 350
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Ego Circles
+      Name: Ego Boxes
       Namespaces:
-        ego-circles: true
+        ego-boxes: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_optimization_ackermann_node/visualization/ego_circles
+        Value: /trajectory_optimization_ackermann_node/visualization/ego
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: ObjectCircles
+      Name: Object Boxes
       Namespaces:
-        obstacle-circles: true
+        object-boxes: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_optimization_ackermann_node/visualization/object_circles
+        Value: /trajectory_optimization_ackermann_node/visualization/objects
       Value: true
     - Acceleration arrow:
         Acceleration Color: 255; 0; 0

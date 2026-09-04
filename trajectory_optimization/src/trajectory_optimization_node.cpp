@@ -2,10 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <numeric>
+#include <stdexcept>
 #include <thread>
+#include <tuple>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
@@ -44,19 +48,26 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("optimization_frequency", optimization_freq_, "Optimization frequency in Hz");
   this->declareAndLoadParameter("n_shots", n_shots_, "Number of shooting intervals in optimization horizon");
   this->declareAndLoadParameter("optimization_horizon", optimization_horizon_, "Optimization Horizon in seconds");
+  this->declareAndLoadParameter("two_stage_optimization", two_stage_optimization_,
+                                "Initialize the constrained OCP with a solve without object and boundary constraints");
+  this->declareAndLoadParameter("relaxed_solve_timeout_ms", relaxed_solve_timeout_ms_,
+                                "ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout");
+  this->declareAndLoadParameter("constrained_solve_timeout_ms", constrained_solve_timeout_ms_,
+                                "ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
   this->declareAndLoadParameter("performance_logging", performance_logging_,
-                                "Write one CSV record for every completed solver run", false, false, true);
-  this->declareAndLoadParameter("debug_visualization", debug_viz_, "Publish debug visualization markers (e.g. obstacle circles)");
+                                "Write one CSV record for every completed solver run");
+  this->declareAndLoadParameter("debug_visualization", debug_viz_,
+                                "Publish debug visualization markers for ego, objects and boundaries");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
-  this->declareAndLoadParameter("d_min_obstacle_long", d_min_obstacle_long_,
-                                "Minimum distance to keep to obstacle in longitudinal direction [m]");
-  this->declareAndLoadParameter("d_min_obstacle_lat", d_min_obstacle_lat_,
-                                "Minimum distance to keep to obstacle in lateral direction [m]");
+  this->declareAndLoadParameter("d_min_object_long", d_min_object_long_,
+                                "Minimum distance to keep to objects in longitudinal direction [m]");
+  this->declareAndLoadParameter("d_min_object_lat", d_min_object_lat_,
+                                "Minimum distance to keep to objects in lateral direction [m]");
   this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
                                 "Minimum distance to keep to boundary in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
@@ -223,10 +234,10 @@ void TrajectoryOptimizationNode::setup() {
   // set up publisher for output topics
   trajectory_pub_ = this->create_publisher<trajectory_planning_msgs::msg::Trajectory>("~/trajectory", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", trajectory_pub_->get_topic_name());
-  circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/object_circles", 1);
-  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", circles_pub_->get_topic_name());
-  ego_circles_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/ego_circles", 1);
-  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", ego_circles_pub_->get_topic_name());
+  object_marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/objects", 1);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", object_marker_pub_->get_topic_name());
+  ego_marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/ego", 1);
+  RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", ego_marker_pub_->get_topic_name());
   boundary_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("~/visualization/boundaries", 1);
   RCLCPP_INFO(this->get_logger(), "Publishing to '%s'", boundary_pub_->get_topic_name());
 
@@ -289,6 +300,7 @@ void TrajectoryOptimizationNode::setupSolver() {
   nlp_out_ = trajectory_optimization::acados_get_nlp_out(ocp_capsule_);
   nlp_solver_ = trajectory_optimization::acados_get_nlp_solver(ocp_capsule_);
   nlp_opts_ = trajectory_optimization::acados_get_nlp_opts(ocp_capsule_);
+  setSolverTimeout(constrained_solve_timeout_ms_);
   if (nlp_dims_->N != n_shots_) {
     RCLCPP_FATAL(this->get_logger(), "Created solver has N=%d, expected n_shots=%d. Exiting.", nlp_dims_->N, n_shots_);
     exit(1);
@@ -388,7 +400,7 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
 
 void TrajectoryOptimizationNode::planningCycle() {
   const auto cycle_start = SteadyClock::now();
-  if (debug_viz_) viz_circles_.clear();
+  if (debug_viz_) viz_object_boxes_.clear();
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
     RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
     return;
@@ -466,51 +478,60 @@ void TrajectoryOptimizationNode::planningCycle() {
     return;
   }
 
-  // solve the optimization problem
+  // start solving the OCP
+  // first solve the relaxed OCP (if configured and necessary)
+  // then solve the constrained OCP using either the relaxed solution or the regular warm start
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
-  metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
-  const auto solve_end = SteadyClock::now();
-  metrics.solve_wall_ms = elapsedMilliseconds(solve_start, solve_end);
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  bool finite_solution = false;
+  bool primal_feasible = false;
 
-  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
-                                             performance_logger_ != nullptr || verbose_);
+  // solve the relaxed OCP (if configured and necessary)
+  if (two_stage_optimization_ && (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || object_constraints_active_)) {
+    metrics.relaxed_attempted = true;
+    if (!setSafetyConstraintActivation(false)) return;
 
-  const bool usable_status =
-      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
-  if (usable_status) {
-    for (int ii = 0; ii <= nlp_dims_->N; ++ii) {
-      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "x", &xtraj_[ii * *nlp_dims_->nx]);
-    }
-    for (int ii = 0; ii < nlp_dims_->N; ++ii) {
-      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, ii, "u", &utraj_[ii * *nlp_dims_->nu]);
+    setSolverTimeout(relaxed_solve_timeout_ms_);
+    const auto relaxed_solve_start = SteadyClock::now();
+    const bool relaxed_primal_feasible = solveAndValidate(metrics, finite_solution);
+    metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
+    metrics.relaxed_status = metrics.status;
+
+    // evaluate the relaxed residuals before restoration, but retain its nlp_out_
+    if (!setSafetyConstraintActivation(true)) return;
+
+    if (!relaxed_primal_feasible) {
+      metrics.failure_phase = "relaxed";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      printSolution(metrics);
+      RCLCPP_WARN(get_logger(),
+                  "Rejecting relaxed initialization: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] "
+                  "tolerances=[eq=%e, ineq=%e].",
+                  metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
+      resetSolver();
+      logCompletedCycle();
+      return;
     }
   }
 
-  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
-  const bool finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
-                               std::isfinite(metrics.res_ineq) &&
-                               std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
-                               std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
-  const bool primal_feasible =
-      finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
+  // solve the constrained OCP using either the relaxed solution or the regular warm start
+  setSolverTimeout(constrained_solve_timeout_ms_);
+  const auto constrained_solve_start = SteadyClock::now();
+  primal_feasible = solveAndValidate(metrics, finite_solution);
+  metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);
+  metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
 
   if (!primal_feasible) {
+    metrics.failure_phase = "constrained";
     printSolution(metrics);
     RCLCPP_WARN(this->get_logger(),
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
                 metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
     if (finite_solution && performance_logger_) {
-      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_,
-                                                      static_cast<int>(p_obstacle_circles_shape_[0]));
+      PerformanceLogger::collectConstraintDiagnostics(metrics, nlp_solver_, nlp_dims_, static_cast<int>(p_objects_shape_[0]));
     }
-    if (finite_solution && (metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT)) {
-      // Preserve progress from a recoverable solve; the states are rolled out again from the next x_init.
-      control_guess_ = utraj_;
-      control_guess_stamp_ = rclcpp::Time(ego_data_.header.stamp);
-    } else {
-      control_guess_.clear();
-    }
+    // keep the last published solution as warm-start source
     resetSolver();
     logCompletedCycle();
     return;
@@ -521,8 +542,8 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   printSolution(metrics);
   if (debug_viz_) {
-    vizCircles(viz_circles_);
-    vizEgoCircles(xtraj_, model_name_);
+    vizObjectBoxes(viz_object_boxes_);
+    vizEgoBoxes(xtraj_, model_name_);
   }
 
   // convert output into trajectory message
@@ -545,7 +566,18 @@ void TrajectoryOptimizationNode::planningCycle() {
   metrics.published = true;
   logCompletedCycle();
   const char* cycle_time_color = metrics.cycle_ms <= 100.0 ? "\x1b[32m" : "\x1b[31m";
-  RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
+  if (metrics.cycle_ms > 100.0) {
+    if (metrics.relaxed_attempted) {
+      RCLCPP_INFO(this->get_logger(),
+                  "Published trajectory (cycle: %s%.2f ms\x1b[0m; relaxed solve: %.2f ms; constrained solve: %.2f ms)",
+                  cycle_time_color, metrics.cycle_ms, metrics.relaxed_solve_wall_ms, metrics.constrained_solve_wall_ms);
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m; constrained solve: %.2f ms)",
+                  cycle_time_color, metrics.cycle_ms, metrics.constrained_solve_wall_ms);
+    }
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Published trajectory (cycle: %s%.2f ms\x1b[0m)", cycle_time_color, metrics.cycle_ms);
+  }
 }
 
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
@@ -568,7 +600,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     } else {
       tf_object_list = object_list;
     }
-    keepNClosestObjects(tf_object_list, static_cast<int>(p_obstacle_circles_shape_[0]));
+    keepNClosestObjects(tf_object_list, static_cast<int>(p_objects_shape_[0]));
     // route
     if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
       tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
@@ -615,8 +647,8 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 
   // other cost params
   global_params.push_back(thw_);
-  global_params.push_back(d_min_obstacle_long_);
-  global_params.push_back(d_min_obstacle_lat_);
+  global_params.push_back(d_min_object_long_);
+  global_params.push_back(d_min_object_lat_);
   global_params.push_back(d_min_boundary_lat_);
 
   // reference path (including boundaries)
@@ -662,144 +694,133 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
 void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
                                                   const perception_msgs::msg::ObjectList& object_list) {
   const auto start_time = std::chrono::steady_clock::now();
+
+  // prepare object predictions
   struct PredictionData {
     std::vector<double> time;
     std::vector<double> x;
     std::vector<double> y;
     std::vector<double> yaw;
-    size_t index;
-    double probability;
   };
+
   std::vector<std::vector<PredictionData>> object_predictions(object_list.objects.size());
   const double object_stamp = static_cast<double>(rclcpp::Time(object_list.header.stamp).nanoseconds()) / 1e9;
-  for (size_t j = 0; j < object_list.objects.size(); ++j) {
-    const auto& object = object_list.objects[j];
-    if (consider_objects_ != CONSIDER_OBJECTS::PREDICTED_OBJECTS || object.state_predictions.empty()) continue;
+  if (consider_objects_ == CONSIDER_OBJECTS::PREDICTED_OBJECTS) {
+    for (size_t object_index = 0; object_index < object_list.objects.size(); ++object_index) {
+      const auto& object = object_list.objects[object_index];
+      auto append_prediction = [&](const auto& prediction) {
+        PredictionData prediction_data{{object_stamp},
+                                       {perception_msgs::object_access::getX(object)},
+                                       {perception_msgs::object_access::getY(object)},
+                                       {perception_msgs::object_access::getYaw(object)}};
+        for (const auto& state : prediction.states) {
+          prediction_data.time.push_back(static_cast<double>(rclcpp::Time(state.header.stamp).nanoseconds()) / 1e9);
+          prediction_data.x.push_back(perception_msgs::object_access::getX(state));
+          prediction_data.y.push_back(perception_msgs::object_access::getY(state));
+          prediction_data.yaw.push_back(perception_msgs::object_access::getYaw(state));
+        }
+        object_predictions[object_index].push_back(std::move(prediction_data));
+      };
 
-    auto append_prediction = [&](const auto& state_prediction, size_t prediction_idx) {
-      PredictionData prediction{{object_stamp},
-                                {perception_msgs::object_access::getX(object)},
-                                {perception_msgs::object_access::getY(object)},
-                                {perception_msgs::object_access::getYaw(object)},
-                                prediction_idx,
-                                state_prediction.probability};
-      for (const auto& predicted_state : state_prediction.states) {
-        prediction.time.push_back(static_cast<double>(rclcpp::Time(predicted_state.header.stamp).nanoseconds()) / 1e9);
-        prediction.x.push_back(perception_msgs::object_access::getX(predicted_state));
-        prediction.y.push_back(perception_msgs::object_access::getY(predicted_state));
-        prediction.yaw.push_back(perception_msgs::object_access::getYaw(predicted_state));
+      // keep all predictions above the configured probability threshold
+      for (const auto& prediction : object.state_predictions) {
+        if (prediction.probability > min_prediction_probability_) append_prediction(prediction);
       }
-      object_predictions[j].push_back(std::move(prediction));
-    };
 
-    for (size_t prediction_idx = 0; prediction_idx < object.state_predictions.size(); ++prediction_idx) {
-      const auto& state_prediction = object.state_predictions[prediction_idx];
-      if (state_prediction.probability > min_prediction_probability_) {
-        append_prediction(state_prediction, prediction_idx);
+      // fall back to the first prediction if none satisfies the threshold
+      if (object_predictions[object_index].empty() && !object.state_predictions.empty()) {
+        append_prediction(object.state_predictions[0]);
       }
     }
-    if (object_predictions[j].empty()) append_prediction(object.state_predictions[0], 0);
   }
 
+  object_constraints_active_ = consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS && !object_list.objects.empty();
+  constexpr double MIN_HALF_EXTENT = 0.05;
+
   // loop over shooting intervals
+  const double dt = optimization_horizon_ / n_shots_;
   double floating_dynamic_weight = 1.0;
-  double dt = optimization_horizon_ / n_shots_;
-  for (int i = 0; i <= n_shots_; ++i) {
+  for (int stage = 0; stage <= n_shots_; ++stage) {
     // dynamic weight
     int idx = 0;
-    int n = 1;
-    std::vector<int> idx_dynamic_weight(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_dynamic_weight.begin(), idx_dynamic_weight.end(), idx);
-    int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_dynamic_weight.data(),
-                                                                      &floating_dynamic_weight, n);
+    int parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
+    std::vector<int> dynamic_weight_indices{idx};
+    int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, dynamic_weight_indices.data(),
+                                                                      &floating_dynamic_weight, parameter_count);
     if (status != ACADOS_SUCCESS) {
       throw std::runtime_error("acados dynamic-weight update failed with status " + std::to_string(status));
     }
     floating_dynamic_weight *= dynamic_weight_;
 
-    // obstacles
-    idx += n;
-    n = static_cast<int>(p_obstacle_circles_shape_[0] * p_obstacle_circles_shape_[1]);
-    std::vector<double> circles;  // [x1, y1, r1, x2, y2, r2, ...]
+    // constraint activation
+    idx += parameter_count;
+    parameter_count = static_cast<int>(p_constraint_activation_shape_[0] * p_constraint_activation_shape_[1]);
+    std::array<int, 2> constraint_activation_indices{idx, idx + 1};
+    std::array<double, 2> constraint_activation{object_constraints_active_ ? 1.0 : 0.0,
+                                                consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, constraint_activation_indices.data(),
+                                                                  constraint_activation.data(), parameter_count);
+    if (status != ACADOS_SUCCESS) {
+      throw std::runtime_error("acados constraint-activation update failed with status " + std::to_string(status));
+    }
 
-    for (size_t j = 0; j < object_list.objects.size(); ++j) {
-      std::vector<std::tuple<double, double, double>> target_states;
-      if (!object_predictions[j].empty()) {
-        for (const auto& prediction : object_predictions[j]) {
-          double x_tgt = 0.0, y_tgt = 0.0, yaw_tgt = 0.0;
-          double des_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * i;
-          if (des_time > prediction.time.back()) {
-            const double relative_des_time = des_time - prediction.time.front();
-            const double relative_max_time = prediction.time.back() - prediction.time.front();
-            RCLCPP_WARN(this->get_logger(),
-                        "Prediction horizon shorter than requested interpolation time. "
-                        "object=%zu prediction=%zu probability=%.3f desired_rel=%.3f s max_rel=%.3f s n_states=%zu. "
-                        "Using last prediction state.",
-                        j, prediction.index, prediction.probability, relative_des_time, relative_max_time,
-                        prediction.time.size() - 1);
-            x_tgt = prediction.x.back();
-            y_tgt = prediction.y.back();
-            yaw_tgt = prediction.yaw.back();
-          } else {
-            linearInterpolation(prediction.time, prediction.x, des_time, x_tgt);
-            linearInterpolation(prediction.time, prediction.y, des_time, y_tgt);
-            linearInterpolation(prediction.time, prediction.yaw, des_time, yaw_tgt, true);
-          }
-          target_states.emplace_back(x_tgt, y_tgt, yaw_tgt);
+    // objects
+    idx += parameter_count;
+    parameter_count = static_cast<int>(p_objects_shape_[0] * p_objects_shape_[1]);
+    std::vector<double> object_boxes;
+    object_boxes.reserve(parameter_count);
+    for (size_t object_index = 0; object_index < object_list.objects.size(); ++object_index) {
+      const auto& object = object_list.objects[object_index];
+      std::vector<std::array<double, 3>> target_states;
+      if (!object_predictions[object_index].empty()) {
+        for (const auto& prediction : object_predictions[object_index]) {
+          const double desired_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * stage;
+          std::array<double, 3> state{};
+          linearInterpolation(prediction.time, prediction.x, desired_time, state[0]);
+          linearInterpolation(prediction.time, prediction.y, desired_time, state[1]);
+          linearInterpolation(prediction.time, prediction.yaw, desired_time, state[2], true);
+          target_states.push_back(state);
         }
       } else {
-        target_states.emplace_back(perception_msgs::object_access::getX(object_list.objects[j]),
-                                   perception_msgs::object_access::getY(object_list.objects[j]),
-                                   perception_msgs::object_access::getYaw(object_list.objects[j]));
+        // treat objects without a selected prediction as static
+        target_states.push_back({perception_msgs::object_access::getX(object), perception_msgs::object_access::getY(object),
+                                 perception_msgs::object_access::getYaw(object)});
       }
 
-      double alpha = std::atan2(object_list.objects[j].state.reference_point.translation_to_geometric_center.y,
-                                object_list.objects[j].state.reference_point.translation_to_geometric_center.x);
-      double a = std::sqrt(std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.x, 2) +
-                           std::pow(object_list.objects[j].state.reference_point.translation_to_geometric_center.y, 2));
-      for (auto& [x_tgt, y_tgt, yaw_tgt] : target_states) {
-        // ensure that x_tgt and y_tgt represent the geometric center of the object
-        double beta = wrap_angle_rad(yaw_tgt - alpha);
-        x_tgt += a * std::cos(beta);
-        y_tgt += a * std::sin(beta);
-
-        std::vector<double> obj_circles =
-            discretizeBB2Circles(x_tgt, y_tgt, yaw_tgt, perception_msgs::object_access::getLength(object_list.objects[j]),
-                                 perception_msgs::object_access::getWidth(object_list.objects[j]));
-
-        circles.insert(circles.end(), obj_circles.begin(), obj_circles.end());
-        if (circles.size() >= static_cast<size_t>(n)) {
-          circles.resize(n);
+      const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
+      const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
+      const double half_length = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getLength(object));
+      const double half_width = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getWidth(object));
+      for (const auto& state : target_states) {
+        // ensure that the object position represents its geometric center
+        const double cos_yaw = std::cos(state[2]);
+        const double sin_yaw = std::sin(state[2]);
+        const double center_x = state[0] + offset_long * cos_yaw - offset_lat * sin_yaw;
+        const double center_y = state[1] + offset_long * sin_yaw + offset_lat * cos_yaw;
+        object_boxes.insert(object_boxes.end(), {center_x, center_y, state[2], half_length, half_width, 1.0});
+        if (object_boxes.size() >= static_cast<size_t>(parameter_count)) {
+          object_boxes.resize(parameter_count);
           break;
         }
       }
-      if (circles.size() >= static_cast<size_t>(n)) {
-        break;
-      }
+      if (object_boxes.size() >= static_cast<size_t>(parameter_count)) break;
     }
-    // fill up with dummy "ghost" obstacle circles at (10000, 10000) to avoid NaNs in the optimization problem
-    // TODO: improve this  // NOLINT(google-readability-todo)
-    while (circles.size() < static_cast<size_t>(n)) {
-      std::vector<double> dummy_circle = {10000.0, 10000.0, 1.0};
-      circles.insert(circles.end(), dummy_circle.begin(), dummy_circle.end());
+    // fill remaining object slots with inactive boxes
+    while (object_boxes.size() < static_cast<size_t>(parameter_count)) {
+      object_boxes.insert(object_boxes.end(), {0.0, 0.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT, 0.0});
     }
-    if ((circles.size() % p_obstacle_circles_shape_[1]) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Circles vector size is not a multiple of the circle shape. Resizing.");
-      circles.resize(n);
-    }
-    if (debug_viz_) viz_circles_.insert(viz_circles_.end(), circles.begin(), circles.end());
+    if (debug_viz_) viz_object_boxes_.insert(viz_object_boxes_.end(), object_boxes.begin(), object_boxes.end());
 
-    std::vector<int> idx_obstacles(n);
-    // fill vector with values from idx to idx + n
-    std::iota(idx_obstacles.begin(), idx_obstacles.end(), idx);
-    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, i, idx_obstacles.data(), circles.data(), n);
+    std::vector<int> object_indices(parameter_count);
+    std::iota(object_indices.begin(), object_indices.end(), idx);
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, object_indices.data(), object_boxes.data(),
+                                                                  parameter_count);
     if (status != ACADOS_SUCCESS) {
-      throw std::runtime_error("acados obstacle update failed with status " + std::to_string(status));
+      throw std::runtime_error("acados object-box update failed with status " + std::to_string(status));
     }
   }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
-  RCLCPP_DEBUG(this->get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
+  RCLCPP_DEBUG(get_logger(), "setOcpParameters object-box duration: %.3f ms", elapsed_ms);
 }
 
 }  // namespace trajectory_optimization

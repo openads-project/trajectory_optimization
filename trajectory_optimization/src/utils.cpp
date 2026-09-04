@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
+#include <numeric>
 
 #include <trajectory_optimization/trajectory_optimization_node.hpp>
 
@@ -84,71 +86,25 @@ bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
 }
 
 void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects) {
-  // calculate distance to each object
-  std::vector<double> distances;
-  for (size_t i = 0; i < object_list.objects.size(); ++i) {
-    double distance = std::sqrt(std::pow(perception_msgs::object_access::getX(object_list.objects[i]), 2) +
-                                std::pow(perception_msgs::object_access::getY(object_list.objects[i]), 2));
-    distances.push_back(distance);
-  }
-
-  // sort objects by distance
-  std::vector<size_t> indices_sorted_by_distance(distances.size());
+  // sort object indices by distance to ego vehicle
+  std::vector<size_t> indices_sorted_by_distance(object_list.objects.size());
   std::iota(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), 0);
-  std::sort(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(),
-            [&distances](size_t i1, size_t i2) { return distances[i1] < distances[i2]; });
+  std::sort(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), [&](size_t first, size_t second) {
+    const auto& first_object = object_list.objects[first];
+    const auto& second_object = object_list.objects[second];
+    return std::hypot(perception_msgs::object_access::getX(first_object), perception_msgs::object_access::getY(first_object)) <
+           std::hypot(perception_msgs::object_access::getX(second_object), perception_msgs::object_access::getY(second_object));
+  });
 
-  // keep only the closest objects
+  // keep only the closest n_objects that are in front of the ego vehicle
   std::vector<perception_msgs::msg::Object> closest_objects;
-  const auto n_objects_to_keep = std::min(static_cast<size_t>(n_objects), indices_sorted_by_distance.size());
-  int i = 0;
-  while (closest_objects.size() < static_cast<size_t>(n_objects_to_keep)) {
-    if (static_cast<size_t>(i) >= indices_sorted_by_distance.size()) break;
-    // ignore object with negative x-coordinate (behind the ego vehicle)
-    if (perception_msgs::object_access::getX(object_list.objects[indices_sorted_by_distance[i]]) > 0.0) {
-      closest_objects.push_back(object_list.objects[indices_sorted_by_distance[i]]);
-    }
-    ++i;
+  closest_objects.reserve(std::min(static_cast<size_t>(n_objects), object_list.objects.size()));
+  for (const size_t index : indices_sorted_by_distance) {
+    if (perception_msgs::object_access::getX(object_list.objects[index]) <= 0.0) continue;
+    closest_objects.push_back(object_list.objects[index]);
+    if (closest_objects.size() >= static_cast<size_t>(n_objects)) break;
   }
-  object_list.objects = closest_objects;
-}
-
-std::vector<double> TrajectoryOptimizationNode::discretizeBB2Circles(
-    const double x, const double y, const double yaw, const double length, const double width) {
-  uint8_t n_circles = 1;
-  if (length <= 0.0 || width <= 0.0) {
-    RCLCPP_WARN(get_logger(), "Invalid bounding box dimensions: length = %f, width = %f. Setting n_circles = 1.", length, width);
-  } else {
-    double aspect_ratio = length / width;
-    if (aspect_ratio > 8.0) {
-      n_circles = 9;
-    } else if (aspect_ratio > 6.0) {
-      n_circles = 7;
-    } else if (aspect_ratio > 4.0) {
-      n_circles = 5;
-    } else if (aspect_ratio > 1.8) {
-      n_circles = 3;
-    } else if (aspect_ratio > 1.3) {
-      n_circles = 2;
-    } else {
-      n_circles = 1;
-    }
-  }
-
-  double radius = std::sqrt(std::pow(length / (2 * n_circles), 2) + std::pow(width / 2.0, 2));
-
-  std::vector<double> circles(p_obstacle_circles_shape_[1] * n_circles);
-
-  for (int i = 0; i < n_circles; i++) {
-    double lon_offset = -length / 2 + (2 * i + 1) * length / (2 * n_circles);
-    double x_offset = lon_offset * std::cos(yaw);
-    double y_offset = lon_offset * std::sin(yaw);
-    circles[p_obstacle_circles_shape_[1] * i + 0] = x + x_offset;
-    circles[p_obstacle_circles_shape_[1] * i + 1] = y + y_offset;
-    circles[p_obstacle_circles_shape_[1] * i + 2] = radius;
-  }
-
-  return circles;
+  object_list.objects = std::move(closest_objects);
 }
 
 std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundaryDistance(
@@ -345,107 +301,136 @@ void TrajectoryOptimizationNode::vizBoundaryPoints(const std::vector<Eigen::Vect
   boundary_pub_->publish(marker_array);
 }
 
-void TrajectoryOptimizationNode::vizCircles(const std::vector<double>& obstacles) {
+void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& objects) {
   visualization_msgs::msg::MarkerArray marker_array;
-  const int n_circles = static_cast<int>(obstacles.size() / static_cast<size_t>(p_obstacle_circles_shape_[1]));
-  for (int j = 0; j < n_circles; ++j) {
+  const size_t width = static_cast<size_t>(p_objects_shape_[1]);
+  for (size_t index = 0; index < objects.size() / width; ++index) {
+    const size_t offset = index * width;
+    if (objects[offset + 5] < 0.5) continue;
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = vehicle_frame_id_;
     marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
     marker.lifetime = rclcpp::Duration::from_seconds(0.5);
-    marker.ns = "obstacle-circles";
-    marker.id = j;
-    marker.type = visualization_msgs::msg::Marker::CYLINDER;
+    marker.ns = "object-boxes";
+    marker.id = static_cast<int>(index);
+    marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.pose.position.x = obstacles[p_obstacle_circles_shape_[1] * j + 0];
-    marker.pose.position.y = obstacles[p_obstacle_circles_shape_[1] * j + 1];
-    marker.scale.x = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
-    marker.scale.y = obstacles[p_obstacle_circles_shape_[1] * j + 2] * 2.0;
+    marker.pose.position.x = objects[offset];
+    marker.pose.position.y = objects[offset + 1];
+    marker.pose.orientation.z = std::sin(0.5 * objects[offset + 2]);
+    marker.pose.orientation.w = std::cos(0.5 * objects[offset + 2]);
+    marker.scale.x = 2.0 * objects[offset + 3];
+    marker.scale.y = 2.0 * objects[offset + 4];
     marker.scale.z = 0.1;
-    marker.color.a = 0.3;
-    marker.color.r = 1.0;
+    marker.color.a = 0.25F;
+    marker.color.r = 1.0F;
     marker_array.markers.push_back(marker);
   }
-  circles_pub_->publish(marker_array);
+  object_marker_pub_->publish(marker_array);
 }
-void TrajectoryOptimizationNode::vizEgoCircles(const std::vector<double>& x_trajectory, const std::string& model_name) {
-  if (!ego_circles_pub_) return;
-
-  double ego_length = 0.0, ego_width = 0.0;
-  int n_ego_circles = 0;
-  std::vector<double> ego_offset2geocenter;
-
-  // define vehicle geometry based on model name (should match the OCP definition)
-  if (model_name == "karl") {
-    ego_length = 5.173;
-    ego_width = 1.94;
-    ego_offset2geocenter = {1.4895, 0.0};
-    n_ego_circles = 5;
-  } else if (model_name == "shuttle") {
-    ego_length = 4.97;
-    ego_width = 2.12;
-    ego_offset2geocenter = {0.0, 0.0};
-    n_ego_circles = 3;
-  } else {
-    RCLCPP_WARN(this->get_logger(), "Unknown model '%s'. Could not visualize ego circles.", model_name.c_str());
-    return;
-  }
-
+void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name) {
   visualization_msgs::msg::MarkerArray marker_array;
-
-  if (x_trajectory.empty() || n_ego_circles <= 0) {
+  if (x_trajectory.empty()) {
     visualization_msgs::msg::Marker delete_marker;
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
     marker_array.markers.push_back(delete_marker);
-    ego_circles_pub_->publish(marker_array);
+    ego_marker_pub_->publish(marker_array);
     return;
   }
 
-  const double offset_x = !ego_offset2geocenter.empty() ? ego_offset2geocenter[0] : 0.0;
-  const double offset_y = ego_offset2geocenter.size() > 1 ? ego_offset2geocenter[1] : 0.0;
+  double length = 0.0;
+  double width = 0.0;
+  std::array<double, 2> offset_to_geometric_center{};
 
-  const double radius = std::sqrt(std::pow(ego_length / (2.0 * n_ego_circles), 2) + std::pow(ego_width / 2.0, 2));
+  // define vehicle geometry based on model name (should match the OCP definition)
+  if (model_name == "karl") {
+    length = 5.173;
+    width = 1.94;
+    offset_to_geometric_center = {1.4895, 0.0};
+  } else if (model_name == "shuttle") {
+    length = 4.97;
+    width = 2.12;
+    offset_to_geometric_center = {0.0, 0.0};
+  } else {
+    RCLCPP_WARN(get_logger(), "Unknown model '%s'. Could not visualize ego boxes.", model_name.c_str());
+    return;
+  }
+
   const int state_dim = *nlp_dims_->nx;
-
-  int marker_id = 0;
   for (int stage = 0; stage <= n_shots_; ++stage) {
-    const size_t state_offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
-    const double base_x = x_trajectory[state_offset + 0];
-    const double base_y = x_trajectory[state_offset + 1];
-    const double psi = x_trajectory[state_offset + 5];
+    const size_t offset = static_cast<size_t>(stage) * static_cast<size_t>(state_dim);
+    const double yaw = x_trajectory[offset + 5];
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = vehicle_frame_id_;
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+    marker.ns = "ego-boxes";
+    marker.id = stage;
+    marker.type = visualization_msgs::msg::Marker::CUBE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x =
+        x_trajectory[offset] + offset_to_geometric_center[0] * std::cos(yaw) - offset_to_geometric_center[1] * std::sin(yaw);
+    marker.pose.position.y =
+        x_trajectory[offset + 1] + offset_to_geometric_center[0] * std::sin(yaw) + offset_to_geometric_center[1] * std::cos(yaw);
+    marker.pose.orientation.z = std::sin(0.5 * yaw);
+    marker.pose.orientation.w = std::cos(0.5 * yaw);
+    marker.scale.x = length;
+    marker.scale.y = width;
+    marker.scale.z = 0.05;
+    marker.color.a = 0.35F;
+    marker.color.g = 0.6F;
+    marker.color.b = 1.0F;
+    marker_array.markers.push_back(marker);
+  }
+  ego_marker_pub_->publish(marker_array);
+}
 
-    const double ego_center_x = base_x + offset_x * std::cos(psi) - offset_y * std::sin(psi);
-    const double ego_center_y = base_y + offset_x * std::sin(psi) + offset_y * std::cos(psi);
+void TrajectoryOptimizationNode::setSolverTimeout(double timeout_ms) {
+  double timeout_seconds = timeout_ms * 1e-3;
+  ocp_nlp_solver_opts_set(nlp_config_, nlp_opts_, "timeout_max_time", &timeout_seconds);
+}
 
-    for (int i = 0; i < n_ego_circles; ++i) {
-      const double lon_offset = -ego_length / 2.0 + (2 * i + 1) * ego_length / (2.0 * n_ego_circles);
-      const double x_offset = lon_offset * std::cos(psi);
-      const double y_offset = lon_offset * std::sin(psi);
+bool TrajectoryOptimizationNode::setSafetyConstraintActivation(bool use_configured_activation) {
+  const int dynamic_parameter_count = static_cast<int>(p_dynamic_weight_shape_[0] * p_dynamic_weight_shape_[1]);
 
-      visualization_msgs::msg::Marker marker;
-      marker.header.frame_id = vehicle_frame_id_;
-      marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
-      marker.lifetime = rclcpp::Duration::from_seconds(0.5);
-      marker.ns = "ego-circles";
-      marker.id = marker_id++;
-      marker.type = visualization_msgs::msg::Marker::CYLINDER;
-      marker.action = visualization_msgs::msg::Marker::ADD;
-      marker.pose.position.x = ego_center_x + x_offset;
-      marker.pose.position.y = ego_center_y + y_offset;
-      marker.pose.position.z = 0.0;
-      marker.pose.orientation.w = 1.0;
-      marker.scale.x = radius * 2.0;
-      marker.scale.y = radius * 2.0;
-      marker.scale.z = 0.05;
-      marker.color.a = 0.4;
-      marker.color.r = 0.0F;
-      marker.color.g = 0.6F;
-      marker.color.b = 1.0F;
-      marker_array.markers.push_back(marker);
+  std::array<int, 2> indices{dynamic_parameter_count, dynamic_parameter_count + 1};
+  std::array<double, 2> values{use_configured_activation && object_constraints_active_ ? 1.0 : 0.0,
+                               use_configured_activation && consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS ? 1.0 : 0.0};
+
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    const int status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, indices.data(), values.data(),
+                                                                            static_cast<int>(indices.size()));
+    if (status != ACADOS_SUCCESS) {
+      RCLCPP_ERROR(get_logger(), "Could not %s safety constraints at stage %d (ACADOS status %d); skipping planning cycle.",
+                   use_configured_activation ? "restore" : "disable", stage, status);
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TrajectoryOptimizationNode::solveAndValidate(PerformanceMetrics& metrics, bool& finite_solution) {
+  metrics.status = trajectory_optimization::acados_solve(ocp_capsule_);
+  PerformanceLogger::collectSolverStatistics(metrics, nlp_solver_, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                             performance_logger_ != nullptr || verbose_);
+
+  const bool usable_status =
+      metrics.status == ACADOS_SUCCESS || metrics.status == ACADOS_MAXITER || metrics.status == ACADOS_TIMEOUT;
+  if (usable_status) {
+    for (int stage = 0; stage <= nlp_dims_->N; ++stage) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "x", &xtraj_[stage * *nlp_dims_->nx]);
+    }
+    for (int stage = 0; stage < nlp_dims_->N; ++stage) {
+      ocp_nlp_out_get(nlp_config_, nlp_dims_, nlp_out_, stage, "u", &utraj_[stage * *nlp_dims_->nu]);
     }
   }
 
-  ego_circles_pub_->publish(marker_array);
+  finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
+                    std::isfinite(metrics.res_ineq) &&
+                    std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
+                    std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });
+  const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
+  return finite_solution && metrics.res_eq <= solver_opts->tol_eq && metrics.res_ineq <= solver_opts->tol_ineq;
 }
 
 void TrajectoryOptimizationNode::printSolution(const PerformanceMetrics& metrics) {
