@@ -5,22 +5,22 @@ optimization_horizon: 5.0         # optimization horizon [s] (also used in ROS n
 n_shots: 50                       # number of shooting intervals in optimization horizon (also used in ROS node)
 
 ### vehicle specific parameters
-wheelbase: 3.124                  # wheelbase [m]
-length: 5.173                     # length [m]
-width: 1.94                       # width [m]
-offset2geocenter: [1.4895, 0.0]   # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
+wheelbase: 4.997084140777588      # wheelbase [m]
+length: 7.935710430145264         # length [m]
+width: 2.935710430145264          # width [m]
+offset2geocenter: [2.67801, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
 
 ### constraints
-delta_max: 0.5434955291           # max. absolute steering angle [rad] (31.14°)
+delta_max: 1.221730351448059      # max. absolute steering angle [rad] (70.0°)
 v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
 v_max: 20.84                      # upper boundary constraint for longitudinal velocity [m/s] (75km/h)
 acceleration_max: 9.81            # max. absolute acceleration [m/s²]
-acceleration_t_min: -4.5          # max. negative tangential acceleration [m/s²]
-acceleration_t_max: 2.0           # max. positive tangential acceleration [m/s²]
-acceleration_n_max: 3.0           # max. absolute normal acceleration [m/s²]
-alpha_max: 0.7330382858           # max. absolute steering rate [rad/s] (42°/s)
-jerk_min: -5.0                    # max. negative tangential jerk [m/s²]
-jerk_max: 2.0                     # max. positive tangential jerk [m/s²]
+acceleration_t_min: -6.5          # max. negative tangential acceleration [m/s²]
+acceleration_t_max: 6.5           # max. positive tangential acceleration [m/s²]
+acceleration_n_max: 4.0           # max. absolute normal acceleration [m/s²]
+alpha_max: 1.221730351448059      # max. absolute steering rate [rad/s] (70°/s)
+jerk_min: -8.0                    # max. negative tangential jerk [m/s²]
+jerk_max: 8.0                     # max. positive tangential jerk [m/s²]
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
