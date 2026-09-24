@@ -8,7 +8,7 @@ n_shots: 50                       # number of shooting intervals in optimization
 wheelbase: 4.997084140777588      # wheelbase [m]
 length: 7.935710430145264         # length [m]
 width: 2.935710430145264          # width [m]
-offset2geocenter: [6.5, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
+offset2geocenter: [2.67801, 0.0]      # [long (x),lat (y)] distance from vehicle-frame to geometric center [m]
 
 ### constraints
 delta_max: 1.221730351448059      # max. absolute steering angle [rad] (70.0°)

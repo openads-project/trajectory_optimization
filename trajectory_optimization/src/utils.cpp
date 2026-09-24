@@ -344,9 +344,9 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
 
   // define vehicle geometry based on model name (should match the OCP definition)
   if (model_name == "karl") {
-    length = 5.173;
-    width = 1.94;
-    offset_to_geometric_center = {1.4895, 0.0};
+    length = 7.935710430145264;
+    width = 2.935710430145264;
+    offset_to_geometric_center = {2.67801, 0.0};
   } else if (model_name == "shuttle") {
     length = 4.97;
     width = 2.12;
