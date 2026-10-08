@@ -85,7 +85,9 @@ bool TrajectoryOptimizationNode::trajectory2outputFrame(trajectory_planning_msgs
   return true;
 }
 
-void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects) {
+void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::ObjectList& object_list,
+                                                     const int n_objects,
+                                                     const bool ignore_objects_behind_ego) {
   // sort object indices by distance to ego vehicle
   std::vector<size_t> indices_sorted_by_distance(object_list.objects.size());
   std::iota(indices_sorted_by_distance.begin(), indices_sorted_by_distance.end(), 0);
@@ -96,11 +98,11 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
            std::hypot(perception_msgs::object_access::getX(second_object), perception_msgs::object_access::getY(second_object));
   });
 
-  // keep only the closest n_objects that are in front of the ego vehicle
+  // keep only the closest n_objects, optionally excluding objects behind the ego vehicle
   std::vector<perception_msgs::msg::Object> closest_objects;
   closest_objects.reserve(std::min(static_cast<size_t>(n_objects), object_list.objects.size()));
   for (const size_t index : indices_sorted_by_distance) {
-    if (perception_msgs::object_access::getX(object_list.objects[index]) <= 0.0) continue;
+    if (ignore_objects_behind_ego && perception_msgs::object_access::getX(object_list.objects[index]) <= 0.0) continue;
     closest_objects.push_back(object_list.objects[index]);
     if (closest_objects.size() >= static_cast<size_t>(n_objects)) break;
   }

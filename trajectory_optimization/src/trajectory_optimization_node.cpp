@@ -78,6 +78,8 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter(
       "consider_objects", consider_objects_,
       "consider objects in optimization: 0 = none, 1 = static (no prediction), 2 = dynamic (with prediction)");
+  this->declareAndLoadParameter("ignore_objects_behind_ego", ignore_objects_behind_ego_,
+                                "Exclude objects with reference-point x <= 0 in vehicle_frame_id");
   this->declareAndLoadParameter("min_prediction_probability", min_prediction_probability_,
                                 "Minimum probability for predicted object states to be considered", true, false, false, 0.0, 1.0);
   this->declareAndLoadParameter(
@@ -600,7 +602,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     } else {
       tf_object_list = object_list;
     }
-    keepNClosestObjects(tf_object_list, static_cast<int>(p_objects_shape_[0]));
+    keepNClosestObjects(tf_object_list, static_cast<int>(p_objects_shape_[0]), ignore_objects_behind_ego_);
     // route
     if (!route.route_elements.empty() && route.header.frame_id != vehicle_frame_id_) {
       tf_route = tf2_buffer_->transform(route, vehicle_frame_id_, tf2_ros::fromMsg(ego_data.header.stamp),
