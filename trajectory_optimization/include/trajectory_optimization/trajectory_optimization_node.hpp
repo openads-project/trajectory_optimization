@@ -258,12 +258,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
 
   /**
-   * @brief Keeps the nearest forward objects and discards the remaining entries.
+   * @brief Keeps the nearest objects, optionally excluding those behind the ego vehicle.
    *
    * @param[in,out] object_list Object list to filter.
    * @param[in] n_objects Maximum number of objects to retain.
+   * @param[in] ignore_objects_behind_ego Exclude objects with reference-point x <= 0 in the optimizer frame.
    */
-  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list, const int n_objects);
+  static void keepNClosestObjects(perception_msgs::msg::ObjectList& object_list,
+                                  const int n_objects,
+                                  const bool ignore_objects_behind_ego);
 
   /**
    * @brief Enables the configured object and boundary constraints or temporarily disables all of them.
@@ -393,6 +396,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double standstill_threshold_ = 0.45;
   bool high_level_stabilization_ = false;
   uint8_t consider_objects_ = CONSIDER_OBJECTS::PREDICTED_OBJECTS;
+  bool ignore_objects_behind_ego_ = true;
   uint8_t consider_boundaries_ = CONSIDER_BOUNDARIES::SUGGESTED_LANE;
   bool run_as_callback_ = false;
 
