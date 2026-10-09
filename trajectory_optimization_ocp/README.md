@@ -36,6 +36,27 @@ Model/config parameterizations are defined in:
 - [`trajectory_optimization_ocp/config/karl_params.yml`](trajectory_optimization_ocp/config/karl_params.yml)
 - [`trajectory_optimization_ocp/config/shuttle_params.yml`](trajectory_optimization_ocp/config/shuttle_params.yml)
 
+### Forward-only dynamics
+
+Both bicycle models use a discrete transition that detects stopping inside a
+shooting interval. Motion is integrated only until the stopping time; negative
+longitudinal acceleration demand then holds the vehicle at zero speed. Positive
+jerk can release the brake and restart within the same interval. Steering can
+continue changing at standstill. Moving segments use two RK4 steps with exact
+longitudinal velocity at their evaluation points.
+
+State/control dimensions are unchanged. The longitudinal acceleration state and
+trajectory acceleration represent the acceleration/braking demand, including a
+negative holding demand at standstill. Its rate remains the jerk control;
+acceleration/jerk penalties and limits continue to penalize/limit that demand.
+The effective motion acceleration is zero while a stopped vehicle is held.
+
+The interval duration is appended to the existing stage parameters. The node
+sets it from the runtime horizon and uses the same generated transition for its
+warm start. Negative initial speed estimates are projected to zero, and the
+published velocity removes negative roundoff within the feasibility tolerance.
+Changing the model requires rebuilding both generated solvers and the nodes.
+
 ### Generated artifacts
 
 During build/install, this package provides:

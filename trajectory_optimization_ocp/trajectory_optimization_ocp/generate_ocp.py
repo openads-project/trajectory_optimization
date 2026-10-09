@@ -20,6 +20,7 @@ costs = importlib.import_module("costs")
 model_Ackermann = importlib.import_module("model_Ackermann")
 model_RWS = importlib.import_module("model_RWS")
 opts = importlib.import_module("opts")
+forward_dynamics = importlib.import_module("forward_dynamics")
 
 
 def parseArguments() -> argparse.Namespace:
@@ -63,6 +64,7 @@ def main():
     costs.set_costs(ocp, parameters)
     constraints.set_constraints(ocp, parameters)  # Set constraints AFTER costs as soft constraints need to modify cost
     opts.set_opts(ocp, parameters)
+    forward_dynamics.set_forward_discrete_dynamics(ocp, parameters)
     ocp.code_gen_options.code_export_directory = os.path.join(CURRENT_DIR_PATH, "c_generated_code")
     ocp.code_gen_options.json_file = f"{parameters['model_name']}.json"
 

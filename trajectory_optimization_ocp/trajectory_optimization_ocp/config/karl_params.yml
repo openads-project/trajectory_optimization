@@ -12,7 +12,7 @@ offset2geocenter: [1.4895, 0.0]   # [long (x),lat (y)] distance from vehicle-fra
 
 ### constraints
 delta_max: 0.5434955291           # max. absolute steering angle [rad] (31.14°)
-v_min: -0.01                      # lower boundary constraint for longitudinal velocity [m/s]
+v_min: 0.0                        # forward-only longitudinal velocity [m/s]
 v_max: 20.84                      # upper boundary constraint for longitudinal velocity [m/s] (75km/h)
 acceleration_max: 9.81            # max. absolute acceleration [m/s²]
 acceleration_t_min: -4.5          # max. negative tangential acceleration [m/s²]

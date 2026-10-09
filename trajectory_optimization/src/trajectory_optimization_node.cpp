@@ -308,6 +308,16 @@ void TrajectoryOptimizationNode::setupSolver() {
     exit(1);
   }
 
+  // The discrete transition takes the runtime interval as its last stage parameter.
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    int time_step_index = nlp_dims_->np[stage] - 1;
+    const int status =
+        trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, &time_step_index, new_time_steps.data(), 1);
+    if (status != ACADOS_SUCCESS) {
+      throw std::runtime_error("acados time-step update failed with status " + std::to_string(status));
+    }
+  }
+
   xtraj_.resize(*nlp_dims_->nx * (n_shots_ + 1));
   utraj_.resize(*nlp_dims_->nu * n_shots_);
   control_guess_.clear();
@@ -374,27 +384,16 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
 
   ocp_nlp_out_set_values_to_zero(nlp_config_, nlp_dims_, nlp_out_);
   std::vector<double> rollout_state = x_init;
-  std::vector<double> intermediate_state(nx);
-  std::vector<double> k1(nx), k2(nx), k3(nx), k4(nx);
-  const double integration_step = time_step / 2.0;
+  std::vector<double> next_state(nx);
   for (int stage = 0; stage < n_shots_; ++stage) {
     double* control = &controls[stage * nu];
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "x", rollout_state.data());
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", control);
 
-    // Match sim_method_num_stages=4 and sim_method_num_steps=2 from the generated OCP.
-    for (int integration = 0; integration < 2; ++integration) {
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, rollout_state.data(), control, k1.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k1[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k2.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k2[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k3.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + integration_step * k3[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k4.data());
-      for (int i = 0; i < nx; ++i) {
-        rollout_state[i] += integration_step / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
-      }
-    }
+    // Use exactly the same transition as the OCP, including stop/restart events.
+    trajectory_optimization::acados_evaluate_discrete_dynamics(ocp_capsule_, stage, rollout_state.data(), control,
+                                                               next_state.data());
+    rollout_state.swap(next_state);
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", rollout_state.data());
   return true;
@@ -459,6 +458,9 @@ void TrajectoryOptimizationNode::planningCycle() {
                 "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
   }
+
+  // Forward-only motion: negative speed estimates at standstill must not seed reverse motion.
+  x_init[3] = std::max(x_init[3], 0.0);
 
   // debug print of initial state
   std::stringstream ss;
@@ -537,6 +539,11 @@ void TrajectoryOptimizationNode::planningCycle() {
     resetSolver();
     logCompletedCycle();
     return;
+  }
+
+  // Remove negative roundoff within the accepted feasibility tolerance.
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    xtraj_[stage * *nlp_dims_->nx + 3] = std::max(xtraj_[stage * *nlp_dims_->nx + 3], 0.0);
   }
 
   control_guess_ = utraj_;
