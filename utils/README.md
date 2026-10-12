@@ -29,10 +29,18 @@ Each row describes one completed planning cycle:
   residuals.
 - **Rejected solutions:** largest constraint or dynamics violation including
   shooting stage, constraint type, index, and bound side.
+- **Desired clearance:** largest lower object-clearance slack in meters, with stage
+  and object-slot index, including accepted solutions (CSV schema 7). Boundary slacks
+  are excluded. Object constraint diagnostics distinguish `object_collision` from
+  `object_clearance`; positive clearance slacks do not relax physical separation.
 
 Detailed constraint diagnostics are collected only for finite solver outputs
 that are rejected. CSV writing happens after cycle timing and is therefore not
 included in `cycle_ms`.
+
+All lower/upper slacks are checked for finiteness before accepting solver output.
+Clearance statistics are collected for usable solver statuses when logging or verbose
+output is enabled; stage/index are -1 when no positive object-clearance slack is found.
 
 Analyze a run:
 

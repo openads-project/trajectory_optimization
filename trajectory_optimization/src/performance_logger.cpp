@@ -61,7 +61,8 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
          "acados_qp_solver_ms,acados_qp_xcond_ms,acados_reg_ms,acados_glob_ms,acados_preparation_ms,"
          "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
          "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
-         "max_eq_violation,max_eq_stage,max_eq_state\n";
+         "max_eq_violation,max_eq_stage,max_eq_state,"
+         "max_object_clearance_slack,max_object_clearance_slack_stage,max_object_clearance_slack_index\n";
   stream_.flush();
 }
 
@@ -169,11 +170,14 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
       metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
       metrics.max_ineq_index = 0;
     } else if (h_index < object_boxes + 2) {
-      metrics.max_ineq_type = "object";
+      metrics.max_ineq_type = "object_collision";
       metrics.max_ineq_index = h_index - 2;
+    } else if (h_index < 2 * object_boxes + 2) {
+      metrics.max_ineq_type = "object_clearance";
+      metrics.max_ineq_index = h_index - object_boxes - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
-      metrics.max_ineq_index = h_index - object_boxes - 2;
+      metrics.max_ineq_index = h_index - 2 * object_boxes - 2;
     }
   } else {
     metrics.max_ineq_type = "slack";
@@ -182,8 +186,45 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
+bool PerformanceLogger::collectSlackStatistics(PerformanceMetrics& metrics,
+                                               ocp_nlp_config* config,
+                                               ocp_nlp_dims* dims,
+                                               ocp_nlp_in* input,
+                                               ocp_nlp_out* output,
+                                               int object_boxes,
+                                               bool collect_details) {
+  metrics.max_object_clearance_slack = 0.0;
+  metrics.max_object_clearance_slack_stage = -1;
+  metrics.max_object_clearance_slack_index = -1;
+  bool finite_slacks = true;
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  for (int stage = 0; stage <= dims->N; ++stage) {
+    const int ns = dims->ns[stage];
+    if (ns == 0) continue;
+    std::vector<double> lower(ns), upper(ns);
+    ocp_nlp_out_get(config, dims, output, stage, "sl", lower.data());
+    ocp_nlp_out_get(config, dims, output, stage, "su", upper.data());
+    finite_slacks = finite_slacks && std::all_of(lower.begin(), lower.end(), [](double value) { return std::isfinite(value); }) &&
+                    std::all_of(upper.begin(), upper.end(), [](double value) { return std::isfinite(value); });
+    if (!collect_details) continue;
+    std::vector<int> slack_indices(ns);
+    ocp_nlp_constraints_model_get(config, dims, input, stage, "idxs", slack_indices.data());
+    const int clearance_start = dims->nb[stage] + dims->ng[stage] + 2 + object_boxes;
+    for (int slack = 0; slack < ns; ++slack) {
+      const int object_index = slack_indices[slack] - clearance_start;
+      if (object_index >= 0 && object_index < object_boxes && lower[slack] > metrics.max_object_clearance_slack) {
+        metrics.max_object_clearance_slack = lower[slack];
+        metrics.max_object_clearance_slack_stage = stage;
+        metrics.max_object_clearance_slack_index = object_index;
+      }
+    }
+  }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  return finite_slacks;
+}
+
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 6 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+  stream_ << std::setprecision(17) << 7 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
           << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
           << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
           << (metrics.relaxed_attempted ? 1 : 0) << ',' << metrics.failure_phase << ',' << metrics.relaxed_status << ','
@@ -197,7 +238,8 @@ void PerformanceLogger::write(const PerformanceMetrics& metrics) {
           << metrics.res_eq << ',' << metrics.res_ineq << ',' << metrics.res_comp << ',' << metrics.max_ineq_violation << ','
           << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ',' << metrics.max_ineq_index << ','
           << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ',' << metrics.max_eq_stage << ','
-          << metrics.max_eq_state << '\n';
+          << metrics.max_eq_state << ',' << metrics.max_object_clearance_slack << ',' << metrics.max_object_clearance_slack_stage
+          << ',' << metrics.max_object_clearance_slack_index << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();

@@ -61,6 +61,9 @@ struct PerformanceMetrics {
   double max_eq_violation = 0.0;
   int max_eq_stage = -1;
   int max_eq_state = -1;
+  double max_object_clearance_slack = 0.0;
+  int max_object_clearance_slack_stage = -1;
+  int max_object_clearance_slack_index = -1;
 };
 
 class PerformanceLogger {
@@ -138,6 +141,26 @@ class PerformanceLogger {
                                            ocp_nlp_solver* solver,
                                            const ocp_nlp_dims* dims,
                                            int object_boxes);
+
+  /**
+   * @brief Checks all slacks for finiteness and optionally collects desired-clearance statistics.
+   *
+   * @param[in,out] metrics Metrics populated with the largest lower object-clearance slack.
+   * @param[in] config acados NLP configuration.
+   * @param[in] dims acados NLP dimensions.
+   * @param[in] input acados NLP input containing the slack-to-constraint mapping.
+   * @param[in] output acados NLP output containing the slack values.
+   * @param[in] object_boxes Number of object boxes in each object constraint block.
+   * @param[in] collect_details Whether to collect object-clearance statistics.
+   * @return True if all lower and upper slack values are finite.
+   */
+  static bool collectSlackStatistics(PerformanceMetrics& metrics,
+                                     ocp_nlp_config* config,
+                                     ocp_nlp_dims* dims,
+                                     ocp_nlp_in* input,
+                                     ocp_nlp_out* output,
+                                     int object_boxes,
+                                     bool collect_details);
 
   /**
    * @brief Returns the path of the CSV performance log.

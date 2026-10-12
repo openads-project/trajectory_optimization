@@ -63,11 +63,11 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
-  this->declareAndLoadParameter("thw", thw_, "Time headway to front vehicle");
+  this->declareAndLoadParameter("thw", thw_, "Desired time headway to front vehicle [s]; soft when object slacks are enabled");
   this->declareAndLoadParameter("d_min_object_long", d_min_object_long_,
-                                "Minimum distance to keep to objects in longitudinal direction [m]");
+                                "Desired longitudinal object clearance [m]; soft when object slacks are enabled");
   this->declareAndLoadParameter("d_min_object_lat", d_min_object_lat_,
-                                "Minimum distance to keep to objects in lateral direction [m]");
+                                "Desired lateral object clearance [m]; soft when object slacks are enabled");
   this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
                                 "Minimum distance to keep to boundary in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
