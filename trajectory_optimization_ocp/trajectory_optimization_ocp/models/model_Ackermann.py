@@ -12,7 +12,6 @@ from constants import (
     STATE_INDEX_PSI,
     STATE_INDEX_V_T,
 )
-from forward_dynamics import forward_acceleration
 from utils import stable_tan
 
 
@@ -30,6 +29,7 @@ def set_model(ocp, config):
 
     # set constants
     wheelbase = config["wheelbase"]
+    tau_stop = 0.05  # braking time constant near standstill [s]
 
     # set up states
     x = MX.sym("x")
@@ -61,7 +61,7 @@ def set_model(ocp, config):
     f_x_dot = velocity * cos(state[STATE_INDEX_PSI])
     f_y_dot = velocity * sin(state[STATE_INDEX_PSI])
     f_s_dot = velocity
-    f_v_t_dot = forward_acceleration(velocity, state[STATE_INDEX_A_T])
+    f_v_t_dot = fmax(state[STATE_INDEX_A_T], -state[STATE_INDEX_V_T] / tau_stop)
     f_a_t_dot = u[CONTROL_INDEX_J_T]
     f_psi_dot = velocity / wheelbase * stable_tan(state[STATE_INDEX_DELTA_F])
     f_delta_f_dot = u[CONTROL_INDEX_ALPHA_F]

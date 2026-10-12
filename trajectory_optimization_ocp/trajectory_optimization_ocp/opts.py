@@ -24,7 +24,7 @@ def set_opts(ocp, config):
     # FULL_CONDENSING_DAQP          doesn't work, because some libs cannot be found when building with ACADOS_WITH_DAQP=ON
 
     opts.hessian_approx = "GAUSS_NEWTON"
-    opts.integrator_type = "DISCRETE"  # event-aware forward bicycle transition, including stops within an interval
+    opts.integrator_type = "ERK"
     opts.nlp_solver_type = "SQP_WITH_FEASIBLE_QP"
     opts.search_direction_mode = "BYRD_OMOJOKUN"
     opts.rti_log_residuals = 1
@@ -45,6 +45,8 @@ def set_opts(ocp, config):
     # opts.qp_solver_tol_ineq = 1e-4
     # opts.qp_solver_tol_comp = 1e-4
     opts.qp_tol = 1e-4
+    opts.sim_method_num_stages = 4  # default 4 -> Use Runge Kutta 4
+    opts.sim_method_num_steps = 4  # 25 ms substeps at the default horizon, resolving the 50 ms stopping time constant
     opts.globalization = "FIXED_STEP"  # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0  # default. 1 could help to solve the problem if 0 fails, but will be slower
     opts.globalization_line_search_use_sufficient_descent = (

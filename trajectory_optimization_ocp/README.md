@@ -38,24 +38,29 @@ Model/config parameterizations are defined in:
 
 ### Forward-only dynamics
 
-Both bicycle models use a discrete transition that detects stopping inside a
-shooting interval. Motion is integrated only until the stopping time; negative
-longitudinal acceleration demand then holds the vehicle at zero speed. Positive
-jerk can release the brake and restart within the same interval. Steering can
-continue changing at standstill. Moving segments use two RK4 steps with exact
-longitudinal velocity at their evaluation points.
+Both bicycle models keep continuous dynamics with ERK integration. Their
+longitudinal motion uses `v_dot = max(a, -v / tau_stop)`, with the build-time
+time constant `tau_stop = 0.05` s defined directly in both model files. Normal braking
+is unchanged until `v < -a * tau_stop`. Below that speed, braking decreases and
+velocity approaches zero exponentially rather than reaching exactly zero.
+At zero speed, negative demand holds the vehicle; positive demand allows restart.
+For constant braking at 4 m/s², the change starts below 0.2 m/s and adds 5 mm to
+the continuous-model stopping distance compared with an exact stop.
 
-State/control dimensions are unchanged. The longitudinal acceleration state and
-trajectory acceleration represent the acceleration/braking demand, including a
-negative holding demand at standstill. Its rate remains the jerk control;
-acceleration/jerk penalties and limits continue to penalize/limit that demand.
-The effective motion acceleration is zero while a stopped vehicle is held.
+State/control dimensions and stage parameters are unchanged. The longitudinal
+acceleration state and trajectory acceleration represent acceleration/braking
+demand. Its rate remains the jerk control, and acceleration/jerk penalties and
+limits apply to that demand. Near standstill, effective motion acceleration can
+differ from the demand.
 
-The interval duration is appended to the existing stage parameters. The node
-sets it from the runtime horizon and uses the same generated transition for its
-warm start. Negative initial speed estimates are projected to zero, and the
-published velocity removes negative roundoff within the feasibility tolerance.
-Changing the model requires rebuilding both generated solvers and the nodes.
+The OCP and existing warm-start rollout both use four RK4 steps per shooting
+interval (25 ms for the default 5 s horizon and 50 intervals). A larger runtime
+interval needs integration accuracy checked against the stopping time constant;
+ERK does not provide a general nonnegative-speed guarantee for arbitrary step
+sizes. Negative initial speed estimates are projected to zero, and published
+velocity removes negative roundoff within the feasibility tolerance. Existing
+standstill detection remains in use. Changing the model requires rebuilding
+both generated solvers and the nodes.
 
 ### Generated artifacts
 
