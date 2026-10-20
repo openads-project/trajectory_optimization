@@ -24,7 +24,7 @@ acceleration_t_max: 3.5           # max. positive tangential acceleration [m/s²
 acceleration_n_max: 8.0           # max. absolute normal acceleration [m/s²]
 jerk_min: -4.0                    # max. negative tangential jerk [m/s²]
 jerk_max: 4.0                     # max. positive tangential jerk [m/s³]
-d_min_object_collision: 0.10      # hard physical OBB separation reserve [m]; requires solver rebuild
+d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild
 # constraint on front and rear steering angle
 # none (default): no constraint, ICR (instantaneous center of rotation) is free to move
 # anti-phase: ICR is restricted to the y-axis in the vehicles center of gravity frame -> achieves minimum turning radius

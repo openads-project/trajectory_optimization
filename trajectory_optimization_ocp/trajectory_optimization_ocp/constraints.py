@@ -31,6 +31,7 @@ from utils import (
     stable_tan,
 )
 
+OBB_REAR_MARGIN_M = 0.1
 GEOMETRY_SMOOTHING_EPSILON_M = 1e-3
 SAT_SMOOTHING_TAU_M = 0.02
 SAT_POSITIVE_MARGIN_SCALE_M = 0.5
@@ -160,19 +161,19 @@ def set_constraints(ocp: AcadosOcp, config):
         np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_constraint_activation_shape"]) + np.prod(object_shape)
     )
 
-    # Physical separation is hard for every vehicle model.
-    collision_reserve = float(config["d_min_object_collision"])
-    if not np.isfinite(collision_reserve) or collision_reserve < 0.0:
+    # Hard minimum separation of the physical boxes; never relaxed by slacks.
+    d_min_object_collision = float(config["d_min_object_collision"])
+    if not np.isfinite(d_min_object_collision) or d_min_object_collision < 0.0:
         raise ValueError("d_min_object_collision must be finite and nonnegative")
 
     v_t = ocp.model.x[STATE_INDEX_V_T]
+    # Desired clearance box, soft when object slacks are enabled.
     # Both vehicle models are forward-only. THW and d_min_object_long protect
     # the front; the rear only needs a small physical clearance.
-    front_margin = ca.fmax(ca.fmax(d_min_object_long, collision_reserve), p_thw * ca.fmax(v_t, 0.0))
-    lateral_margin = ca.fmax(d_min_object_lat, collision_reserve)
-    safety_ego_obb = expand_ego_obb_forward(ego_obb, front_margin, collision_reserve, lateral_margin)
+    front_margin = ca.fmax(ca.fmax(d_min_object_long, 0.0), p_thw * ca.fmax(v_t, 0.0))
+    lateral_margin = ca.fmax(d_min_object_lat, 0.0)
+    clearance_obb = expand_ego_obb_forward(ego_obb, front_margin, OBB_REAR_MARGIN_M, lateral_margin)
     collision_constraints = []
-    clearance_constraints = []
     for i in range(object_shape[0]):
         base = i * object_shape[1]
         object_yaw = p_objects[base + P_OBJECTS_INDEX_YAW]
@@ -184,24 +185,21 @@ def set_constraints(ocp: AcadosOcp, config):
             "half_length": p_objects[base + P_OBJECTS_INDEX_HALF_LENGTH],
             "half_width": p_objects[base + P_OBJECTS_INDEX_HALF_WIDTH],
         }
+        sat_margin = conservative_smooth_sat_margin(clearance_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
+        sat_margin = saturate_positive_margin(sat_margin, SAT_POSITIVE_MARGIN_SCALE_M)
         active = p_object_activation * p_objects[base + P_OBJECTS_INDEX_ACTIVE]
-        collision_margin = (
-            conservative_smooth_sat_margin(ego_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
-            - collision_reserve
-        )
-        collision_margin = saturate_positive_margin(collision_margin, SAT_POSITIVE_MARGIN_SCALE_M)
+        constraint = activate_constraint(sat_margin, active)
+        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)
+        cons.lh = np.concatenate((cons.lh, [0.0]))
+        cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
+        collision_margin = conservative_smooth_sat_margin(ego_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
+        collision_margin = saturate_positive_margin(collision_margin - d_min_object_collision, SAT_POSITIVE_MARGIN_SCALE_M)
         collision_constraints.append(activate_constraint(collision_margin, active))
-        clearance_margin = conservative_smooth_sat_margin(
-            safety_ego_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M
-        )
-        clearance_margin = saturate_positive_margin(clearance_margin, SAT_POSITIVE_MARGIN_SCALE_M)
-        clearance_constraints.append(activate_constraint(clearance_margin, active))
 
-    # Keep contiguous blocks: boundaries, hard collision, desired clearance, vehicle.
-    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, *collision_constraints, *clearance_constraints)
-    object_constraint_count = len(collision_constraints) + len(clearance_constraints)
-    cons.lh = np.concatenate((cons.lh, np.zeros(object_constraint_count)))
-    cons.uh = np.concatenate((cons.uh, np.full(object_constraint_count, ACADOS_INFTY)))
+    # The hard collision constraints follow as a separate block that never receives slacks.
+    ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, *collision_constraints)
+    cons.lh = np.concatenate((cons.lh, np.zeros(len(collision_constraints))))
+    cons.uh = np.concatenate((cons.uh, np.full(len(collision_constraints), ACADOS_INFTY)))
 
     # --- a_abs_squared, psi_dot, steering_mode_constraint ---
     # Ackermann: psi_dot = v / l * tan(delta_f)
@@ -290,9 +288,7 @@ def set_constraints(ocp: AcadosOcp, config):
         )
 
     if config["enable_object_slack"]:
-        # Physical collision constraints never receive slacks.
-        clearance_start = boundary_constraints + len(collision_constraints)
-        slack_indices.extend(range(clearance_start, clearance_start + object_constraints))
+        slack_indices.extend(range(boundary_constraints, boundary_constraints + object_constraints))
         object_weights = config["object_slack_weights"]
         slack_weights["zl"].append(
             _expand_slack_weights(object_weights["linear_lower"], object_constraints, "object_slack_weights.linear_lower")

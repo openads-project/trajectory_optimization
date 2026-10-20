@@ -21,7 +21,7 @@ acceleration_n_max: 3.0           # max. absolute normal acceleration [m/s²]
 alpha_max: 0.7330382858           # max. absolute steering rate [rad/s] (42°/s)
 jerk_min: -5.0                    # max. negative tangential jerk [m/s²]
 jerk_max: 2.0                     # max. positive tangential jerk [m/s²]
-d_min_object_collision: 0.10      # hard physical OBB separation reserve [m]; requires solver rebuild
+d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]

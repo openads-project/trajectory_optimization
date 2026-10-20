@@ -170,10 +170,10 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
       metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
       metrics.max_ineq_index = 0;
     } else if (h_index < object_boxes + 2) {
-      metrics.max_ineq_type = "object_collision";
+      metrics.max_ineq_type = "object_clearance";
       metrics.max_ineq_index = h_index - 2;
     } else if (h_index < 2 * object_boxes + 2) {
-      metrics.max_ineq_type = "object_clearance";
+      metrics.max_ineq_type = "object_collision";
       metrics.max_ineq_index = h_index - object_boxes - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
@@ -209,7 +209,7 @@ bool PerformanceLogger::collectSlackStatistics(PerformanceMetrics& metrics,
     if (!collect_details) continue;
     std::vector<int> slack_indices(ns);
     ocp_nlp_constraints_model_get(config, dims, input, stage, "idxs", slack_indices.data());
-    const int clearance_start = dims->nb[stage] + dims->ng[stage] + 2 + object_boxes;
+    const int clearance_start = dims->nb[stage] + dims->ng[stage] + 2;
     for (int slack = 0; slack < ns; ++slack) {
       const int object_index = slack_indices[slack] - clearance_start;
       if (object_index >= 0 && object_index < object_boxes && lower[slack] > metrics.max_object_clearance_slack) {

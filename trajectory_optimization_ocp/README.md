@@ -38,25 +38,21 @@ Model/config parameterizations are defined in:
 
 ### Object constraints
 
-Both vehicle OCPs separate physical collision avoidance from desired clearance:
+Both vehicle OCPs separate desired clearance from physical collision avoidance:
 
-- The unexpanded oriented ego/object boxes must be separated by the build parameter
-  `d_min_object_collision` (default 0.10 m). This constraint never receives a slack.
-- The existing forward THW/longitudinal and lateral expansion defines desired clearance.
-  `enable_object_slack` softens only this clearance, using `object_slack_weights`.
-  Disabling it makes desired clearance hard as well; physical separation always stays hard.
+- Desired clearance: the ego box expanded by THW/`d_min_object_long` to the front,
+  `d_min_object_lat` to the sides and a small rear margin. `enable_object_slack` softens
+  this block using `object_slack_weights`; without slacks it stays hard.
+- Physical separation: the unexpanded ego and object boxes must be separated by the build
+  parameter `d_min_object_collision` (default 0.10 m). This block follows the clearance
+  block and never receives slacks.
 
-The physical constraint uses the existing conservative smooth SAT margin. Its reserve
-is required separation along a box axis; smoothing can demand slightly more clearance.
-Both object blocks apply at intermediate and terminal nodes, with the existing slot
-activation. The fixed initial state is not constrained retroactively. Node constraints
-alone do not guarantee collision avoidance between nodes or under incorrect predictions.
-
-Changing the reserve or slack weights requires rebuilding the generated solver.
-Desired `thw`, `d_min_object_long`, and `d_min_object_lat` remain runtime parameters.
-The collision reserve is required for all model configurations; omitting it cannot
-disable physical separation. Generation errors fail the build instead of reusing stale
-solver artifacts.
+Both blocks use the conservative smooth SAT margin and apply at intermediate and terminal
+nodes, not retroactively at the fixed initial state. Node constraints alone do not guarantee
+collision avoidance between nodes or under incorrect predictions. `thw`, `d_min_object_long`
+and `d_min_object_lat` are runtime parameters; changing `d_min_object_collision` or the slack
+weights requires rebuilding the generated solver. Generation errors fail the build instead of
+reusing stale solver artifacts.
 
 ### Forward-only dynamics
 
