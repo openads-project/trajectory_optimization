@@ -56,29 +56,23 @@ reusing stale solver artifacts.
 
 ### Forward-only dynamics
 
-Both bicycle models keep continuous dynamics with ERK integration. Their
-longitudinal motion uses `v_dot = max(a, -v / tau_stop)`, with the build-time
-time constant `tau_stop = 0.05` s defined directly in both model files. Normal braking
-is unchanged until `v < -a * tau_stop`. Below that speed, braking decreases and
-velocity approaches zero exponentially rather than reaching exactly zero.
-At zero speed, negative demand holds the vehicle; positive demand allows restart.
-For constant braking at 4 m/s², the change starts below 0.2 m/s and adds 5 mm to
-the continuous-model stopping distance compared with an exact stop.
+Both bicycle models use `v_dot = max(a, -v / tau_stop)` with `tau_stop = 0.05 s`.
+Braking is unchanged until `v < -a * tau_stop`; below that speed, velocity decays
+exponentially toward zero. Positive demand still permits restart. With Karl's
+configured braking limit, the approximation applies below 0.225 m/s.
 
-State/control dimensions and stage parameters are unchanged. The longitudinal
-acceleration state and trajectory acceleration represent acceleration/braking
-demand. Its rate remains the jerk control, and acceleration/jerk penalties and
-limits apply to that demand. Near standstill, effective motion acceleration can
-differ from the demand.
+The acceleration state and published trajectory acceleration represent demand,
+with `a_dot = j`. Longitudinal acceleration/jerk costs and limits apply to demand;
+effective acceleration and jerk can differ near standstill. State/control
+dimensions and stage parameters are unchanged.
 
-The OCP and existing warm-start rollout both use four RK4 steps per shooting
-interval (25 ms for the default 5 s horizon and 50 intervals). A larger runtime
-interval needs integration accuracy checked against the stopping time constant;
-ERK does not provide a general nonnegative-speed guarantee for arbitrary step
-sizes. Negative initial speed estimates are projected to zero, and published
-velocity removes negative roundoff within the feasibility tolerance. Existing
-standstill detection remains in use. Changing the model requires rebuilding
-both generated solvers and the nodes.
+The OCP and warm-start rollout use ERK/RK4 with four substeps per interval
+(25 ms by default). Other step sizes require validation; ERK alone does not
+guarantee nonnegative speed. The node clamps negative initial speed and, at zero
+speed, negative initial acceleration. Cached controls are cleared when the previous
+optimized trajectory indicates standstill. Published speeds are clamped to zero after feasibility
+validation to remove negative roundoff. Model changes require rebuilding both
+generated solvers and nodes.
 
 ### Generated artifacts
 
