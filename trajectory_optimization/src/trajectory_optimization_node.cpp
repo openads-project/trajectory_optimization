@@ -458,10 +458,14 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(),
                 "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
+    control_guess_.clear();  // rebuild the warm start from zero controls after a standstill trajectory.
   }
 
-  // Forward-only motion: negative speed estimates at standstill must not seed reverse motion.
+  // project stationary initial states onto forward-only motion.
   x_init[3] = std::max(x_init[3], 0.0);
+  if (x_init[3] == 0.0) {
+    x_init[4] = std::max(x_init[4], 0.0);
+  }
 
   // debug print of initial state
   std::stringstream ss;
