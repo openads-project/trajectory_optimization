@@ -3,7 +3,7 @@
 
 import numpy as np
 from acados_template import AcadosModel
-from casadi import atan, cos, MX, sin, vertcat
+from casadi import atan, cos, fmax, MX, sin, vertcat
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
@@ -32,6 +32,7 @@ def set_model(ocp, config):
     # set constants
     L_f = config["distance_cg_front_axle"]
     L_r = config["distance_cg_rear_axle"]
+    tau_stop = 0.05  # braking time constant near standstill [s]
 
     # set up states -> x = [x, y, s, v_t, a_t, psi, delta_f, delta_r,]
     x = MX.sym("x")
@@ -71,16 +72,14 @@ def set_model(ocp, config):
     )
 
     # dynamics : explicit DAE
-    f_x_dot = state[STATE_INDEX_V_T] * cos(state[STATE_INDEX_PSI] + beta)
-    f_y_dot = state[STATE_INDEX_V_T] * sin(state[STATE_INDEX_PSI] + beta)
-    f_s_dot = state[STATE_INDEX_V_T]
-    f_v_t_dot = state[STATE_INDEX_A_T]
+    velocity = fmax(state[STATE_INDEX_V_T], 0.0)
+    f_x_dot = velocity * cos(state[STATE_INDEX_PSI] + beta)
+    f_y_dot = velocity * sin(state[STATE_INDEX_PSI] + beta)
+    f_s_dot = velocity
+    f_v_t_dot = fmax(state[STATE_INDEX_A_T], -state[STATE_INDEX_V_T] / tau_stop)
     f_a_t_dot = u[CONTROL_INDEX_J_T]
     f_psi_dot = (
-        state[STATE_INDEX_V_T]
-        * cos(beta)
-        * (stable_tan(state[STATE_INDEX_DELTA_F]) - stable_tan(state[STATE_INDEX_DELTA_R]))
-        / (L_f + L_r)
+        velocity * cos(beta) * (stable_tan(state[STATE_INDEX_DELTA_F]) - stable_tan(state[STATE_INDEX_DELTA_R])) / (L_f + L_r)
     )
     f_alpha_f = u[CONTROL_INDEX_ALPHA_F]
     f_alpha_r = u[CONTROL_INDEX_ALPHA_R]

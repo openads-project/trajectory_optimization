@@ -46,7 +46,7 @@ def set_opts(ocp, config):
     # opts.qp_solver_tol_comp = 1e-4
     opts.qp_tol = 1e-4
     opts.sim_method_num_stages = 4  # default 4 -> Use Runge Kutta 4
-    opts.sim_method_num_steps = 2  # default 1. Not sure what this does, but 2 seems to make it slightly faster
+    opts.sim_method_num_steps = 4  # 25 ms substeps at the default horizon, resolving the 50 ms stopping time constant
     opts.globalization = "FIXED_STEP"  # default. String in ('FIXED_STEP', 'MERIT_BACKTRACKING').
     opts.globalization_use_SOC = 0  # default. 1 could help to solve the problem if 0 fails, but will be slower
     opts.globalization_line_search_use_sufficient_descent = (

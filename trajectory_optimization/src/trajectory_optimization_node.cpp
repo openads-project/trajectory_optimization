@@ -376,14 +376,14 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
   std::vector<double> rollout_state = x_init;
   std::vector<double> intermediate_state(nx);
   std::vector<double> k1(nx), k2(nx), k3(nx), k4(nx);
-  const double integration_step = time_step / 2.0;
+  const double integration_step = time_step / 4.0;
   for (int stage = 0; stage < n_shots_; ++stage) {
     double* control = &controls[stage * nu];
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "x", rollout_state.data());
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", control);
 
-    // Match sim_method_num_stages=4 and sim_method_num_steps=2 from the generated OCP.
-    for (int integration = 0; integration < 2; ++integration) {
+    // Match sim_method_num_stages=4 and sim_method_num_steps=4 from the generated OCP.
+    for (int integration = 0; integration < 4; ++integration) {
       trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, rollout_state.data(), control, k1.data());
       for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k1[i];
       trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k2.data());
@@ -458,6 +458,13 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(),
                 "Latest available trajectory is standstill. Using ego data for initial state (high-level initialization).");
     x_init = getHighLevelX0(ego_data_);
+    control_guess_.clear();  // rebuild the warm start from zero controls after a standstill trajectory.
+  }
+
+  // project stationary initial states onto forward-only motion.
+  x_init[3] = std::max(x_init[3], 0.0);
+  if (x_init[3] == 0.0) {
+    x_init[4] = std::max(x_init[4], 0.0);
   }
 
   // debug print of initial state
@@ -537,6 +544,11 @@ void TrajectoryOptimizationNode::planningCycle() {
     resetSolver();
     logCompletedCycle();
     return;
+  }
+
+  // Remove negative roundoff within the accepted feasibility tolerance.
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    xtraj_[stage * *nlp_dims_->nx + 3] = std::max(xtraj_[stage * *nlp_dims_->nx + 3], 0.0);
   }
 
   control_guess_ = utraj_;

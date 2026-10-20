@@ -36,6 +36,26 @@ Model/config parameterizations are defined in:
 - [`trajectory_optimization_ocp/config/karl_params.yml`](trajectory_optimization_ocp/config/karl_params.yml)
 - [`trajectory_optimization_ocp/config/shuttle_params.yml`](trajectory_optimization_ocp/config/shuttle_params.yml)
 
+### Forward-only dynamics
+
+Both bicycle models use `v_dot = max(a, -v / tau_stop)` with `tau_stop = 0.05 s`.
+Braking is unchanged until `v < -a * tau_stop`; below that speed, velocity decays
+exponentially toward zero. Positive demand still permits restart. With Karl's
+configured braking limit, the approximation applies below 0.225 m/s.
+
+The acceleration state and published trajectory acceleration represent demand,
+with `a_dot = j`. Longitudinal acceleration/jerk costs and limits apply to demand;
+effective acceleration and jerk can differ near standstill. State/control
+dimensions and stage parameters are unchanged.
+
+The OCP and warm-start rollout use ERK/RK4 with four substeps per interval
+(25 ms by default). Other step sizes require validation; ERK alone does not
+guarantee nonnegative speed. The node clamps negative initial speed and, at zero
+speed, negative initial acceleration. Cached controls are cleared when the previous
+optimized trajectory indicates standstill. Published speeds are clamped to zero after feasibility
+validation to remove negative roundoff. Model changes require rebuilding both
+generated solvers and nodes.
+
 ### Generated artifacts
 
 During build/install, this package provides:

@@ -3,7 +3,7 @@
 
 import numpy as np
 from acados_template import AcadosModel
-from casadi import cos, MX, sin, vertcat
+from casadi import cos, fmax, MX, sin, vertcat
 from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_J_T,
@@ -29,6 +29,7 @@ def set_model(ocp, config):
 
     # set constants
     wheelbase = config["wheelbase"]
+    tau_stop = 0.05  # braking time constant near standstill [s]
 
     # set up states
     x = MX.sym("x")
@@ -56,12 +57,13 @@ def set_model(ocp, config):
     state_dot = vertcat(x_dot, y_dot, s_dot, v_t_dot, a_t_dot, psi_dot, delta_f_dot)
 
     # dynamics
-    f_x_dot = state[STATE_INDEX_V_T] * cos(state[STATE_INDEX_PSI])
-    f_y_dot = state[STATE_INDEX_V_T] * sin(state[STATE_INDEX_PSI])
-    f_s_dot = state[STATE_INDEX_V_T]
-    f_v_t_dot = state[STATE_INDEX_A_T]
+    velocity = fmax(state[STATE_INDEX_V_T], 0.0)
+    f_x_dot = velocity * cos(state[STATE_INDEX_PSI])
+    f_y_dot = velocity * sin(state[STATE_INDEX_PSI])
+    f_s_dot = velocity
+    f_v_t_dot = fmax(state[STATE_INDEX_A_T], -state[STATE_INDEX_V_T] / tau_stop)
     f_a_t_dot = u[CONTROL_INDEX_J_T]
-    f_psi_dot = state[STATE_INDEX_V_T] / wheelbase * stable_tan(state[STATE_INDEX_DELTA_F])
+    f_psi_dot = velocity / wheelbase * stable_tan(state[STATE_INDEX_DELTA_F])
     f_delta_f_dot = u[CONTROL_INDEX_ALPHA_F]
     f_expl = vertcat(f_x_dot, f_y_dot, f_s_dot, f_v_t_dot, f_a_t_dot, f_psi_dot, f_delta_f_dot)
 
