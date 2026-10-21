@@ -21,8 +21,10 @@ set(GENERATOR generate_ocp.py)
 # Needs to be generated in different processes
 execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/karl_params.yml"
+  COMMAND_ERROR_IS_FATAL ANY
 )
 
 execute_process(
   COMMAND bash "-c" "python ${CMAKE_CURRENT_BINARY_DIR}/${GENERATOR} --config ${CMAKE_CURRENT_BINARY_DIR}/shuttle_params.yml"
+  COMMAND_ERROR_IS_FATAL ANY
 )

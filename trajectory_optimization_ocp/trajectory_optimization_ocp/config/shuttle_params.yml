@@ -24,6 +24,7 @@ acceleration_t_max: 3.5           # max. positive tangential acceleration [m/s²
 acceleration_n_max: 8.0           # max. absolute normal acceleration [m/s²]
 jerk_min: -4.0                    # max. negative tangential jerk [m/s²]
 jerk_max: 4.0                     # max. positive tangential jerk [m/s³]
+d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild
 # constraint on front and rear steering angle
 # none (default): no constraint, ICR (instantaneous center of rotation) is free to move
 # anti-phase: ICR is restricted to the y-axis in the vehicles center of gravity frame -> achieves minimum turning radius
@@ -48,7 +49,7 @@ boundary_slack_weights:                     # scalar or list (length 2)
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
-enable_object_slack: False                  # activate slack weights for object constraints
+enable_object_slack: True                   # soften desired THW/lateral clearance; physical separation stays hard
 object_slack_weights:                       # scalar or list (length n_objects)
   linear_lower: 50.0
   linear_upper: 50.0

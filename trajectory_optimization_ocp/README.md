@@ -36,6 +36,24 @@ Model/config parameterizations are defined in:
 - [`trajectory_optimization_ocp/config/karl_params.yml`](trajectory_optimization_ocp/config/karl_params.yml)
 - [`trajectory_optimization_ocp/config/shuttle_params.yml`](trajectory_optimization_ocp/config/shuttle_params.yml)
 
+### Object constraints
+
+Both vehicle OCPs separate desired clearance from physical collision avoidance:
+
+- Desired clearance: the ego box expanded by THW/`d_min_object_long` to the front,
+  `d_min_object_lat` to the sides and a small rear margin. `enable_object_slack` softens
+  this block using `object_slack_weights`; without slacks it stays hard.
+- Physical separation: the unexpanded ego and object boxes must be separated by the build
+  parameter `d_min_object_collision` (default 0.10 m). This block follows the clearance
+  block and never receives slacks.
+
+Both blocks use the conservative smooth SAT margin and apply at intermediate and terminal
+nodes, not retroactively at the fixed initial state. Node constraints alone do not guarantee
+collision avoidance between nodes or under incorrect predictions. `thw`, `d_min_object_long`
+and `d_min_object_lat` are runtime parameters; changing `d_min_object_collision` or the slack
+weights requires rebuilding the generated solver. Generation errors fail the build instead of
+reusing stale solver artifacts.
+
 ### Forward-only dynamics
 
 Both bicycle models use `v_dot = max(a, -v / tau_stop)` with `tau_stop = 0.05 s`.

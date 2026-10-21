@@ -427,7 +427,11 @@ bool TrajectoryOptimizationNode::solveAndValidate(PerformanceMetrics& metrics, b
     }
   }
 
-  finite_solution = usable_status && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
+  const bool finite_slacks =
+      usable_status && PerformanceLogger::collectSlackStatistics(metrics, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
+                                                                 static_cast<int>(p_objects_shape_[0]),
+                                                                 performance_logger_ != nullptr || verbose_);
+  finite_solution = usable_status && finite_slacks && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
                     std::isfinite(metrics.res_ineq) &&
                     std::all_of(xtraj_.begin(), xtraj_.end(), [](double value) { return std::isfinite(value); }) &&
                     std::all_of(utraj_.begin(), utraj_.end(), [](double value) { return std::isfinite(value); });

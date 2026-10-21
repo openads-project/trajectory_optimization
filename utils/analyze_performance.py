@@ -26,7 +26,7 @@ TIMING_METRICS = [
     "acados_preparation_ms",
     "acados_feedback_ms",
 ]
-QUALITY_METRICS = ["sqp_iter", "qp_iter", "kkt", "nlp_res", "cost"]
+QUALITY_METRICS = ["sqp_iter", "qp_iter", "kkt", "nlp_res", "cost", "max_object_clearance_slack"]
 
 
 class Color:
@@ -216,6 +216,14 @@ def print_run(path, records, summary, deadline_ms):
         print(f"rejected_constraint_types={{{diagnostics}}}")
         if indices:
             print(f"rejected_constraint_indices={{{indices}}}")
+    published_slacks = values_for(
+        [record for record in records if number(record.get("published")) == 1], "max_object_clearance_slack"
+    )
+    if published_slacks:
+        print(
+            f"published_clearance_slack_above_1e-4m={sum(value > 1e-4 for value in published_slacks)}/{len(published_slacks)} "
+            f"max={max(published_slacks):.4g}m"
+        )
     print(paint(f"{'metric':24} {'count':>7} {'mean':>11} {'p50':>11} {'p95':>11} {'p99':>11} {'max':>11}", Color.BOLD))
     for key in TIMING_METRICS + QUALITY_METRICS:
         values = values_for(records, key)

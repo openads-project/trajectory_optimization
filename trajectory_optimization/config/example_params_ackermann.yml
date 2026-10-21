@@ -47,7 +47,7 @@
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
-    thw: 2.0                    # time headway [s]
-    d_min_object_long: 1.0      # minimum distance to keep to objects in longitudinal direction [m]
-    d_min_object_lat: 0.1       # minimum distance to keep to objects in lateral direction [m]
+    thw: 2.0                    # desired time headway [s]; soft with object slacks
+    d_min_object_long: 1.0      # desired longitudinal object clearance [m]; soft with object slacks
+    d_min_object_lat: 0.1       # desired lateral object clearance [m]; soft with object slacks
     d_min_boundary_lat: 0.0      # minimum distance to keep to boundaries in lateral direction [m]

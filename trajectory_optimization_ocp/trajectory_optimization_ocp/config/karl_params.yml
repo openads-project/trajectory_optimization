@@ -21,6 +21,7 @@ acceleration_n_max: 3.0           # max. absolute normal acceleration [m/s²]
 alpha_max: 0.7330382858           # max. absolute steering rate [rad/s] (42°/s)
 jerk_min: -5.0                    # max. negative tangential jerk [m/s²]
 jerk_max: 2.0                     # max. positive tangential jerk [m/s²]
+d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
@@ -40,7 +41,7 @@ boundary_slack_weights:                     # scalar or list (length 2)
   linear_upper: 10.0
   quadratic_lower: 100.0
   quadratic_upper: 100.0
-enable_object_slack: False                  # activate slack weights for object constraints
+enable_object_slack: True                   # soften desired THW/lateral clearance; physical separation stays hard
 object_slack_weights:                       # scalar or list (length n_objects)
   linear_lower: 50.0
   linear_upper: 50.0

@@ -59,9 +59,9 @@ flowchart LR
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
-| `thw` | `float` | `2.0` | Time headway to front vehicle |
-| `d_min_object_long` | `float` | `5.0` | Minimum distance to keep to objects in longitudinal direction [m] |
-| `d_min_object_lat` | `float` | `0.5` | Minimum distance to keep to objects in lateral direction [m] |
+| `thw` | `float` | `2.0` | Desired time headway to front vehicle [s]; soft when object slacks are enabled |
+| `d_min_object_long` | `float` | `5.0` | Desired longitudinal object clearance [m]; soft when object slacks are enabled |
+| `d_min_object_lat` | `float` | `0.5` | Desired lateral object clearance [m]; soft when object slacks are enabled |
 | `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
