@@ -8,7 +8,10 @@ var searchData=
   ['max_5fineq_5fstage_5',['max_ineq_stage',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a4b0ac2bab29432a82a1f07f7ee007a44',1,'trajectory_optimization::PerformanceMetrics']]],
   ['max_5fineq_5ftype_6',['max_ineq_type',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a626f99e38b3b8b3ff4de88172088045d',1,'trajectory_optimization::PerformanceMetrics']]],
   ['max_5fineq_5fviolation_7',['max_ineq_violation',['../structtrajectory__optimization_1_1PerformanceMetrics.html#aba6a0804837829e2b341a97a2ef4a63f',1,'trajectory_optimization::PerformanceMetrics']]],
-  ['message_5fframe_5fid_5f_8',['message_frame_id_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a8a037949e13058f2cb872395c7616927',1,'dummy_input_generation::DummyInputGenerationNode']]],
-  ['min_5fprediction_5fprobability_5f_9',['min_prediction_probability_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a5db1f1c42ef0748bce2ab59e79605ebd',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
-  ['model_5fname_5f_10',['model_name_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aa830c9ae865ebbcfbb6ed71a869d08c3',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
+  ['max_5fobject_5fclearance_5fslack_8',['max_object_clearance_slack',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a9abc359faff77d97a78b35b688ce36fa',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['max_5fobject_5fclearance_5fslack_5findex_9',['max_object_clearance_slack_index',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a7647a63a47cce0605e301934e3c8800b',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['max_5fobject_5fclearance_5fslack_5fstage_10',['max_object_clearance_slack_stage',['../structtrajectory__optimization_1_1PerformanceMetrics.html#a371b617b2a49f9a0954332dd40c4c1d9',1,'trajectory_optimization::PerformanceMetrics']]],
+  ['message_5fframe_5fid_5f_11',['message_frame_id_',['../classdummy__input__generation_1_1DummyInputGenerationNode.html#a8a037949e13058f2cb872395c7616927',1,'dummy_input_generation::DummyInputGenerationNode']]],
+  ['min_5fprediction_5fprobability_5f_12',['min_prediction_probability_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a5db1f1c42ef0748bce2ab59e79605ebd',1,'trajectory_optimization::TrajectoryOptimizationNode']]],
+  ['model_5fname_5f_13',['model_name_',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#aa830c9ae865ebbcfbb6ed71a869d08c3',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];

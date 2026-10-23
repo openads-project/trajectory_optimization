@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['keepnclosestobjects_0',['keepNClosestObjects',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a066bb231f942bd70a5acd686ce0870ff',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
+  ['keepnclosestobjects_0',['keepNClosestObjects',['../classtrajectory__optimization_1_1TrajectoryOptimizationNode.html#a584d5fa6996c92b4f74d4a5300880640',1,'trajectory_optimization::TrajectoryOptimizationNode']]]
 ];
