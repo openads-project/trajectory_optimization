@@ -519,6 +519,9 @@ void TrajectoryOptimizationNode::planningCycle() {
                   "tolerances=[eq=%e, ineq=%e].",
                   metrics.status, finite_solution, metrics.res_eq, metrics.res_ineq, solver_opts->tol_eq, solver_opts->tol_ineq);
       resetSolver();
+      // publish empty trajectory to indicate a completed cycle without a new solution
+      trajectory->states.clear();
+      trajectory_pub_->publish(std::move(trajectory));
       logCompletedCycle();
       return;
     }
@@ -542,6 +545,9 @@ void TrajectoryOptimizationNode::planningCycle() {
     }
     // keep the last published solution as warm-start source
     resetSolver();
+    // publish empty trajectory to indicate a completed cycle without a new solution
+    trajectory->states.clear();
+    trajectory_pub_->publish(std::move(trajectory));
     logCompletedCycle();
     return;
   }
