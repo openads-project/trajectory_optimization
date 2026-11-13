@@ -77,6 +77,13 @@ are not unique cycle identifiers.
 `ego_callback_to_cycle_wall_ms` uses a monotonic clock to measure how long the
 last processed EgoData callback preceded cycle start. It does not measure how
 long the message waited in the middleware or executor before that callback.
+
+Inputs now update independently of solver execution. The callback timestamp in
+each row belongs to the EgoData selected in that cycle's snapshot; later callbacks
+do not change it. Snapshot copying is included in preprocessing time. The
+snapshot selects the latest processed message from each topic without timestamp
+synchronization.
+
 `cycle_interval_wall_ms` measures successive cycle starts, making timer phase
 and overruns observable locally. `cycle_start_wall_ns` is a system-clock epoch
 for correlating logs across hosts; it requires verified host clock alignment.

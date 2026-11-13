@@ -59,7 +59,7 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("debug_visualization", debug_viz_,
                                 "Publish debug visualization markers for ego, objects and boundaries");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
-                                "Run OCP once for each received reference trajectory (true) or on a timer (false)");
+                                "Run OCP on reference updates, coalescing while busy (true), or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Desired time headway to front vehicle [s]; soft when object slacks are enabled");
@@ -214,22 +214,31 @@ void TrajectoryOptimizationNode::setup() {
   parameters_callback_ = this->add_on_set_parameters_callback(
       std::bind(&TrajectoryOptimizationNode::parametersCallback, this, std::placeholders::_1));
 
+  // keep solver timers and parameter callbacks in the mutually exclusive default group.
+  input_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  rclcpp::SubscriptionOptions input_options;
+  input_options.callback_group = input_callback_group_;
+  // this cancelled timer acts as a one-shot wakeup for reference-triggered solves.
+  reference_cycle_timer_ =
+      create_wall_timer(std::chrono::nanoseconds(1), std::bind(&TrajectoryOptimizationNode::processReferenceCycle, this));
+  reference_cycle_timer_->cancel();
+
   // set up subscriber for input topics
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
-      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
-      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
-      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
       "~/reference_trajectory", 1,
-      std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
+      std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topics
@@ -400,7 +409,7 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
 }
 
 void TrajectoryOptimizationNode::planningCycle() {
-  const auto cycle_start = SteadyClock::now();
+  const auto cycle_start = takeInputSnapshot();
   PerformanceMetrics metrics;
   metrics.cycle = ++logging_cycle_;
   metrics.cycle_start_wall_ns =

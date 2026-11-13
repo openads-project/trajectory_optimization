@@ -39,15 +39,17 @@ target_link_libraries(${TARGET_NAME}
   acados
 )
 
-rclcpp_components_register_node(${TARGET_NAME}
-  PLUGIN "trajectory_optimization::TrajectoryOptimizationAckermannNode"
-  EXECUTABLE trajectory_optimization_ackermann_node
+rclcpp_components_register_nodes(${TARGET_NAME}
+  "trajectory_optimization::TrajectoryOptimizationAckermannNode"
+  "trajectory_optimization::TrajectoryOptimizationRWSNode"
 )
 
-rclcpp_components_register_node(${TARGET_NAME}
-  PLUGIN "trajectory_optimization::TrajectoryOptimizationRWSNode"
-  EXECUTABLE trajectory_optimization_rws_node
-)
+foreach(model ackermann rws)
+  add_executable(trajectory_optimization_${model}_node src/main_${model}.cpp)
+  target_link_libraries(trajectory_optimization_${model}_node ${TARGET_NAME})
+  ament_target_dependencies(trajectory_optimization_${model}_node rclcpp acados)
+  install(TARGETS trajectory_optimization_${model}_node DESTINATION lib/${PROJECT_NAME})
+endforeach()
 
 target_include_directories(${TARGET_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -96,6 +98,13 @@ if(BUILD_TESTING)
   ament_add_gtest(test_performance_logger test/test_performance_logger.cpp)
   target_link_libraries(test_performance_logger ${TARGET_NAME})
   ament_target_dependencies(test_performance_logger acados)
+  ament_add_gtest(test_input_callbacks test/test_input_callbacks.cpp)
+  target_link_libraries(test_input_callbacks ${TARGET_NAME})
+  ament_target_dependencies(test_input_callbacks rclcpp acados)
+  target_compile_definitions(test_input_callbacks PRIVATE
+    TEST_PARAMETER_FILE="${CMAKE_CURRENT_SOURCE_DIR}/config/example_params_ackermann.yml")
+  set_tests_properties(test_input_callbacks PROPERTIES
+    ENVIRONMENT "RMW_IMPLEMENTATION=rmw_fastrtps_cpp;ROS_DOMAIN_ID=83")
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_clang_format_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/format/.clang-format)
   set(ament_cmake_clang_tidy_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/.clang-tidy)
