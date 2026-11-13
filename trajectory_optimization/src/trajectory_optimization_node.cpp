@@ -55,12 +55,11 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
   this->declareAndLoadParameter("constrained_solve_timeout_ms", constrained_solve_timeout_ms_,
                                 "ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout");
   this->declareAndLoadParameter("verbose", verbose_, "Print solver statistics");
-  this->declareAndLoadParameter("performance_logging", performance_logging_,
-                                "Write one CSV record for every completed solver run");
+  this->declareAndLoadParameter("performance_logging", performance_logging_, "Write one CSV record for every planning cycle");
   this->declareAndLoadParameter("debug_visualization", debug_viz_,
                                 "Publish debug visualization markers for ego, objects and boundaries");
   this->declareAndLoadParameter("run_as_callback", run_as_callback_,
-                                "Run OCP once for each received reference trajectory (true) or on a timer (false)");
+                                "Run OCP on reference updates, coalescing while busy (true), or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
   this->declareAndLoadParameter("thw", thw_, "Desired time headway to front vehicle [s]; soft when object slacks are enabled");
@@ -215,22 +214,31 @@ void TrajectoryOptimizationNode::setup() {
   parameters_callback_ = this->add_on_set_parameters_callback(
       std::bind(&TrajectoryOptimizationNode::parametersCallback, this, std::placeholders::_1));
 
+  // keep solver timers and parameter callbacks in the mutually exclusive default group.
+  input_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  rclcpp::SubscriptionOptions input_options;
+  input_options.callback_group = input_callback_group_;
+  // this cancelled timer acts as a one-shot wakeup for reference-triggered solves.
+  reference_cycle_timer_ =
+      create_wall_timer(std::chrono::nanoseconds(1), std::bind(&TrajectoryOptimizationNode::processReferenceCycle, this));
+  reference_cycle_timer_->cancel();
+
   // set up subscriber for input topics
   ego_data_sub_ = this->create_subscription<perception_msgs::msg::EgoData>(
-      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1));
+      "~/ego_data", 1, std::bind(&TrajectoryOptimizationNode::egoDataCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", ego_data_sub_->get_topic_name());
 
   object_list_sub_ = this->create_subscription<perception_msgs::msg::ObjectList>(
-      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1));
+      "~/object_list", 1, std::bind(&TrajectoryOptimizationNode::objectListCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", object_list_sub_->get_topic_name());
 
   route_sub_ = this->create_subscription<route_planning_msgs::msg::Route>(
-      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1));
+      "~/route", 1, std::bind(&TrajectoryOptimizationNode::routeCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", route_sub_->get_topic_name());
 
   reference_trajectory_sub_ = this->create_subscription<trajectory_planning_msgs::msg::Trajectory>(
       "~/reference_trajectory", 1,
-      std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1));
+      std::bind(&TrajectoryOptimizationNode::referenceTrajectoryCallback, this, std::placeholders::_1), input_options);
   RCLCPP_INFO(this->get_logger(), "Subscribed to '%s'", reference_trajectory_sub_->get_topic_name());
 
   // set up publisher for output topics
@@ -401,10 +409,40 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
 }
 
 void TrajectoryOptimizationNode::planningCycle() {
-  const auto cycle_start = SteadyClock::now();
+  const auto cycle_start = takeInputSnapshot();
+  PerformanceMetrics metrics;
+  metrics.cycle = ++logging_cycle_;
+  metrics.cycle_start_wall_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  metrics.cycle_start_ros_ns = now().nanoseconds();
+  metrics.ego_callback_ros_ns = ego_callback_ros_ns_;
+  if (ego_callback_steady_time_) {
+    metrics.ego_callback_to_cycle_wall_ms = elapsedMilliseconds(*ego_callback_steady_time_, cycle_start);
+  }
+  if (previous_cycle_start_) {
+    metrics.cycle_interval_wall_ms = elapsedMilliseconds(*previous_cycle_start_, cycle_start);
+  }
+  previous_cycle_start_ = cycle_start;
+  metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
+  metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
+  metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();
+  metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
+  metrics.objects = static_cast<int>(object_list_.objects.size());
+  bool preprocessing_completed = false;
+  auto logCompletedCycle = [&]() {
+    metrics.cycle_ms = elapsedMilliseconds(cycle_start);
+    if (!preprocessing_completed) metrics.preprocessing_ms = metrics.cycle_ms;
+    metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
+    if (performance_logger_) {
+      performance_logger_->write(metrics);
+    }
+  };
+
   if (debug_viz_) viz_object_boxes_.clear();
   if (rclcpp::Time(this->now()) - rclcpp::Time(ego_data_.header.stamp) > rclcpp::Duration::from_seconds(ego_data_timeout_)) {
     RCLCPP_WARN(this->get_logger(), "EgoData outdated. Skipping planning cycle.");
+    metrics.outcome = "outdated_ego";
+    logCompletedCycle();
     return;
   }
   // init trajectory message and set header
@@ -413,6 +451,14 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   trajectory->header.frame_id = vehicle_frame_id_;
   trajectory->header.stamp = ego_data_.header.stamp;  // use latest ego_data stamp as trajectory stamp
+
+  auto publishTrajectory = [&]() {
+    // capture ROS age immediately before handing the message to the middleware.
+    metrics.publish_ros_ns = now().nanoseconds();
+    metrics.trajectory_states = static_cast<int>(trajectory->states.size());
+    trajectory_pub_->publish(std::move(trajectory));
+    metrics.message_published = true;
+  };
 
   // init time-steps of trajectory to ensure increasing time-steps even for standstill trajectories
   double dt = optimization_horizon_ / n_shots_;
@@ -423,32 +469,22 @@ void TrajectoryOptimizationNode::planningCycle() {
     RCLCPP_WARN(this->get_logger(), "Standstill trajectory. Skipping planning cycle. Publish standstill trajectory.");
     // transform trajectory to output frame
     if (!trajectory2outputFrame(*trajectory)) {
+      metrics.outcome = "output_transform_failure";
+      logCompletedCycle();
       return;
     }
     trajectory_planning_msgs::trajectory_access::setStandstill(*trajectory, true);
-    trajectory_pub_->publish(std::move(trajectory));
+    metrics.outcome = "standstill";
+    publishTrajectory();
+    metrics.published = true;
     // Invalidate the warm start and reset the solver once when entering standstill.
     if (!control_guess_.empty()) {
       control_guess_.clear();
       resetSolver();
     }
+    logCompletedCycle();
     return;
   }
-
-  PerformanceMetrics metrics;
-  metrics.cycle = ++logging_cycle_;
-  metrics.ego_stamp_ns = rclcpp::Time(ego_data_.header.stamp).nanoseconds();
-  metrics.reference_stamp_ns = rclcpp::Time(reference_trajectory_.header.stamp).nanoseconds();
-  metrics.route_stamp_ns = rclcpp::Time(route_.header.stamp).nanoseconds();
-  metrics.reference_points = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory_);
-  metrics.objects = static_cast<int>(object_list_.objects.size());
-  auto logCompletedCycle = [&]() {
-    metrics.cycle_ms = elapsedMilliseconds(cycle_start);
-    metrics.postprocessing_ms = metrics.cycle_ms - metrics.preprocessing_ms - metrics.solve_wall_ms;
-    if (performance_logger_) {
-      performance_logger_->write(metrics);
-    }
-  };
 
   // set initial state
   std::vector<double> x_init(*nlp_dims_->nx, 0.0);
@@ -479,11 +515,15 @@ void TrajectoryOptimizationNode::planningCycle() {
   // update inputs to the ocp; skip planning cycle if update fails
   if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
+    metrics.outcome = "input_transform_failure";
+    logCompletedCycle();
     return;
   }
 
   if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp))) {
     control_guess_.clear();
+    metrics.outcome = "initial_guess_failure";
+    logCompletedCycle();
     return;
   }
 
@@ -492,6 +532,8 @@ void TrajectoryOptimizationNode::planningCycle() {
   // then solve the constrained OCP using either the relaxed solution or the regular warm start
   const auto solve_start = SteadyClock::now();
   metrics.preprocessing_ms = elapsedMilliseconds(cycle_start, solve_start);
+  metrics.solve_start_ros_ns = now().nanoseconds();
+  preprocessing_completed = true;
   const auto* solver_opts = trajectory_optimization::acados_get_common_nlp_opts(nlp_config_, nlp_opts_);
   bool finite_solution = false;
   bool primal_feasible = false;
@@ -499,19 +541,31 @@ void TrajectoryOptimizationNode::planningCycle() {
   // solve the relaxed OCP (if configured and necessary)
   if (two_stage_optimization_ && (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS || object_constraints_active_)) {
     metrics.relaxed_attempted = true;
-    if (!setSafetyConstraintActivation(false)) return;
+    if (!setSafetyConstraintActivation(false)) {
+      metrics.outcome = "constraint_activation_failure";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      logCompletedCycle();
+      return;
+    }
 
     setSolverTimeout(relaxed_solve_timeout_ms_);
     const auto relaxed_solve_start = SteadyClock::now();
+    metrics.solver_called = true;
     const bool relaxed_primal_feasible = solveAndValidate(metrics, finite_solution);
     metrics.relaxed_solve_wall_ms = elapsedMilliseconds(relaxed_solve_start);
     metrics.relaxed_status = metrics.status;
 
     // evaluate the relaxed residuals before restoration, but retain its nlp_out_
-    if (!setSafetyConstraintActivation(true)) return;
+    if (!setSafetyConstraintActivation(true)) {
+      metrics.outcome = "constraint_activation_failure";
+      metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
+      logCompletedCycle();
+      return;
+    }
 
     if (!relaxed_primal_feasible) {
       metrics.failure_phase = "relaxed";
+      metrics.outcome = "rejected_solution";
       metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
       printSolution(metrics);
       RCLCPP_WARN(get_logger(),
@@ -521,7 +575,7 @@ void TrajectoryOptimizationNode::planningCycle() {
       resetSolver();
       // publish empty trajectory to indicate a completed cycle without a new solution
       trajectory->states.clear();
-      trajectory_pub_->publish(std::move(trajectory));
+      publishTrajectory();
       logCompletedCycle();
       return;
     }
@@ -530,12 +584,14 @@ void TrajectoryOptimizationNode::planningCycle() {
   // solve the constrained OCP using either the relaxed solution or the regular warm start
   setSolverTimeout(constrained_solve_timeout_ms_);
   const auto constrained_solve_start = SteadyClock::now();
+  metrics.solver_called = true;
   primal_feasible = solveAndValidate(metrics, finite_solution);
   metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
 
   if (!primal_feasible) {
     metrics.failure_phase = "constrained";
+    metrics.outcome = "rejected_solution";
     printSolution(metrics);
     RCLCPP_WARN(this->get_logger(),
                 "Rejecting solver output: status=%d finite=%d primal residuals=[eq=%e, ineq=%e] tolerances=[eq=%e, ineq=%e].",
@@ -547,7 +603,7 @@ void TrajectoryOptimizationNode::planningCycle() {
     resetSolver();
     // publish empty trajectory to indicate a completed cycle without a new solution
     trajectory->states.clear();
-    trajectory_pub_->publish(std::move(trajectory));
+    publishTrajectory();
     logCompletedCycle();
     return;
   }
@@ -577,12 +633,14 @@ void TrajectoryOptimizationNode::planningCycle() {
 
   // transform trajectory to output frame
   if (!trajectory2outputFrame(*trajectory)) {
+    metrics.outcome = "output_transform_failure";
     logCompletedCycle();
     return;
   }
 
   latest_valid_trajectory_ = *trajectory;
-  trajectory_pub_->publish(std::move(trajectory));
+  metrics.outcome = "valid_solution";
+  publishTrajectory();
   metrics.published = true;
   logCompletedCycle();
   const char* cycle_time_color = metrics.cycle_ms <= 100.0 ? "\x1b[32m" : "\x1b[31m";

@@ -20,6 +20,21 @@ flowchart LR
     classDef hidden display: none;
 ```
 
+#### Execution model
+
+The standalone Ackermann and RWS executables use two executor threads. Input
+subscriptions run in a separate callback group and only replace buffered message
+pointers. At each cycle start, the solver takes a snapshot of the latest processed
+inputs and copies it into cycle state. Messages arriving during a solve are
+available to the next cycle without changing the active solve. This snapshot does
+not synchronize the timestamps of different input topics.
+
+Solver work and parameter-service callbacks remain serialized in the default
+callback group. In `run_as_callback` mode, reference callbacks queue solver work;
+updates received while that group is busy coalesce into the latest reference
+rather than accumulating solves. Components loaded into a container require a
+multithreaded executor with at least two threads for concurrent input reception.
+
 #### Subscribed Topics
 
 | Topic | Type | Description |
@@ -27,7 +42,7 @@ flowchart LR
 | `~/ego_data` | `perception_msgs/msg/EgoData` | Current ego vehicle state used to initialize and time-stamp the optimization problem. |
 | `~/object_list` | `perception_msgs/msg/ObjectList` | List of objects considered by the OCP for collision avoidance. Depending on the configuration, objects can be considered as static (no prediction) or dynamic (with prediction). |
 | `~/route` | `route_planning_msgs/msg/Route` | Route and lane boundary information used to constrain the OCP. |
-| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run once for each received reference trajectory. |
+| `~/reference_trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Reference trajectory the OCP should follow. Depending on the configuration, the OCP can be set to run periodically on a timer or to run when a reference trajectory is received, coalescing updates while busy. |
 
 #### Published Topics
 
@@ -54,9 +69,9 @@ flowchart LR
 | `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout |
 | `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout |
 | `verbose` | `bool` | `false` | Print solver statistics |
-| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
+| `performance_logging` | `bool` | `false` | Write one CSV record for every planning cycle |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
-| `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
+| `run_as_callback` | `bool` | `false` | Run OCP on reference updates, coalescing while busy (true), or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Desired time headway to front vehicle [s]; soft when object slacks are enabled |

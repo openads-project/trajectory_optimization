@@ -5,6 +5,9 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
+#include <chrono>
+#include <mutex>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <vector>
@@ -125,6 +128,18 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @brief Creates ROS interfaces, initializes cached messages and prepares the solver.
    */
   void setup();
+
+  /**
+   * @brief copy the latest processed inputs into solver-owned cycle state.
+   *
+   * @return monotonic time at which the input snapshot was selected.
+   */
+  std::chrono::steady_clock::time_point takeInputSnapshot();
+
+  /**
+   * @brief consume a coalesced reference-triggered request in the solver callback group.
+   */
+  void processReferenceCycle();
 
   /**
    * @brief Resets the optimizer memory while retaining the generated solver instance.
@@ -356,6 +371,20 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
+  rclcpp::CallbackGroup::SharedPtr input_callback_group_;
+
+  struct BufferedInputs {
+    perception_msgs::msg::EgoData::ConstSharedPtr ego_data;
+    perception_msgs::msg::ObjectList::ConstSharedPtr object_list;
+    route_planning_msgs::msg::Route::ConstSharedPtr route;
+    trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr reference_trajectory;
+    int64_t ego_callback_ros_ns = 0;
+    std::optional<std::chrono::steady_clock::time_point> ego_callback_steady_time;
+  };
+  std::mutex input_mutex_;
+  BufferedInputs buffered_inputs_;
+  bool reference_cycle_pending_ = false;
+
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
@@ -367,12 +396,16 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
+  rclcpp::TimerBase::SharedPtr reference_cycle_timer_;
 
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
   // input data
   perception_msgs::msg::EgoData ego_data_;
+  int64_t ego_callback_ros_ns_ = 0;
+  std::optional<std::chrono::steady_clock::time_point> ego_callback_steady_time_;
+  std::optional<std::chrono::steady_clock::time_point> previous_cycle_start_;
   perception_msgs::msg::ObjectList object_list_;
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;
