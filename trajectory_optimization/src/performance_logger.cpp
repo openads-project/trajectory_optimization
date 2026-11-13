@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -31,6 +32,11 @@ std::string timestamp() {
 
 int64_t nowNanoseconds() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// preserve negative ages across clock jumps; absent observation points remain nan.
+double ageMilliseconds(int64_t ros_ns, int64_t stamp_ns, bool available) {
+  return available ? static_cast<double>(ros_ns - stamp_ns) / 1e6 : std::numeric_limits<double>::quiet_NaN();
 }
 
 }  // namespace
@@ -62,7 +68,10 @@ PerformanceLogger::PerformanceLogger(const std::string& node_name) {
          "acados_feedback_ms,cost,kkt,nlp_res,res_stat,res_eq,res_ineq,res_comp,"
          "max_ineq_violation,max_ineq_stage,max_ineq_type,max_ineq_index,max_ineq_side,"
          "max_eq_violation,max_eq_stage,max_eq_state,"
-         "max_object_clearance_slack,max_object_clearance_slack_stage,max_object_clearance_slack_index\n";
+         "max_object_clearance_slack,max_object_clearance_slack_stage,max_object_clearance_slack_index,"
+         "outcome,solver_called,message_published,trajectory_states,cycle_start_wall_ns,cycle_start_ros_ns,"
+         "ego_callback_ros_ns,solve_start_ros_ns,publish_ros_ns,ego_callback_to_cycle_wall_ms,cycle_interval_wall_ms,"
+         "ego_age_at_callback_ms,ego_age_at_cycle_start_ms,ego_age_at_solve_start_ms,ego_age_at_publish_ms\n";
   stream_.flush();
 }
 
@@ -224,7 +233,7 @@ bool PerformanceLogger::collectSlackStatistics(PerformanceMetrics& metrics,
 }
 
 void PerformanceLogger::write(const PerformanceMetrics& metrics) {
-  stream_ << std::setprecision(17) << 7 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
+  stream_ << std::setprecision(17) << 8 << ",runtime,," << metrics.cycle << ',' << nowNanoseconds() << ',' << metrics.ego_stamp_ns
           << ',' << metrics.reference_stamp_ns << ',' << metrics.route_stamp_ns << ',' << metrics.status << ','
           << (metrics.published ? 1 : 0) << ',' << metrics.reference_points << ',' << metrics.objects << ','
           << (metrics.relaxed_attempted ? 1 : 0) << ',' << metrics.failure_phase << ',' << metrics.relaxed_status << ','
@@ -239,7 +248,18 @@ void PerformanceLogger::write(const PerformanceMetrics& metrics) {
           << metrics.max_ineq_stage << ',' << metrics.max_ineq_type << ',' << metrics.max_ineq_index << ','
           << metrics.max_ineq_side << ',' << metrics.max_eq_violation << ',' << metrics.max_eq_stage << ','
           << metrics.max_eq_state << ',' << metrics.max_object_clearance_slack << ',' << metrics.max_object_clearance_slack_stage
-          << ',' << metrics.max_object_clearance_slack_index << '\n';
+          << ',' << metrics.max_object_clearance_slack_index << ',' << metrics.outcome << ',' << (metrics.solver_called ? 1 : 0)
+          << ',' << (metrics.message_published ? 1 : 0) << ',' << metrics.trajectory_states << ',' << metrics.cycle_start_wall_ns
+          << ',' << metrics.cycle_start_ros_ns << ',' << metrics.ego_callback_ros_ns << ',' << metrics.solve_start_ros_ns << ','
+          << metrics.publish_ros_ns << ',' << metrics.ego_callback_to_cycle_wall_ms << ',' << metrics.cycle_interval_wall_ms
+          << ','
+          << ageMilliseconds(metrics.ego_callback_ros_ns, metrics.ego_stamp_ns,
+                             std::isfinite(metrics.ego_callback_to_cycle_wall_ms))
+          << ','
+          << ageMilliseconds(metrics.cycle_start_ros_ns, metrics.ego_stamp_ns,
+                             std::isfinite(metrics.ego_callback_to_cycle_wall_ms))
+          << ',' << ageMilliseconds(metrics.solve_start_ros_ns, metrics.ego_stamp_ns, metrics.solver_called) << ','
+          << ageMilliseconds(metrics.publish_ros_ns, metrics.ego_stamp_ns, metrics.message_published) << '\n';
 
   if (++records_since_flush_ >= FLUSH_INTERVAL) {
     stream_.flush();

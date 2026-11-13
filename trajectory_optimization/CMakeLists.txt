@@ -92,6 +92,10 @@ install(DIRECTORY config
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_performance_logger test/test_performance_logger.cpp)
+  target_link_libraries(test_performance_logger ${TARGET_NAME})
+  ament_target_dependencies(test_performance_logger acados)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_clang_format_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/format/.clang-format)
   set(ament_cmake_clang_tidy_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../.vscode/lint/.clang-tidy)

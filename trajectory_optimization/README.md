@@ -54,7 +54,7 @@ flowchart LR
 | `relaxed_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the relaxed initialization solve [ms]; 0 disables the timeout |
 | `constrained_solve_timeout_ms` | `float` | `100.0` | ACADOS timeout for the fully constrained solve [ms]; 0 disables the timeout |
 | `verbose` | `bool` | `false` | Print solver statistics |
-| `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
+| `performance_logging` | `bool` | `false` | Write one CSV record for every planning cycle |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |

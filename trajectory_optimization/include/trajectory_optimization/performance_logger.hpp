@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <string>
 
 #include <acados_c/ocp_nlp_interface.h>
@@ -17,13 +18,24 @@ struct PerformanceMetrics {
   int64_t ego_stamp_ns = 0;
   int64_t reference_stamp_ns = 0;
   int64_t route_stamp_ns = 0;
-  int status = 0;
+  int status = -1;
   int sqp_iter = 0;
   int qp_iter = 0;
   int qp_status = 0;
   int reference_points = 0;
   int objects = 0;
   bool published = false;
+  bool message_published = false;
+  bool solver_called = false;
+  int trajectory_states = 0;
+  std::string outcome = "skipped";
+  int64_t cycle_start_wall_ns = 0;
+  int64_t cycle_start_ros_ns = 0;
+  int64_t ego_callback_ros_ns = 0;
+  int64_t solve_start_ros_ns = 0;
+  int64_t publish_ros_ns = 0;
+  double ego_callback_to_cycle_wall_ms = std::numeric_limits<double>::quiet_NaN();
+  double cycle_interval_wall_ms = std::numeric_limits<double>::quiet_NaN();
   bool relaxed_attempted = false;
   std::string failure_phase = "none";
   int relaxed_status = 0;

@@ -5,6 +5,8 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
+#include <chrono>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <vector>
@@ -373,6 +375,9 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   // input data
   perception_msgs::msg::EgoData ego_data_;
+  int64_t ego_callback_ros_ns_ = 0;
+  std::optional<std::chrono::steady_clock::time_point> ego_callback_steady_time_;
+  std::optional<std::chrono::steady_clock::time_point> previous_cycle_start_;
   perception_msgs::msg::ObjectList object_list_;
   route_planning_msgs::msg::Route route_;
   trajectory_planning_msgs::msg::Trajectory reference_trajectory_;

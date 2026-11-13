@@ -15,6 +15,12 @@ from collections import Counter
 from pathlib import Path
 
 TIMING_METRICS = [
+    "ego_age_at_callback_ms",
+    "ego_callback_to_cycle_wall_ms",
+    "ego_age_at_cycle_start_ms",
+    "ego_age_at_solve_start_ms",
+    "ego_age_at_publish_ms",
+    "cycle_interval_wall_ms",
     "acados_total_ms",
     "solve_wall_ms",
     "cycle_ms",
@@ -91,6 +97,10 @@ def values_for(records, key):
     """Collect finite numeric values for one field."""
     values = []
     for record in records:
+        if record.get("solver_called") == "0" and (
+            key.startswith("acados_") or key in QUALITY_METRICS or key == "solve_wall_ms"
+        ):
+            continue
         value = number(record.get(key))
         if key == "nlp_res":
             residuals = [number(record.get(field)) for field in ("res_stat", "res_eq", "res_ineq", "res_comp")]
@@ -126,7 +136,12 @@ def load_csv(path, skip):
 
 def summarize(records, deadline_ms):
     """Calculate the stability, deadline, and distribution scorecard."""
-    statuses = [int(value) for record in records if (value := number(record.get("status"))) is not None]
+    statuses = [
+        int(value)
+        for record in records
+        if record.get("solver_called") != "0"
+        and (value := number(record.get("status"))) is not None
+    ]
     counts = Counter(statuses)
     known = len(statuses)
     published_values = values_for(records, "published")
@@ -138,7 +153,7 @@ def summarize(records, deadline_ms):
     rejected_diagnostics = Counter()
     rejected_constraint_indices = Counter()
     for record in records:
-        if number(record.get("published")) != 0:
+        if record.get("solver_called") == "0" or number(record.get("published")) != 0:
             continue
         constraint_type = record.get("max_ineq_type", "")
         if constraint_type and constraint_type != "none":
@@ -151,6 +166,7 @@ def summarize(records, deadline_ms):
 
     return {
         "records": len(records),
+        "outcomes": Counter(record.get("outcome", "legacy") for record in records),
         "status_counts": counts,
         "status_rates": {status: count / known for status, count in counts.items()} if known else {},
         "success_rate": counts[0] / known if known else None,
@@ -185,6 +201,7 @@ def print_run(path, records, summary, deadline_ms):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED
         status_parts.append(paint(f"{status}: {count}", color))
     print(f"records={summary['records']} status_counts={{{', '.join(status_parts)}}}")
+    print(f"outcomes={dict(summary['outcomes'])}")
     status_rate_parts = []
     for status, rate in sorted(summary["status_rates"].items()):
         color = Color.GREEN if status == 0 else Color.YELLOW if status in (2, 7) else Color.RED

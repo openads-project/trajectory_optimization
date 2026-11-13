@@ -5,6 +5,8 @@
 
 namespace trajectory_optimization {
 void TrajectoryOptimizationNode::egoDataCallback(const perception_msgs::msg::EgoData::ConstSharedPtr msg) {
+  ego_callback_steady_time_ = std::chrono::steady_clock::now();
+  ego_callback_ros_ns_ = now().nanoseconds();
   RCLCPP_DEBUG(this->get_logger(), "Received ego data");
   ego_data_ = *msg;
 }
