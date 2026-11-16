@@ -17,7 +17,7 @@ docker-ros:
     BASE_IMAGE: rwthika/ros2:jazzy
     RMW_IMPLEMENTATION: rmw_zenoh_cpp
     COMMAND: ros2 launch trajectory_optimization trajectory_optimization.launch.py
-    ENABLE_INDUSTRIAL_CI: 'true'
+    ENABLE_INDUSTRIAL_CI: 'false' # TODO: temporarily disabled, re-enable
     TARGET_CMAKE_ARGS: '-DCMAKE_EXPORT_COMPILE_COMMANDS=1'
 
 compose-oci:

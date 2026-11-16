@@ -34,7 +34,7 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
-| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP. |
+| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP, the bounds of passed objects and the rear of followed objects. |
 | `~/visualization/ego` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego box used inside the OCP. |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
@@ -59,9 +59,11 @@ flowchart LR
 | `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
-| `thw` | `float` | `2.0` | Desired time headway to front vehicle [s]; soft when object slacks are enabled |
-| `d_min_object_long` | `float` | `5.0` | Desired longitudinal object clearance [m]; soft when object slacks are enabled |
-| `d_min_object_lat` | `float` | `0.5` | Desired lateral object clearance [m]; soft when object slacks are enabled |
+| `thw` | `float` | `2.0` | Desired time headway to followed objects [s]; soft when object slacks are enabled |
+| `d_min_object_long` | `float` | `5.0` | Desired distance to followed objects [m]; soft when object slacks are enabled |
+| `d_min_object_lat` | `float` | `0.5` | Desired lateral distance to passed objects of classes without an own value [m]; soft when object slacks are enabled |
+| `d_min_object_lat_classes` | `int[]` | `[]` | Object classes (perception_msgs/ObjectClassification) with an own lateral distance |
+| `d_min_object_lat_class_values` | `float[]` | `[]` | Desired lateral distance to passed objects per class in `d_min_object_lat_classes` [m] |
 | `d_min_boundary_lat` | `float` | `0.0` | Minimum distance to keep to boundary in lateral direction [m] |
 | `standstill_threshold` | `float` | `0.45` | Threshold for standstill detection [m/s]. If the velocities of all states are below this threshold, publish standstill trajectory |
 | `high_level_stabilization` | `bool` | `false` | Use high-level stabilization strategy for init state (= init with current EgoData) |
@@ -72,6 +74,30 @@ flowchart LR
 | `bi_level_dV` | `float` | `2.0` | Threshold for bi-level stabilization: maximum velocity difference [m/s] |
 | `bi_level_dY` | `float` | `0.3` | Threshold for bi-level stabilization: maximum y-offset [m] |
 | `bi_level_dYaw` | `float` | `89.0` | Threshold for bi-level stabilization: maximum yaw difference [degree] |
+
+#### Following and passing objects
+
+Each object prediction is either followed or passed. Only positions the ego can still be next to at that stage count,
+i.e. positions behind the ego even with full braking are ignored; a prediction without such positions is neither
+followed nor passed.
+
+- A prediction that crosses the reference path is followed.
+- Otherwise it is passed if the ego fits next to it with the lateral distance of its class (`d_min_object_lat`,
+  `d_min_object_lat_classes`) and the current ego pose already keeps this distance where the prediction is next to the
+  ego. The room for passing is the suggested lane if the prediction is in that lane, otherwise the boundaries selected by
+  `consider_boundaries`. A passed prediction stays passed while this holds with `d_min_object_collision`.
+- A prediction enters the suggested lane when its center is in it at any stage, and leaves it only when none of its
+  corners is in it any more.
+
+Passed predictions bound the lateral offset of the ego from the reference path. Per stage, the followed prediction in the
+suggested lane whose rear is closest along the reference path gives the follow distance (`d_min_object_long`, `thw`), if
+the ego can still stay behind it with full braking. The desired distance is reduced by the part that full braking cannot
+reach. If `d_min_object_long` is reachable only with full braking, the solve starts from the braking profile instead of
+the warm start. With a follow distance, a rejected solve is retried once from the other initial guess within the
+remaining `constrained_solve_timeout_ms`.
+
+With `debug_visualization`, `~/visualization/objects` also shows the bounds of passed objects (green) and the rear of the
+followed object per stage (red).
 
 ## Launch Files
 
