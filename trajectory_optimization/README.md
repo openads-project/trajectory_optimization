@@ -34,7 +34,7 @@ flowchart LR
 | Topic | Type | Description |
 | --- | --- | --- |
 | `~/trajectory` | `trajectory_planning_msgs/msg/Trajectory` | Result of the OCP as drivable trajectory in the configured output frame. |
-| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP. |
+| `~/visualization/objects` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the object boxes used by the OCP, the bounds of passed objects and the rear of followed objects. |
 | `~/visualization/ego` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing the ego box used inside the OCP. |
 | `~/visualization/boundaries` | `visualization_msgs/msg/MarkerArray` | Debug markers visualizing boundary points considered by the OCP. |
 
@@ -77,7 +77,9 @@ flowchart LR
 
 #### Following and passing objects
 
-Each object prediction is either followed or passed:
+Each object prediction is either followed or passed. Only positions the ego can still be next to at that stage count,
+i.e. positions behind the ego even with full braking are ignored; a prediction without such positions is neither
+followed nor passed.
 
 - A prediction that crosses the reference path is followed.
 - Otherwise it is passed if the ego fits next to it with the lateral distance of its class (`d_min_object_lat`,
@@ -93,6 +95,9 @@ the ego can still stay behind it with full braking. The desired distance is redu
 reach. If `d_min_object_long` is reachable only with full braking, the solve starts from the braking profile instead of
 the warm start. With a follow distance, a rejected solve is retried once from the other initial guess within the
 remaining `constrained_solve_timeout_ms`.
+
+With `debug_visualization`, `~/visualization/objects` also shows the bounds of passed objects (green) and the rear of the
+followed object per stage (red).
 
 ## Launch Files
 

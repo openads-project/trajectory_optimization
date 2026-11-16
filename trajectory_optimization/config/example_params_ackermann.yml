@@ -48,8 +48,8 @@
 
     # other cost params
     thw: 2.0                    # desired time headway to followed objects [s]; soft with object slacks
-    d_min_object_long: 1.0      # desired distance to followed objects [m]; soft with object slacks
-    d_min_object_lat: 0.1       # desired lateral distance to passed objects [m]; soft with object slacks
+    d_min_object_long: 3.0      # desired distance to followed objects [m]; soft with object slacks
+    d_min_object_lat: 0.75       # desired lateral distance to passed objects [m]; soft with object slacks
     # own lateral distance for some object classes (perception_msgs/ObjectClassification), e.g. bicycles:
     # d_min_object_lat_classes: [2]
     # d_min_object_lat_class_values: [1.5]

@@ -196,15 +196,19 @@ FollowPass::Result FollowPass::decide(const Reference& reference,
     const auto previous_it = memory_.find(key);
     const Memory previous = previous_it != memory_.end() ? previous_it->second : Memory{};
 
+    // only corners the ego can still be next to at that stage count, i.e. not behind the ego even with full braking
     std::vector<Projection> centers, corners;
     for (size_t stage = 0; stage < n_stages; ++stage) {
       const Box& box = boxes[stage][slot];
       if (!box.active) continue;
-      centers.push_back(path.project({box.x, box.y}));
+      const size_t n_corners = corners.size();
       for (const auto& corner : boxCorners(box.x, box.y, box.yaw, box.half_length, box.half_width)) {
-        corners.push_back(path.project(corner));
+        const Projection p = path.project(corner);
+        if (p.s >= ego_s_min + braking_travel[stage]) corners.push_back(p);
       }
+      if (corners.size() > n_corners) centers.push_back(path.project({box.x, box.y}));
     }
+    if (centers.empty()) continue;  // never next to the ego: neither followed nor passed
 
     // lane membership with hysteresis: the prediction enters our lane when its center is in it at any stage, and
     // leaves it only when none of its corners is in it any more

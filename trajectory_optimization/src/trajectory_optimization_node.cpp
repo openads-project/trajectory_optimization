@@ -757,6 +757,7 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
     follow_pass_result_ =
         follow_pass_.decide(reference, object_boxes, object_constraints_active_ ? slots : std::vector<FollowPass::Slot>{},
                             {x_init[0], x_init[1], x_init[STATE_INDEX_PSI]}, braking.travel, braking.speed, params);
+    if (debug_viz_) vizFollowPass(reference, follow_pass_result_, params.ego_half_width);
 
     this->setOcpGlobalParameters(cost_weights_, reference, reference_v, follow_pass_result_);
     this->setOcpParameters(object_boxes, follow_pass_result_);

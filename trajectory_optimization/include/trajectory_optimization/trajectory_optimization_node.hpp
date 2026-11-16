@@ -367,6 +367,15 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   /** Publishes the object boxes currently passed to the optimizer. */
   void vizObjectBoxes(const std::vector<double>& objects);
 
+  /**
+   * @brief Publishes the follow/pass separation: bounds of passed objects and the rear of the followed object per stage.
+   *
+   * @param[in] reference Reference samples as passed to the OCP.
+   * @param[in] result Follow/pass decisions of this cycle.
+   * @param[in] ego_half_width Half width of the ego, used as length of the follow lines.
+   */
+  void vizFollowPass(const FollowPass::Reference& reference, const FollowPass::Result& result, double ego_half_width);
+
   /** Publishes the ego box along the optimized trajectory. */
   void vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name);
 

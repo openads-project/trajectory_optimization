@@ -333,6 +333,60 @@ void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& objec
   object_marker_pub_->publish(marker_array);
 }
 
+void TrajectoryOptimizationNode::vizFollowPass(const FollowPass::Reference& reference,
+                                               const FollowPass::Result& result,
+                                               double ego_half_width) {
+  // point at arc length s and lateral offset e, along the heading of the last sample before s
+  const auto pathPoint = [&](double s, double e) {
+    const auto upper = std::upper_bound(result.s.begin(), result.s.end(), s);
+    const size_t i = upper == result.s.begin() ? 0 : static_cast<size_t>(upper - result.s.begin()) - 1;
+    const double ds = s - result.s[i];
+    geometry_msgs::msg::Point point;
+    point.x = reference.x[i] + ds * std::cos(reference.psi[i]) - e * std::sin(reference.psi[i]);
+    point.y = reference.y[i] + ds * std::sin(reference.psi[i]) + e * std::cos(reference.psi[i]);
+    return point;
+  };
+  const auto lines = [&](const std::string& ns, float r, float g, float b) {
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = vehicle_frame_id_;
+    marker.header.stamp = rclcpp::Time(ego_data_.header.stamp);
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+    marker.ns = ns;
+    marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.1;
+    marker.color.a = 1.0F;
+    marker.color.r = r;
+    marker.color.g = g;
+    marker.color.b = b;
+    return marker;
+  };
+
+  // bounds of passed objects: the ego corners stay right of the left and left of the right bound
+  auto passed = lines("passed-object-bounds", 0.0F, 1.0F, 0.0F);
+  for (size_t i = 0; i + 1 < result.s.size(); ++i) {
+    for (const auto& [bounds, sign] : {std::pair{&result.d_object_left, 1.0}, std::pair{&result.d_object_right, -1.0}}) {
+      if ((*bounds)[i] >= FollowPass::NO_BOUND || (*bounds)[i + 1] >= FollowPass::NO_BOUND) continue;
+      passed.points.push_back(pathPoint(result.s[i], sign * (*bounds)[i]));
+      passed.points.push_back(pathPoint(result.s[i + 1], sign * (*bounds)[i + 1]));
+    }
+  }
+  // rear of the followed object per stage: the ego front stays behind it
+  auto followed = lines("followed-object-rear", 1.0F, 0.0F, 0.0F);
+  for (const auto& [s_rear, active, relax] : result.follow) {
+    if (active < 0.5) continue;
+    followed.points.push_back(pathPoint(s_rear, ego_half_width));
+    followed.points.push_back(pathPoint(s_rear, -ego_half_width));
+  }
+
+  visualization_msgs::msg::MarkerArray marker_array;
+  for (auto& marker : {passed, followed}) {
+    marker_array.markers.push_back(marker);
+    if (marker.points.empty()) marker_array.markers.back().action = visualization_msgs::msg::Marker::DELETE;
+  }
+  object_marker_pub_->publish(marker_array);
+}
+
 std::optional<TrajectoryOptimizationNode::ModelConstants> TrajectoryOptimizationNode::modelConstants(
     const std::string& model_name) {
   // vehicle geometry and hard object distance based on model name (must match the OCP configuration)

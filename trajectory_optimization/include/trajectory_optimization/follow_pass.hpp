@@ -18,7 +18,8 @@ namespace trajectory_optimization {
  * A prediction is passed if it never crosses the reference path, the ego fits next to it with the lateral margin of its
  * class, and the current ego pose already keeps that margin where the prediction is next to the ego. The room for passing
  * is the suggested lane if the prediction is in that lane, otherwise the active route boundaries. A passed prediction stays
- * passed while this holds with d_min_object_collision as margin. All other predictions are followed.
+ * passed while this holds with d_min_object_collision as margin. All other predictions are followed. Only positions the
+ * ego can still be next to at that stage count, i.e. not behind the ego even with full braking.
  *
  * Passed predictions bound the lateral offset of the ego from the reference path. Per stage, the followed prediction in the
  * suggested lane whose rear is closest along the reference path gives the follow distance, if the ego can still stay behind
