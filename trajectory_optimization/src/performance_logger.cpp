@@ -17,6 +17,10 @@ namespace trajectory_optimization {
 
 namespace {
 
+// layout of the object rows in the OCP (trajectory_optimization_ocp/constraints.py)
+constexpr int SOFT_OBJECT_ROWS = 8;  // bounds of passed objects (4), follow distance (2 front corners x [d_min_object_long, thw])
+constexpr int HARD_FOLLOW_ROWS = 2;  // hard follow distance of both front corners, after one hard row per object box
+
 std::string timestamp() {
   const auto now = std::chrono::system_clock::now();
   const auto time = std::chrono::system_clock::to_time_t(now);
@@ -165,19 +169,21 @@ void PerformanceLogger::collectConstraintDiagnostics(PerformanceMetrics& metrics
   } else if (index < nb + ng) {
     metrics.max_ineq_type = "linear";
   } else if (index < nb + ng + nh) {
+    // rows: 2 boundaries, soft object rows, one hard row per object box and the hard follow rows, vehicle limits
     const int h_index = index - nb - ng;
+    const int collision_rows = object_boxes + HARD_FOLLOW_ROWS;
     if (h_index < 2) {
       metrics.max_ineq_type = h_index == 0 ? "boundary_left" : "boundary_right";
       metrics.max_ineq_index = 0;
-    } else if (h_index < object_boxes + 2) {
+    } else if (h_index < SOFT_OBJECT_ROWS + 2) {
       metrics.max_ineq_type = "object_clearance";
       metrics.max_ineq_index = h_index - 2;
-    } else if (h_index < 2 * object_boxes + 2) {
+    } else if (h_index < SOFT_OBJECT_ROWS + collision_rows + 2) {
       metrics.max_ineq_type = "object_collision";
-      metrics.max_ineq_index = h_index - object_boxes - 2;
+      metrics.max_ineq_index = h_index - SOFT_OBJECT_ROWS - 2;
     } else {
       metrics.max_ineq_type = "vehicle";
-      metrics.max_ineq_index = h_index - 2 * object_boxes - 2;
+      metrics.max_ineq_index = h_index - SOFT_OBJECT_ROWS - collision_rows - 2;
     }
   } else {
     metrics.max_ineq_type = "slack";
@@ -191,7 +197,6 @@ bool PerformanceLogger::collectSlackStatistics(PerformanceMetrics& metrics,
                                                ocp_nlp_dims* dims,
                                                ocp_nlp_in* input,
                                                ocp_nlp_out* output,
-                                               int object_boxes,
                                                bool collect_details) {
   metrics.max_object_clearance_slack = 0.0;
   metrics.max_object_clearance_slack_stage = -1;
@@ -212,8 +217,9 @@ bool PerformanceLogger::collectSlackStatistics(PerformanceMetrics& metrics,
     const int clearance_start = dims->nb[stage] + dims->ng[stage] + 2;
     for (int slack = 0; slack < ns; ++slack) {
       const int object_index = slack_indices[slack] - clearance_start;
-      if (object_index >= 0 && object_index < object_boxes && lower[slack] > metrics.max_object_clearance_slack) {
-        metrics.max_object_clearance_slack = lower[slack];
+      const double object_slack = std::max(lower[slack], upper[slack]);  // passed objects: upper, follow distance: lower
+      if (object_index >= 0 && object_index < SOFT_OBJECT_ROWS && object_slack > metrics.max_object_clearance_slack) {
+        metrics.max_object_clearance_slack = object_slack;
         metrics.max_object_clearance_slack_stage = stage;
         metrics.max_object_clearance_slack_index = object_index;
       }

@@ -42,7 +42,7 @@ def set_costs(ocp: AcadosOcp, config):
     # initialize parameters
     n_params_dynamic_weight = np.prod(config["p_dynamic_weight_shape"])
     n_params_constraint_activation = np.prod(config["p_constraint_activation_shape"])
-    n_params_objects = np.prod(config["p_objects_shape"])
+    n_params_objects = np.prod(config["p_objects_shape"]) + np.prod(config["p_follow_shape"])
     # total number of parameters
     n_params = n_params_dynamic_weight + n_params_constraint_activation + n_params_objects
     #  set initial parameter values

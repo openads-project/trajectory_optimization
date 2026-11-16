@@ -5,6 +5,8 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
+#include <array>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <vector>
@@ -30,6 +32,7 @@
 #include <tf2_trajectory_planning_msgs/tf2_trajectory_planning_msgs.hpp>
 
 // acados
+#include <trajectory_optimization/follow_pass.hpp>
 #include <trajectory_optimization/ocp_model_handler.hpp>
 #include <trajectory_optimization/performance_logger.hpp>
 
@@ -86,6 +89,29 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   enum CONSIDER_OBJECTS { NO_OBJECTS = 0, STATIC_OBJECTS = 1, PREDICTED_OBJECTS = 2 };
 
+  /** Fastest stop within the OCP limits: jerk per shooting interval, travelled distance and speed per stage. */
+  struct BrakingProfile {
+    std::vector<double> jerk;
+    std::vector<double> travel;
+    std::vector<double> speed;
+  };
+
+  /** Build-time constants of a generated model that the node needs (must match the OCP configuration). */
+  struct ModelConstants {
+    double length = 0.0;
+    double width = 0.0;
+    std::array<double, 2> offset_to_geometric_center{};
+    double d_min_object_collision = 0.0;
+  };
+
+  /**
+   * @brief Returns the build-time constants of a model.
+   *
+   * @param[in] model_name Name of the generated acados model.
+   * @return Constants of the model, or std::nullopt for unknown models.
+   */
+  static std::optional<ModelConstants> modelConstants(const std::string& model_name);
+
   /**
    * @brief Declares a ROS parameter, loads its value and optionally registers it for runtime updates.
    *
@@ -136,9 +162,27 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    *
    * @param[in] x_init Hard initial state of the OCP.
    * @param[in] stamp Absolute time corresponding to x_init.
+   * @param[in] jerk Optional jerk per shooting interval that replaces the cached jerk (e.g. the braking profile).
    * @return `true` if the state rollout succeeded.
    */
-  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp);
+  bool setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp, const std::vector<double>* jerk = nullptr);
+
+  /**
+   * @brief Integrates the OCP dynamics over one shooting interval with the integrator settings of the generated OCP.
+   *
+   * @param[in] stage Shooting stage.
+   * @param[in,out] state State at the start (in) and at the end (out) of the interval.
+   * @param[in] control Control applied during the interval.
+   */
+  void integrateStage(int stage, std::vector<double>& state, std::vector<double>& control);
+
+  /**
+   * @brief Computes the fastest stop within the jerk and acceleration bounds of the OCP.
+   *
+   * @param[in] x_init Hard initial state of the OCP.
+   * @return Braking jerk per shooting interval and the resulting travel and speed per stage.
+   */
+  BrakingProfile brakingProfile(const std::vector<double>& x_init);
 
   /**
    * @brief Creates the acados solver instance and initializes its state buffers.
@@ -231,31 +275,49 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @param[in] object_list Current object list.
    * @param[in] route Current route data.
    * @param[in] reference_trajectory Current reference trajectory.
+   * @param[in] x_init Hard initial state of the OCP.
+   * @param[in] braking Braking profile from x_init.
    * @return `true` if all optimizer inputs were updated successfully.
    */
   bool updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                        const perception_msgs::msg::ObjectList& object_list,
                        const route_planning_msgs::msg::Route& route,
-                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory);
+                       const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                       const std::vector<double>& x_init,
+                       const BrakingProfile& braking);
 
   /**
    * @brief Writes stage-independent data into the OCP.
    *
    * @param[in] cost_weights Configured cost weights.
-   * @param[in] reference_trajectory Reference trajectory in optimizer frame.
-   * @param[in] route Route data used for boundary distances.
+   * @param[in] reference Reference samples (including boundary distances) in optimizer frame.
+   * @param[in] reference_v Reference speed per reference sample.
+   * @param[in] follow_pass Bounds of passed objects and arc length per reference sample.
    */
   void setOcpGlobalParameters(const std::vector<double>& cost_weights,
-                              const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                              const route_planning_msgs::msg::Route& route);
+                              const FollowPass::Reference& reference,
+                              const std::vector<double>& reference_v,
+                              const FollowPass::Result& follow_pass);
 
   /**
-   * @brief Writes stage-wise object, boundary-activation, and dynamic-weighting parameters into the OCP.
+   * @brief Predicts the box of every object prediction at every stage, in the slot order of the OCP.
    *
    * @param[in] ego_data Current ego state.
    * @param[in] object_list Object list in optimizer frame.
+   * @param[out] slots Identity of every object slot.
+   * @return Object boxes per stage and slot.
    */
-  void setOcpParameters(const perception_msgs::msg::EgoData& ego_data, const perception_msgs::msg::ObjectList& object_list);
+  std::vector<std::vector<FollowPass::Box>> predictObjectBoxes(const perception_msgs::msg::EgoData& ego_data,
+                                                               const perception_msgs::msg::ObjectList& object_list,
+                                                               std::vector<FollowPass::Slot>& slots);
+
+  /**
+   * @brief Writes stage-wise object, follow, boundary-activation, and dynamic-weighting parameters into the OCP.
+   *
+   * @param[in] object_boxes Object boxes per stage and slot.
+   * @param[in] follow_pass Follow distance per stage; the slot it replaces gets no box constraint at that stage.
+   */
+  void setOcpParameters(const std::vector<std::vector<FollowPass::Box>>& object_boxes, const FollowPass::Result& follow_pass);
 
   /**
    * @brief Keeps the nearest objects, optionally excluding those behind the ego vehicle.
@@ -294,10 +356,13 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    *
    * @param[in] reference_trajectory Reference trajectory in optimizer frame.
    * @param[in] route Route data used to derive active boundaries.
+   * @param[in] consider_boundaries Boundaries to use (CONSIDER_BOUNDARIES).
    * @return Left and right boundary distances for each reference sample.
    */
   std::vector<std::pair<double, double>> normalBoundaryDistance(
-      const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route);
+      const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+      const route_planning_msgs::msg::Route& route,
+      uint8_t consider_boundaries);
 
   /** Publishes the object boxes currently passed to the optimizer. */
   void vizObjectBoxes(const std::vector<double>& objects);
@@ -421,19 +486,27 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   double thw_ = 2.0;
   double d_min_object_long_ = 5.0;
   double d_min_object_lat_ = 0.5;
+  std::vector<int64_t> d_min_object_lat_classes_;
+  std::vector<double> d_min_object_lat_class_values_;
   double d_min_boundary_lat_ = 0.0;
   double min_prediction_probability_ = 0.0;
 
   // ocp parameter vector structure
   // attention: changes here must also be done in the OCP!
   std::vector<int64_t> p_cost_weights_shape_ = {12, 1};  // nWeights x weightDim
-  std::vector<int64_t> p_ref_path_shape_ = {51, 6};      // nStates x [psi, x, y, v, d_bound_left, d_bound_right]
+  // nStates x [psi, x, y, v, d_bound_left, d_bound_right, d_object_left, d_object_right, s]
+  std::vector<int64_t> p_ref_path_shape_ = {51, 9};
   std::vector<int64_t> p_dynamic_weight_shape_ = {1, 1};
   std::vector<int64_t> p_constraint_activation_shape_ = {2, 1};  // [objects, boundaries]
   std::vector<int64_t> p_objects_shape_ = {30, 6};               // nObjects x [x, y, yaw, half-length, half-width, active]
+  std::vector<int64_t> p_follow_shape_ = {3, 1};                 // [s_rear, active, relax]
 
   // whether object constraints are enabled for the current input data
   bool object_constraints_active_ = false;
+
+  // follow/pass decisions (keeps the decisions of the previous cycle) and its result for the current cycle
+  FollowPass follow_pass_;
+  FollowPass::Result follow_pass_result_;
 
   // ocp variables
   ocp_model_capsule_t ocp_capsule_;

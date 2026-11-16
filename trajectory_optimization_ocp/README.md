@@ -38,21 +38,30 @@ Model/config parameterizations are defined in:
 
 ### Object constraints
 
-Both vehicle OCPs separate desired clearance from physical collision avoidance:
+Both vehicle OCPs separate the desired clearance from physical collision avoidance. The node
+decides per object prediction whether the ego follows it or passes it (see
+[`trajectory_optimization`](../trajectory_optimization/README.md#following-and-passing-objects)):
 
-- Desired clearance: the ego box expanded by THW/`d_min_object_long` to the front,
-  `d_min_object_lat` to the sides and a small rear margin. `enable_object_slack` softens
-  this block using `object_slack_weights`; without slacks it stays hard.
-- Physical separation: the unexpanded ego and object boxes must be separated by the build
-  parameter `d_min_object_collision` (default 0.10 m). This block follows the clearance
-  block and never receives slacks.
+- Passed objects: per reference point, `d_object_left`/`d_object_right` bound the lateral
+  offset of each ego corner from the reference path.
+- Followed object: per stage, `p_follow = [s_rear, active, relax]` gives the arc length of
+  the rear of the followed object along the reference path. Both front corners stay behind
+  it by `d_min_object_long` and by `thw * v`; the corner arc length is linearised at the
+  matched reference point, so the distance follows the path in curves. `relax` lowers both
+  requirements by the part that full braking cannot reach.
+- Physical separation: the ego and object boxes must be separated by the build parameter
+  `d_min_object_collision` (default 0.10 m, conservative smooth SAT margin). The followed
+  object is limited by its arc-length distance instead; the node disables its SAT slot at
+  that stage. This block never receives slacks.
 
-Both blocks use the conservative smooth SAT margin and apply at intermediate and terminal
-nodes, not retroactively at the fixed initial state. Node constraints alone do not guarantee
-collision avoidance between nodes or under incorrect predictions. `thw`, `d_min_object_long`
-and `d_min_object_lat` are runtime parameters; changing `d_min_object_collision` or the slack
-weights requires rebuilding the generated solver. Generation errors fail the build instead of
-reusing stale solver artifacts.
+`enable_object_slack` softens the passed-object bounds and the follow distance with
+`object_slack_weights`. The thw rows have no linear and a quadratic weight of
+`w_lat / c_lat^2`, so a missing metre of time-headway distance costs as much as a metre of
+lateral offset. Constraints apply at intermediate and terminal nodes, not retroactively at
+the fixed initial state. Node constraints alone do not guarantee collision avoidance between
+nodes or under incorrect predictions. `thw` and `d_min_object_long` are runtime parameters;
+changing `d_min_object_collision` or the slack weights requires rebuilding the generated
+solver. Generation errors fail the build instead of reusing stale solver artifacts.
 
 ### Forward-only dynamics
 

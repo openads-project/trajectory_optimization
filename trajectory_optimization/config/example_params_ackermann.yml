@@ -32,22 +32,25 @@
 
     #### cost weights
     cost_weights:
-      - 0.02 # dlat (0)
+      - 0.1  # dlat (0)
       - 0.0  # psi (1)       (considered if RWS model is used)
-      - 0.3  # overspeed (2)
-      - 0.1  # underspeed (3)
+      - 0.5  # overspeed (2)
+      - 0.2  # underspeed (3)
       - 0.15 # a_lat (4)
-      - 0.2  # a_lon_pos (5)
+      - 0.15 # a_lon_pos (5)
       - 0.1  # a_lon_neg (6)
       - 0.2  # j_lat (7)
       - 0.1  # j_lon_pos (8)
-      - 0.15 # j_lon_neg (9)
+      - 0.1  # j_lon_neg (9)
       - 0.1  # alpha (10)
       - 3.0  # endYaw (11)
     dynamic_weight: 1.0         # base for exponential weight
 
     # other cost params
-    thw: 2.0                    # desired time headway [s]; soft with object slacks
-    d_min_object_long: 1.0      # desired longitudinal object clearance [m]; soft with object slacks
-    d_min_object_lat: 0.1       # desired lateral object clearance [m]; soft with object slacks
+    thw: 2.0                    # desired time headway to followed objects [s]; soft with object slacks
+    d_min_object_long: 1.0      # desired distance to followed objects [m]; soft with object slacks
+    d_min_object_lat: 0.1       # desired lateral distance to passed objects [m]; soft with object slacks
+    # own lateral distance for some object classes (perception_msgs/ObjectClassification), e.g. bicycles:
+    # d_min_object_lat_classes: [2]
+    # d_min_object_lat_class_values: [1.5]
     d_min_boundary_lat: 0.0      # minimum distance to keep to boundaries in lateral direction [m]

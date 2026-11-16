@@ -6,7 +6,10 @@ from acados_template import AcadosOcp
 from constants import (
     P_REF_PATH_INDEX_D_BOUND_LEFT,
     P_REF_PATH_INDEX_D_BOUND_RIGHT,
+    P_REF_PATH_INDEX_D_OBJECT_LEFT,
+    P_REF_PATH_INDEX_D_OBJECT_RIGHT,
     P_REF_PATH_INDEX_PSI,
+    P_REF_PATH_INDEX_S,
     P_REF_PATH_INDEX_V,
     P_REF_PATH_INDEX_X,
     P_REF_PATH_INDEX_Y,
@@ -56,6 +59,9 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     d_right_boundary_ref_path = p_ref_path[
         P_REF_PATH_INDEX_D_BOUND_RIGHT::ref_path_state_dim
     ]  # every 6th element starting from index 5
+    s_ref_path = p_ref_path[P_REF_PATH_INDEX_S::ref_path_state_dim]
+    d_left_object_ref_path = p_ref_path[P_REF_PATH_INDEX_D_OBJECT_LEFT::ref_path_state_dim]
+    d_right_object_ref_path = p_ref_path[P_REF_PATH_INDEX_D_OBJECT_RIGHT::ref_path_state_dim]
 
     n_ref_path_points = config["p_ref_path_shape"][0]
     # initialize closest distances to path sample with a large value
@@ -120,12 +126,19 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
     position_lmd = ca.if_else(condition_begin, raw_lmd, ca.fmin(ca.fmax(raw_lmd, 0), 1))
     x_ref_inter = x1 + position_lmd * (x2 - x1)
     y_ref_inter = y1 + position_lmd * (y2 - y1)
+    s_ref_inter = s_ref_path[idx_min] + position_lmd * (s_ref_path[next_idx_min] - s_ref_path[idx_min])
 
     # Boundary distances, heading, and velocity are only defined at the provided
     # reference samples and must not be extrapolated with the reference line.
     bounded_lmd = ca.fmin(ca.fmax(position_lmd, 0), 1)
     d_left_boundary_inter = d_left_boundary1 + bounded_lmd * (d_left_boundary2 - d_left_boundary1)
     d_right_boundary_inter = d_right_boundary1 + bounded_lmd * (d_right_boundary2 - d_right_boundary1)
+    d_left_object_inter = d_left_object_ref_path[idx_min] + bounded_lmd * (
+        d_left_object_ref_path[next_idx_min] - d_left_object_ref_path[idx_min]
+    )
+    d_right_object_inter = d_right_object_ref_path[idx_min] + bounded_lmd * (
+        d_right_object_ref_path[next_idx_min] - d_right_object_ref_path[idx_min]
+    )
     psi_ref_inter = psi1 + bounded_lmd * wrap_angle(psi2 - psi1)
     v_ref_inter = v1 + bounded_lmd * (v2 - v1)
 
@@ -136,6 +149,9 @@ def determine_spacially_matched_ref_path_point(config: dict, p_ref_path: ca.MX, 
         "v": v_ref_inter,
         "d_left_boundary": d_left_boundary_inter,
         "d_right_boundary": d_right_boundary_inter,
+        "s": s_ref_inter,
+        "d_left_object": d_left_object_inter,
+        "d_right_object": d_right_object_inter,
     }
     return interpolated_ref_path_point
 
@@ -156,16 +172,14 @@ def ego_obb_geometry(ocp: AcadosOcp, config: dict) -> dict:
     }
 
 
-def expand_ego_obb_forward(ego_obb: dict, front_margin: ca.MX, rear_margin: ca.MX, lateral_margin: ca.MX) -> dict:
-    """Expand an OBB independently at its front, rear and lateral sides."""
-    center_shift = 0.5 * (front_margin - rear_margin)
-    return {
-        **ego_obb,
-        "x": ego_obb["x"] + center_shift * ego_obb["long_axis"][0],
-        "y": ego_obb["y"] + center_shift * ego_obb["long_axis"][1],
-        "half_length": ego_obb["half_length"] + 0.5 * (front_margin + rear_margin),
-        "half_width": ego_obb["half_width"] + lateral_margin,
-    }
+def obb_corners(box: dict) -> list:
+    """Corners of an oriented box: front left, front right, rear right, rear left."""
+    long_x, long_y = box["half_length"] * box["long_axis"][0], box["half_length"] * box["long_axis"][1]
+    lat_x, lat_y = box["half_width"] * box["lat_axis"][0], box["half_width"] * box["lat_axis"][1]
+    return [
+        (box["x"] + sign_long * long_x + sign_lat * lat_x, box["y"] + sign_long * long_y + sign_lat * lat_y)
+        for sign_long, sign_lat in ((1, 1), (1, -1), (-1, -1), (-1, 1))
+    ]
 
 
 def smooth_abs_upper(value: ca.MX, epsilon: float) -> ca.MX:

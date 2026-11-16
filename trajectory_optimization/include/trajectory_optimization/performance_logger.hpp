@@ -145,12 +145,11 @@ class PerformanceLogger {
   /**
    * @brief Checks all slacks for finiteness and optionally collects desired-clearance statistics.
    *
-   * @param[in,out] metrics Metrics populated with the largest lower object-clearance slack.
+   * @param[in,out] metrics Metrics populated with the largest object-clearance slack (passed objects, follow distance).
    * @param[in] config acados NLP configuration.
    * @param[in] dims acados NLP dimensions.
    * @param[in] input acados NLP input containing the slack-to-constraint mapping.
    * @param[in] output acados NLP output containing the slack values.
-   * @param[in] object_boxes Number of object boxes in each object constraint block.
    * @param[in] collect_details Whether to collect object-clearance statistics.
    * @return True if all lower and upper slack values are finite.
    */
@@ -159,7 +158,6 @@ class PerformanceLogger {
                                      ocp_nlp_dims* dims,
                                      ocp_nlp_in* input,
                                      ocp_nlp_out* output,
-                                     int object_boxes,
                                      bool collect_details);
 
   /**

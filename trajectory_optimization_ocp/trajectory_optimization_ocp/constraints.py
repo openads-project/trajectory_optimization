@@ -8,6 +8,9 @@ from constants import (
     CONTROL_INDEX_ALPHA_F,
     CONTROL_INDEX_ALPHA_R,
     CONTROL_INDEX_J_T,
+    P_FOLLOW_INDEX_ACTIVE,
+    P_FOLLOW_INDEX_RELAX,
+    P_FOLLOW_INDEX_S,
     P_OBJECTS_INDEX_ACTIVE,
     P_OBJECTS_INDEX_HALF_LENGTH,
     P_OBJECTS_INDEX_HALF_WIDTH,
@@ -25,13 +28,12 @@ from utils import (
     conservative_smooth_sat_margin,
     determine_spacially_matched_ref_path_point,
     ego_obb_geometry,
-    expand_ego_obb_forward,
+    obb_corners,
     saturate_positive_margin,
     smooth_abs_upper,
     stable_tan,
 )
 
-OBB_REAR_MARGIN_M = 0.1
 GEOMETRY_SMOOTHING_EPSILON_M = 1e-3
 SAT_SMOOTHING_TAU_M = 0.02
 SAT_POSITIVE_MARGIN_SCALE_M = 0.5
@@ -129,7 +131,7 @@ def set_constraints(ocp: AcadosOcp, config):
     )
     p_thw = p_cost_params[0]
     d_min_object_long = p_cost_params[1]
-    d_min_object_lat = p_cost_params[2]
+    # p_cost_params[2] (d_min_object_lat) is applied by the node through the bounds of passed objects
     d_min_boundary_lat = p_cost_params[3]
 
     # calc normal vector from interpolated reference point to the current position
@@ -157,9 +159,8 @@ def set_constraints(ocp: AcadosOcp, config):
     # get objects from parameters
     object_shape = config["p_objects_shape"]
     p_objects = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(object_shape))]
-    assert idx_params == (
-        np.prod(config["p_dynamic_weight_shape"]) + np.prod(config["p_constraint_activation_shape"]) + np.prod(object_shape)
-    )
+    p_follow = ocp.model.p[idx_params : (idx_params := idx_params + np.prod(config["p_follow_shape"]))]
+    assert idx_params == ocp.model.p.shape[0]
 
     # Hard minimum separation of the physical boxes; never relaxed by slacks.
     d_min_object_collision = float(config["d_min_object_collision"])
@@ -167,15 +168,44 @@ def set_constraints(ocp: AcadosOcp, config):
         raise ValueError("d_min_object_collision must be finite and nonnegative")
 
     v_t = ocp.model.x[STATE_INDEX_V_T]
-    # Desired clearance box, soft when object slacks are enabled.
-    # Both vehicle models are forward-only. THW and d_min_object_long protect
-    # the front; the rear only needs a small physical clearance.
-    front_margin = ca.fmax(ca.fmax(d_min_object_long, 0.0), p_thw * ca.fmax(v_t, 0.0))
-    lateral_margin = ca.fmax(d_min_object_lat, 0.0)
-    clearance_obb = expand_ego_obb_forward(ego_obb, front_margin, OBB_REAR_MARGIN_M, lateral_margin)
+    ego_corners = obb_corners(ego_obb)  # front left, front right, rear right, rear left
+
+    # Passed objects: lateral bounds relative to the reference path, written by the node per reference
+    # point. Each ego corner is constrained separately, so the bound stays smooth in the heading.
+    corner_ref_diffs = [ca.vertcat(c[0] - ref_inter["x"], c[1] - ref_inter["y"]) for c in ego_corners]
+    corner_offsets = [ca.dot(diff, normal_vec) for diff in corner_ref_diffs]
+    object_bound_constraints = [
+        corner_offsets[0] - ref_inter["d_left_object"],
+        corner_offsets[3] - ref_inter["d_left_object"],
+        -corner_offsets[1] - ref_inter["d_right_object"],
+        -corner_offsets[2] - ref_inter["d_right_object"],
+    ]
+    for constraint in object_bound_constraints:
+        ocp.model.con_h_expr = ca.vertcat(
+            ocp.model.con_h_expr, activate_upper_bounded_constraint(constraint, p_object_activation)
+        )
+    cons.lh = np.concatenate((cons.lh, np.full(len(object_bound_constraints), -ACADOS_INFTY)))
+    cons.uh = np.concatenate((cons.uh, np.zeros(len(object_bound_constraints))))
+
+    # Followed object: the node passes the arc length of the rear of the closest followed object along the
+    # reference path. The arc length of each front corner is linearised at the ego's matched reference point,
+    # so the distance follows the path in curves. Both front corners stay behind by d_min_object_long and
+    # by thw * v; the maximum of the two margins is expressed as two constraints. The node relaxes both by
+    # the part that full braking cannot reach, so the soft rows never push the ego off the path.
+    tangent_vec = ca.vertcat(ca.cos(ref_inter["psi"]), ca.sin(ref_inter["psi"]))
+    follow = p_object_activation * p_follow[P_FOLLOW_INDEX_ACTIVE]
+    follow_gaps = [p_follow[P_FOLLOW_INDEX_S] - ref_inter["s"] - ca.dot(diff, tangent_vec) for diff in corner_ref_diffs[:2]]
+    for gap in follow_gaps:
+        for margin in (d_min_object_long, p_thw * v_t):
+            constraint = activate_constraint(gap + p_follow[P_FOLLOW_INDEX_RELAX] - margin, follow)
+            ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)
+            cons.lh = np.concatenate((cons.lh, [0.0]))
+            cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
+
     collision_constraints = []
     for i in range(object_shape[0]):
         base = i * object_shape[1]
+        active = p_object_activation * p_objects[base + P_OBJECTS_INDEX_ACTIVE]
         object_yaw = p_objects[base + P_OBJECTS_INDEX_YAW]
         object_box = {
             "x": p_objects[base + P_OBJECTS_INDEX_X],
@@ -185,16 +215,13 @@ def set_constraints(ocp: AcadosOcp, config):
             "half_length": p_objects[base + P_OBJECTS_INDEX_HALF_LENGTH],
             "half_width": p_objects[base + P_OBJECTS_INDEX_HALF_WIDTH],
         }
-        sat_margin = conservative_smooth_sat_margin(clearance_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
-        sat_margin = saturate_positive_margin(sat_margin, SAT_POSITIVE_MARGIN_SCALE_M)
-        active = p_object_activation * p_objects[base + P_OBJECTS_INDEX_ACTIVE]
-        constraint = activate_constraint(sat_margin, active)
-        ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, constraint)
-        cons.lh = np.concatenate((cons.lh, [0.0]))
-        cons.uh = np.concatenate((cons.uh, [ACADOS_INFTY]))
         collision_margin = conservative_smooth_sat_margin(ego_obb, object_box, GEOMETRY_SMOOTHING_EPSILON_M, SAT_SMOOTHING_TAU_M)
         collision_margin = saturate_positive_margin(collision_margin - d_min_object_collision, SAT_POSITIVE_MARGIN_SCALE_M)
         collision_constraints.append(activate_constraint(collision_margin, active))
+
+    # The node only sets a follow distance the ego can still stop before, so it is also the hard limit for
+    # that object (the node disables the object's SAT slot at that stage).
+    collision_constraints += [activate_constraint(gap - d_min_object_collision, follow) for gap in follow_gaps]
 
     # The hard collision constraints follow as a separate block that never receives slacks.
     ocp.model.con_h_expr = ca.vertcat(ocp.model.con_h_expr, *collision_constraints)
@@ -265,7 +292,7 @@ def set_constraints(ocp: AcadosOcp, config):
     slack_indices = []
     slack_weights = {"zl": [], "zu": [], "Zl": [], "Zu": []}
     boundary_constraints = 2
-    object_constraints = object_shape[0]
+    object_constraints = 4 + 4  # lateral object bounds + follow distance (2 front corners x [d_min_object_long, thw])
 
     if config["enable_boundary_slack"]:
         slack_indices.extend(range(0, boundary_constraints))

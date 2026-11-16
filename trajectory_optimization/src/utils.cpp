@@ -110,7 +110,9 @@ void TrajectoryOptimizationNode::keepNClosestObjects(perception_msgs::msg::Objec
 }
 
 std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundaryDistance(
-    const trajectory_planning_msgs::msg::Trajectory& reference_trajectory, const route_planning_msgs::msg::Route& route) {
+    const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+    const route_planning_msgs::msg::Route& route,
+    uint8_t consider_boundaries) {
   const double NO_BOUNDARY_DISTANCE = 1e6;  // finite sentinel avoids NaNs during reference-path interpolation
   constexpr double MAX_ROUTE_S_DIFFERENCE = 20.0;
   constexpr double LOOK_BEHIND_REMAINING_ROUTE_S = 2.0;
@@ -130,7 +132,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
   const int ref_sample_size = trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory);
 
   if (route_elements.empty()) {
-    if (consider_boundaries_ != CONSIDER_BOUNDARIES::NO_BOUNDS) {
+    if (consider_boundaries != CONSIDER_BOUNDARIES::NO_BOUNDS) {
       RCLCPP_WARN(get_logger(), "Remaining route is empty. Do not constrain boundaries.");
     }
     for (int i = 0; i < ref_sample_size; ++i) {
@@ -158,7 +160,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
 
   for (const auto& route_element : route_elements) {
     if (route_element.is_enriched) {
-      if (consider_boundaries_ == CONSIDER_BOUNDARIES::SUGGESTED_LANE) {
+      if (consider_boundaries == CONSIDER_BOUNDARIES::SUGGESTED_LANE) {
         route_planning_msgs::msg::LaneElement suggested_lane =
             route_planning_msgs::route_access::getSuggestedLaneElement(route_element);
         boundaries.left_boundary_points.emplace_back(suggested_lane.left_boundary.point.x, suggested_lane.left_boundary.point.y);
@@ -166,7 +168,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
                                                       suggested_lane.right_boundary.point.y);
         boundaries.left_boundary_route_s.push_back(route_element.s);
         boundaries.right_boundary_route_s.push_back(route_element.s);
-      } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::INCLUDING_ADJACENT) {
+      } else if (consider_boundaries == CONSIDER_BOUNDARIES::INCLUDING_ADJACENT) {
         const auto& lane_elements = route_element.lane_elements;
         if (!lane_elements.empty()) {
           boundaries.left_boundary_points.emplace_back(lane_elements.front().left_boundary.point.x,
@@ -176,7 +178,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
           boundaries.left_boundary_route_s.push_back(route_element.s);
           boundaries.right_boundary_route_s.push_back(route_element.s);
         }
-      } else if (consider_boundaries_ == CONSIDER_BOUNDARIES::DRIVABLE_SPACE) {
+      } else if (consider_boundaries == CONSIDER_BOUNDARIES::DRIVABLE_SPACE) {
         boundaries.left_boundary_points.emplace_back(route_element.left_boundary.x, route_element.left_boundary.y);
         boundaries.right_boundary_points.emplace_back(route_element.right_boundary.x, route_element.right_boundary.y);
         boundaries.left_boundary_route_s.push_back(route_element.s);
@@ -259,7 +261,7 @@ std::vector<std::pair<double, double>> TrajectoryOptimizationNode::normalBoundar
                   "No boundary intersection found for trajectory point %d. Do not constrain boundaries at this point.", i);
     }
   }
-  if (debug_viz_) {
+  if (debug_viz_ && consider_boundaries == consider_boundaries_) {
     vizBoundaryPoints(boundaries.left_boundary_intersections, boundaries.right_boundary_intersections);
   }
 
@@ -330,6 +332,15 @@ void TrajectoryOptimizationNode::vizObjectBoxes(const std::vector<double>& objec
   }
   object_marker_pub_->publish(marker_array);
 }
+
+std::optional<TrajectoryOptimizationNode::ModelConstants> TrajectoryOptimizationNode::modelConstants(
+    const std::string& model_name) {
+  // vehicle geometry and hard object distance based on model name (must match the OCP configuration)
+  if (model_name == "karl") return ModelConstants{5.173, 1.94, {1.4895, 0.0}, 0.10};
+  if (model_name == "shuttle") return ModelConstants{4.97, 2.12, {0.0, 0.0}, 0.10};
+  return std::nullopt;
+}
+
 void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajectory, const std::string& model_name) {
   visualization_msgs::msg::MarkerArray marker_array;
   if (x_trajectory.empty()) {
@@ -340,23 +351,14 @@ void TrajectoryOptimizationNode::vizEgoBoxes(const std::vector<double>& x_trajec
     return;
   }
 
-  double length = 0.0;
-  double width = 0.0;
-  std::array<double, 2> offset_to_geometric_center{};
-
-  // define vehicle geometry based on model name (should match the OCP definition)
-  if (model_name == "karl") {
-    length = 5.173;
-    width = 1.94;
-    offset_to_geometric_center = {1.4895, 0.0};
-  } else if (model_name == "shuttle") {
-    length = 4.97;
-    width = 2.12;
-    offset_to_geometric_center = {0.0, 0.0};
-  } else {
+  const auto model = modelConstants(model_name);
+  if (!model) {
     RCLCPP_WARN(get_logger(), "Unknown model '%s'. Could not visualize ego boxes.", model_name.c_str());
     return;
   }
+  const double length = model->length;
+  const double width = model->width;
+  const std::array<double, 2> offset_to_geometric_center = model->offset_to_geometric_center;
 
   const int state_dim = *nlp_dims_->nx;
   for (int stage = 0; stage <= n_shots_; ++stage) {
@@ -429,7 +431,6 @@ bool TrajectoryOptimizationNode::solveAndValidate(PerformanceMetrics& metrics, b
 
   const bool finite_slacks =
       usable_status && PerformanceLogger::collectSlackStatistics(metrics, nlp_config_, nlp_dims_, nlp_in_, nlp_out_,
-                                                                 static_cast<int>(p_objects_shape_[0]),
                                                                  performance_logger_ != nullptr || verbose_);
   finite_solution = usable_status && finite_slacks && std::isfinite(metrics.cost_value) && std::isfinite(metrics.res_eq) &&
                     std::isfinite(metrics.res_ineq) &&

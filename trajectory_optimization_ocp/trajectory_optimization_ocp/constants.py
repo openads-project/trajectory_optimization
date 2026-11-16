@@ -23,6 +23,9 @@ P_REF_PATH_INDEX_Y = 2
 P_REF_PATH_INDEX_V = 3
 P_REF_PATH_INDEX_D_BOUND_LEFT = 4
 P_REF_PATH_INDEX_D_BOUND_RIGHT = 5
+P_REF_PATH_INDEX_D_OBJECT_LEFT = 6  # lateral bound from passed objects (left)
+P_REF_PATH_INDEX_D_OBJECT_RIGHT = 7  # lateral bound from passed objects (right)
+P_REF_PATH_INDEX_S = 8  # arc length along the reference path
 
 # object indices
 P_OBJECTS_INDEX_X = 0
@@ -31,6 +34,11 @@ P_OBJECTS_INDEX_YAW = 2
 P_OBJECTS_INDEX_HALF_LENGTH = 3
 P_OBJECTS_INDEX_HALF_WIDTH = 4
 P_OBJECTS_INDEX_ACTIVE = 5
+
+# followed object indices
+P_FOLLOW_INDEX_S = 0
+P_FOLLOW_INDEX_ACTIVE = 1
+P_FOLLOW_INDEX_RELAX = 2
 
 # fixed cost parameters
 V_SCALE_MIN = 2.778

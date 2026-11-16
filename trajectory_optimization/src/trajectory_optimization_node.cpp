@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <numeric>
 #include <stdexcept>
 #include <thread>
@@ -21,6 +22,13 @@ namespace trajectory_optimization {
 
 namespace {
 using SteadyClock = std::chrono::steady_clock;
+
+// state and control indices of the OCP (trajectory_optimization_ocp/constants.py)
+constexpr int STATE_INDEX_S = 2;
+constexpr int STATE_INDEX_V_T = 3;
+constexpr int STATE_INDEX_A_T = 4;
+constexpr int STATE_INDEX_PSI = 5;
+constexpr int CONTROL_INDEX_J_T = 0;
 
 double elapsedMilliseconds(const SteadyClock::time_point& start) {
   return std::chrono::duration<double, std::milli>(SteadyClock::now() - start).count();
@@ -63,11 +71,16 @@ TrajectoryOptimizationNode::TrajectoryOptimizationNode(const std::string node_na
                                 "Run OCP once for each received reference trajectory (true) or on a timer (false)");
   this->declareAndLoadParameter("cost_weights", cost_weights_, "Cost function weights");
   this->declareAndLoadParameter("dynamic_weight", dynamic_weight_, "Dynamic weight alpha");
-  this->declareAndLoadParameter("thw", thw_, "Desired time headway to front vehicle [s]; soft when object slacks are enabled");
+  this->declareAndLoadParameter("thw", thw_, "Desired time headway to followed objects [s]; soft when object slacks are enabled");
   this->declareAndLoadParameter("d_min_object_long", d_min_object_long_,
-                                "Desired longitudinal object clearance [m]; soft when object slacks are enabled");
+                                "Desired distance to followed objects [m]; soft when object slacks are enabled");
   this->declareAndLoadParameter("d_min_object_lat", d_min_object_lat_,
-                                "Desired lateral object clearance [m]; soft when object slacks are enabled");
+                                "Desired lateral distance to passed objects of classes without an own value [m]; soft when "
+                                "object slacks are enabled");
+  this->declareAndLoadParameter("d_min_object_lat_classes", d_min_object_lat_classes_,
+                                "Object classes (perception_msgs/ObjectClassification) with an own lateral distance");
+  this->declareAndLoadParameter("d_min_object_lat_class_values", d_min_object_lat_class_values_,
+                                "Desired lateral distance to passed objects per class in d_min_object_lat_classes [m]");
   this->declareAndLoadParameter("d_min_boundary_lat", d_min_boundary_lat_,
                                 "Minimum distance to keep to boundary in lateral direction [m]");
   this->declareAndLoadParameter("standstill_threshold", standstill_threshold_,
@@ -335,7 +348,9 @@ void TrajectoryOptimizationNode::resetSolver() {
   }
 }
 
-bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init, const rclcpp::Time& stamp) {
+bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_init,
+                                                 const rclcpp::Time& stamp,
+                                                 const std::vector<double>* jerk) {
   constexpr double MAX_CONTROL_GUESS_AGE_FACTOR = 0.5;
   const int nx = *nlp_dims_->nx;
   const int nu = *nlp_dims_->nu;
@@ -371,33 +386,79 @@ bool TrajectoryOptimizationNode::setInitialGuess(const std::vector<double>& x_in
       }
     }
   }
+  if (jerk != nullptr) {
+    for (int stage = 0; stage < n_shots_; ++stage) controls[stage * nu + CONTROL_INDEX_J_T] = (*jerk)[stage];
+  }
 
   ocp_nlp_out_set_values_to_zero(nlp_config_, nlp_dims_, nlp_out_);
   std::vector<double> rollout_state = x_init;
-  std::vector<double> intermediate_state(nx);
-  std::vector<double> k1(nx), k2(nx), k3(nx), k4(nx);
-  const double integration_step = time_step / 4.0;
   for (int stage = 0; stage < n_shots_; ++stage) {
-    double* control = &controls[stage * nu];
+    std::vector<double> control(controls.begin() + stage * nu, controls.begin() + (stage + 1) * nu);
     ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "x", rollout_state.data());
-    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", control);
-
-    // Match sim_method_num_stages=4 and sim_method_num_steps=4 from the generated OCP.
-    for (int integration = 0; integration < 4; ++integration) {
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, rollout_state.data(), control, k1.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k1[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k2.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + 0.5 * integration_step * k2[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k3.data());
-      for (int i = 0; i < nx; ++i) intermediate_state[i] = rollout_state[i] + integration_step * k3[i];
-      trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control, k4.data());
-      for (int i = 0; i < nx; ++i) {
-        rollout_state[i] += integration_step / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
-      }
-    }
+    ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, stage, "u", control.data());
+    integrateStage(stage, rollout_state, control);
   }
   ocp_nlp_out_set(nlp_config_, nlp_dims_, nlp_out_, nlp_in_, n_shots_, "x", rollout_state.data());
   return true;
+}
+
+void TrajectoryOptimizationNode::integrateStage(int stage, std::vector<double>& state, std::vector<double>& control) {
+  const int nx = *nlp_dims_->nx;
+  const double integration_step = optimization_horizon_ / n_shots_ / 4.0;
+  std::vector<double> intermediate_state(nx);
+  std::vector<double> k1(nx), k2(nx), k3(nx), k4(nx);
+  // Match sim_method_num_stages=4 and sim_method_num_steps=4 from the generated OCP.
+  for (int integration = 0; integration < 4; ++integration) {
+    trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, state.data(), control.data(), k1.data());
+    for (int i = 0; i < nx; ++i) intermediate_state[i] = state[i] + 0.5 * integration_step * k1[i];
+    trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control.data(), k2.data());
+    for (int i = 0; i < nx; ++i) intermediate_state[i] = state[i] + 0.5 * integration_step * k2[i];
+    trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control.data(), k3.data());
+    for (int i = 0; i < nx; ++i) intermediate_state[i] = state[i] + integration_step * k3[i];
+    trajectory_optimization::acados_evaluate_dynamics(ocp_capsule_, stage, intermediate_state.data(), control.data(), k4.data());
+    for (int i = 0; i < nx; ++i) {
+      state[i] += integration_step / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
+    }
+  }
+}
+
+TrajectoryOptimizationNode::BrakingProfile TrajectoryOptimizationNode::brakingProfile(const std::vector<double>& x_init) {
+  constexpr double STANDSTILL_SPEED = 1e-3;  // [m/s] numerical standstill; the braking profile then releases the deceleration
+
+  // bound of a state or control entry in the generated OCP
+  const auto bounds = [&](int stage, const char* index_field, const char* lower_field, const char* upper_field, int index) {
+    const int n = ocp_nlp_dims_get_from_attr(nlp_config_, nlp_dims_, nlp_out_, stage, lower_field);
+    std::vector<int> indices(n);
+    std::vector<double> lower(n), upper(n);
+    ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, index_field, indices.data());
+    ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, lower_field, lower.data());
+    ocp_nlp_constraints_model_get(nlp_config_, nlp_dims_, nlp_in_, stage, upper_field, upper.data());
+    for (int i = 0; i < n; ++i) {
+      if (indices[i] == index) return std::make_pair(lower[i], upper[i]);
+    }
+    return std::make_pair(-std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity());
+  };
+  const auto [jerk_min, jerk_max] = bounds(0, "idxbu", "lbu", "ubu", CONTROL_INDEX_J_T);
+  // stage 0 fixes the initial state; the acceleration bound applies from stage 1
+  const double acceleration_min = bounds(1, "idxbx", "lbx", "ubx", STATE_INDEX_A_T).first;
+
+  const double dt = optimization_horizon_ / n_shots_;
+  BrakingProfile profile;
+  std::vector<double> state = x_init;
+  std::vector<double> control(*nlp_dims_->nu, 0.0);
+  profile.travel.push_back(0.0);
+  profile.speed.push_back(std::max(state[STATE_INDEX_V_T], 0.0));
+  for (int stage = 0; stage < n_shots_; ++stage) {
+    const double acceleration = state[STATE_INDEX_A_T];
+    control[CONTROL_INDEX_J_T] = state[STATE_INDEX_V_T] > STANDSTILL_SPEED
+                                     ? std::max(jerk_min, (acceleration_min - acceleration) / dt)
+                                     : std::min(jerk_max, std::max(-acceleration, 0.0) / dt);
+    integrateStage(stage, state, control);
+    profile.jerk.push_back(control[CONTROL_INDEX_J_T]);
+    profile.travel.push_back(state[STATE_INDEX_S] - x_init[STATE_INDEX_S]);
+    profile.speed.push_back(std::max(state[STATE_INDEX_V_T], 0.0));
+  }
+  return profile;
 }
 
 void TrajectoryOptimizationNode::planningCycle() {
@@ -477,12 +538,15 @@ void TrajectoryOptimizationNode::planningCycle() {
   ocp_nlp_constraints_model_set(nlp_config_, nlp_dims_, nlp_in_, nlp_out_, 0, "ubx", x_init.data());
 
   // update inputs to the ocp; skip planning cycle if update fails
-  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_)) {
+  const BrakingProfile braking = brakingProfile(x_init);
+  if (!updateOcpInputs(ego_data_, object_list_, route_, reference_trajectory_, x_init, braking)) {
     RCLCPP_WARN(this->get_logger(), "Failed to update inputs. Skipping planning cycle.");
     return;
   }
 
-  if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp))) {
+  // start from the braking profile if d_min_object_long to the followed object is reachable only with full braking
+  const bool brake_first = follow_pass_result_.brake_needed;
+  if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp), brake_first ? &braking.jerk : nullptr)) {
     control_guess_.clear();
     return;
   }
@@ -528,6 +592,19 @@ void TrajectoryOptimizationNode::planningCycle() {
   setSolverTimeout(constrained_solve_timeout_ms_);
   const auto constrained_solve_start = SteadyClock::now();
   primal_feasible = solveAndValidate(metrics, finite_solution);
+  // With a follow distance, retry once from the other initial guess (braking profile or warm start) within the remaining
+  // time of the constrained solve.
+  const double remaining_ms = constrained_solve_timeout_ms_ - elapsedMilliseconds(constrained_solve_start);
+  if (!primal_feasible && follow_pass_result_.follow_active && (constrained_solve_timeout_ms_ <= 0.0 || remaining_ms > 0.0)) {
+    RCLCPP_DEBUG(get_logger(), "Retrying the constrained solve from the %s.", brake_first ? "warm start" : "braking profile");
+    resetSolver();
+    if (!setInitialGuess(x_init, rclcpp::Time(ego_data_.header.stamp), brake_first ? nullptr : &braking.jerk)) {
+      control_guess_.clear();
+      return;
+    }
+    setSolverTimeout(constrained_solve_timeout_ms_ <= 0.0 ? 0.0 : remaining_ms);
+    primal_feasible = solveAndValidate(metrics, finite_solution);
+  }
   metrics.constrained_solve_wall_ms = elapsedMilliseconds(constrained_solve_start);
   metrics.solve_wall_ms = elapsedMilliseconds(solve_start);
 
@@ -597,7 +674,9 @@ void TrajectoryOptimizationNode::planningCycle() {
 bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::EgoData& ego_data,
                                                  const perception_msgs::msg::ObjectList& object_list,
                                                  const route_planning_msgs::msg::Route& route,
-                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory) {
+                                                 const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
+                                                 const std::vector<double>& x_init,
+                                                 const BrakingProfile& braking) {
   // transform inputs to target base_link frame
   trajectory_planning_msgs::msg::Trajectory tf_reference_trajectory;
   perception_msgs::msg::ObjectList tf_object_list;
@@ -634,8 +713,53 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
 
   // update ocp parameters
   try {
-    this->setOcpGlobalParameters(cost_weights_, tf_reference_trajectory, tf_route);
-    this->setOcpParameters(ego_data, tf_object_list);
+    // Reference samples as passed to the OCP. A shorter reference repeats its final sample; infinity padding can propagate
+    // NaNs through closest-point calculations. The suggested lane is never wider than the active boundaries; without lane
+    // information, the active boundaries remain.
+    const auto boundary_distances = normalBoundaryDistance(tf_reference_trajectory, tf_route, consider_boundaries_);
+    const auto lane_distances = normalBoundaryDistance(tf_reference_trajectory, tf_route, CONSIDER_BOUNDARIES::SUGGESTED_LANE);
+    const int n_samples = trajectory_planning_msgs::trajectory_access::getSamplePointSize(tf_reference_trajectory);
+    FollowPass::Reference reference;
+    std::vector<double> reference_v;
+    for (int i = 0; i < p_ref_path_shape_[0]; ++i) {
+      const int sample = std::min(i, n_samples - 1);
+      reference.psi.push_back(trajectory_planning_msgs::trajectory_access::getTheta(tf_reference_trajectory, sample));
+      reference.x.push_back(trajectory_planning_msgs::trajectory_access::getX(tf_reference_trajectory, sample));
+      reference.y.push_back(trajectory_planning_msgs::trajectory_access::getY(tf_reference_trajectory, sample));
+      reference_v.push_back(trajectory_planning_msgs::trajectory_access::getV(tf_reference_trajectory, sample));
+      const auto& [boundary_left, boundary_right] = boundary_distances[sample];
+      reference.boundary_distances.emplace_back(boundary_left, boundary_right);
+      reference.lane_distances.emplace_back(std::min(lane_distances[sample].first, boundary_left),
+                                            std::min(lane_distances[sample].second, boundary_right));
+    }
+
+    // follow or pass every object prediction
+    std::vector<FollowPass::Slot> slots;
+    const auto object_boxes = predictObjectBoxes(ego_data, tf_object_list, slots);
+    const auto model = modelConstants(model_name_);
+    if (!model) throw std::runtime_error("Unknown model " + model_name_);
+    FollowPass::Params params;
+    params.thw = thw_;
+    params.d_min_object_long = d_min_object_long_;
+    params.d_min_object_lat = d_min_object_lat_;
+    params.d_min_object_collision = model->d_min_object_collision;
+    params.d_min_boundary_lat = d_min_boundary_lat_;
+    if (d_min_object_lat_classes_.size() != d_min_object_lat_class_values_.size()) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000,
+                           "d_min_object_lat_classes and d_min_object_lat_class_values differ in length; using the common part.");
+    }
+    for (size_t i = 0; i < std::min(d_min_object_lat_classes_.size(), d_min_object_lat_class_values_.size()); ++i) {
+      params.class_lateral_margins[static_cast<uint8_t>(d_min_object_lat_classes_[i])] = d_min_object_lat_class_values_[i];
+    }
+    params.ego_half_length = 0.5 * model->length;
+    params.ego_half_width = 0.5 * model->width;
+    params.ego_offset_to_geometric_center = model->offset_to_geometric_center;
+    follow_pass_result_ =
+        follow_pass_.decide(reference, object_boxes, object_constraints_active_ ? slots : std::vector<FollowPass::Slot>{},
+                            {x_init[0], x_init[1], x_init[STATE_INDEX_PSI]}, braking.travel, braking.speed, params);
+
+    this->setOcpGlobalParameters(cost_weights_, reference, reference_v, follow_pass_result_);
+    this->setOcpParameters(object_boxes, follow_pass_result_);
   } catch (const std::exception& e) {
     RCLCPP_ERROR(this->get_logger(), "Exception while setting OCP parameters: %s", e.what());
     return false;
@@ -645,8 +769,9 @@ bool TrajectoryOptimizationNode::updateOcpInputs(const perception_msgs::msg::Ego
 }
 
 void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double>& cost_weights,
-                                                        const trajectory_planning_msgs::msg::Trajectory& reference_trajectory,
-                                                        const route_planning_msgs::msg::Route& route) {
+                                                        const FollowPass::Reference& reference,
+                                                        const std::vector<double>& reference_v,
+                                                        const FollowPass::Result& follow_pass) {
   const auto start_time = std::chrono::steady_clock::now();
   std::vector<double> global_params;
 
@@ -665,30 +790,11 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
   global_params.push_back(d_min_object_lat_);
   global_params.push_back(d_min_boundary_lat_);
 
-  // reference path (including boundaries)
-  const size_t n_ref_states = static_cast<size_t>(p_ref_path_shape_[0] * p_ref_path_shape_[1]);
-  std::vector<std::pair<double, double>> boundary_distances = normalBoundaryDistance(reference_trajectory, route);
-  // fill ref vector for ocp -> psi, x, y, v, d_bound_left, d_bound_right
-  std::vector<double> ref;
-  for (int i = 0; i < trajectory_planning_msgs::trajectory_access::getSamplePointSize(reference_trajectory); ++i) {
-    ref.push_back(trajectory_planning_msgs::trajectory_access::getTheta(reference_trajectory, i));
-    ref.push_back(trajectory_planning_msgs::trajectory_access::getX(reference_trajectory, i));
-    ref.push_back(trajectory_planning_msgs::trajectory_access::getY(reference_trajectory, i));
-    ref.push_back(trajectory_planning_msgs::trajectory_access::getV(reference_trajectory, i));
-    ref.push_back(boundary_distances[i].first);   // left boundary distance
-    ref.push_back(boundary_distances[i].second);  // right boundary distance
-  }
-  if (ref.size() >= n_ref_states) {
-    global_params.insert(global_params.end(), ref.begin(),
-                         ref.begin() + static_cast<std::vector<double>::difference_type>(n_ref_states));
-  } else {
-    // Repeat the final valid state. Infinity padding can propagate NaNs through closest-point calculations.
-    global_params.insert(global_params.end(), ref.begin(), ref.end());
-    const size_t state_width = static_cast<size_t>(p_ref_path_shape_[1]);
-    while (global_params.size() < expected_cost_weights_size + 4 + n_ref_states) {
-      global_params.insert(global_params.end(), ref.end() - static_cast<std::vector<double>::difference_type>(state_width),
-                           ref.end());
-    }
+  // reference path -> psi, x, y, v, d_bound_left, d_bound_right, d_object_left, d_object_right, s
+  for (size_t i = 0; i < reference.x.size(); ++i) {
+    global_params.insert(global_params.end(), {reference.psi[i], reference.x[i], reference.y[i], reference_v[i],
+                                               reference.boundary_distances[i].first, reference.boundary_distances[i].second,
+                                               follow_pass.d_object_left[i], follow_pass.d_object_right[i], follow_pass.s[i]});
   }
 
   if (global_params.size() != static_cast<size_t>(nlp_dims_->np_global)) {
@@ -705,10 +811,10 @@ void TrajectoryOptimizationNode::setOcpGlobalParameters(const std::vector<double
   RCLCPP_DEBUG(this->get_logger(), "setOcpGlobalParameters duration: %.3f ms", elapsed_ms);
 }
 
-void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::EgoData& ego_data,
-                                                  const perception_msgs::msg::ObjectList& object_list) {
-  const auto start_time = std::chrono::steady_clock::now();
-
+std::vector<std::vector<FollowPass::Box>> TrajectoryOptimizationNode::predictObjectBoxes(
+    const perception_msgs::msg::EgoData& ego_data,
+    const perception_msgs::msg::ObjectList& object_list,
+    std::vector<FollowPass::Slot>& slots) {
   // prepare object predictions
   struct PredictionData {
     std::vector<double> time;
@@ -751,8 +857,56 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
   object_constraints_active_ = consider_objects_ != CONSIDER_OBJECTS::NO_OBJECTS && !object_list.objects.empty();
   constexpr double MIN_HALF_EXTENT = 0.05;
 
-  // loop over shooting intervals
+  // one slot per object prediction in object order; the remaining slots stay inactive
+  const size_t n_slots = static_cast<size_t>(p_objects_shape_[0]);
+  slots.assign(n_slots, FollowPass::Slot{});
+  std::vector<std::vector<FollowPass::Box>> object_boxes(
+      n_shots_ + 1, std::vector<FollowPass::Box>(n_slots, {0.0, 0.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT, false}));
   const double dt = optimization_horizon_ / n_shots_;
+  for (int stage = 0; stage <= n_shots_; ++stage) {
+    size_t slot = 0;
+    for (size_t object_index = 0; object_index < object_list.objects.size() && slot < n_slots; ++object_index) {
+      const auto& object = object_list.objects[object_index];
+      std::vector<std::array<double, 3>> target_states;
+      if (!object_predictions[object_index].empty()) {
+        for (const auto& prediction : object_predictions[object_index]) {
+          const double desired_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * stage;
+          std::array<double, 3> state{};
+          linearInterpolation(prediction.time, prediction.x, desired_time, state[0]);
+          linearInterpolation(prediction.time, prediction.y, desired_time, state[1]);
+          linearInterpolation(prediction.time, prediction.yaw, desired_time, state[2], true);
+          target_states.push_back(state);
+        }
+      } else {
+        // treat objects without a selected prediction as static
+        target_states.push_back({perception_msgs::object_access::getX(object), perception_msgs::object_access::getY(object),
+                                 perception_msgs::object_access::getYaw(object)});
+      }
+
+      const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
+      const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
+      const double half_length = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getLength(object));
+      const double half_width = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getWidth(object));
+      for (size_t prediction = 0; prediction < target_states.size() && slot < n_slots; ++prediction, ++slot) {
+        const auto& state = target_states[prediction];
+        // ensure that the object position represents its geometric center
+        const double cos_yaw = std::cos(state[2]);
+        const double sin_yaw = std::sin(state[2]);
+        const double center_x = state[0] + offset_long * cos_yaw - offset_lat * sin_yaw;
+        const double center_y = state[1] + offset_long * sin_yaw + offset_lat * cos_yaw;
+        object_boxes[stage][slot] = {center_x, center_y, state[2], half_length, half_width, true};
+        slots[slot] = {object.id, prediction, perception_msgs::object_access::getClassWithHighestProbability(object).type};
+      }
+    }
+  }
+  return object_boxes;
+}
+
+void TrajectoryOptimizationNode::setOcpParameters(const std::vector<std::vector<FollowPass::Box>>& object_boxes,
+                                                  const FollowPass::Result& follow_pass) {
+  const auto start_time = std::chrono::steady_clock::now();
+
+  // loop over shooting intervals
   double floating_dynamic_weight = 1.0;
   for (int stage = 0; stage <= n_shots_; ++stage) {
     // dynamic weight
@@ -778,63 +932,40 @@ void TrajectoryOptimizationNode::setOcpParameters(const perception_msgs::msg::Eg
       throw std::runtime_error("acados constraint-activation update failed with status " + std::to_string(status));
     }
 
-    // objects
+    // objects; the slot replaced by the follow distance gets no box constraint at this stage
     idx += parameter_count;
     parameter_count = static_cast<int>(p_objects_shape_[0] * p_objects_shape_[1]);
-    std::vector<double> object_boxes;
-    object_boxes.reserve(parameter_count);
-    for (size_t object_index = 0; object_index < object_list.objects.size(); ++object_index) {
-      const auto& object = object_list.objects[object_index];
-      std::vector<std::array<double, 3>> target_states;
-      if (!object_predictions[object_index].empty()) {
-        for (const auto& prediction : object_predictions[object_index]) {
-          const double desired_time = static_cast<double>(rclcpp::Time(ego_data.header.stamp).nanoseconds()) / 1e9 + dt * stage;
-          std::array<double, 3> state{};
-          linearInterpolation(prediction.time, prediction.x, desired_time, state[0]);
-          linearInterpolation(prediction.time, prediction.y, desired_time, state[1]);
-          linearInterpolation(prediction.time, prediction.yaw, desired_time, state[2], true);
-          target_states.push_back(state);
-        }
-      } else {
-        // treat objects without a selected prediction as static
-        target_states.push_back({perception_msgs::object_access::getX(object), perception_msgs::object_access::getY(object),
-                                 perception_msgs::object_access::getYaw(object)});
-      }
-
-      const double offset_long = object.state.reference_point.translation_to_geometric_center.x;
-      const double offset_lat = object.state.reference_point.translation_to_geometric_center.y;
-      const double half_length = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getLength(object));
-      const double half_width = std::max(MIN_HALF_EXTENT, 0.5 * perception_msgs::object_access::getWidth(object));
-      for (const auto& state : target_states) {
-        // ensure that the object position represents its geometric center
-        const double cos_yaw = std::cos(state[2]);
-        const double sin_yaw = std::sin(state[2]);
-        const double center_x = state[0] + offset_long * cos_yaw - offset_lat * sin_yaw;
-        const double center_y = state[1] + offset_long * sin_yaw + offset_lat * cos_yaw;
-        object_boxes.insert(object_boxes.end(), {center_x, center_y, state[2], half_length, half_width, 1.0});
-        if (object_boxes.size() >= static_cast<size_t>(parameter_count)) {
-          object_boxes.resize(parameter_count);
-          break;
-        }
-      }
-      if (object_boxes.size() >= static_cast<size_t>(parameter_count)) break;
+    std::vector<double> object_params;
+    object_params.reserve(parameter_count);
+    for (size_t slot = 0; slot < object_boxes[stage].size(); ++slot) {
+      const auto& box = object_boxes[stage][slot];
+      const bool active = box.active && static_cast<int>(slot) != follow_pass.follow_slot[stage];
+      object_params.insert(object_params.end(), {box.x, box.y, box.yaw, box.half_length, box.half_width, active ? 1.0 : 0.0});
     }
-    // fill remaining object slots with inactive boxes
-    while (object_boxes.size() < static_cast<size_t>(parameter_count)) {
-      object_boxes.insert(object_boxes.end(), {0.0, 0.0, 0.0, MIN_HALF_EXTENT, MIN_HALF_EXTENT, 0.0});
-    }
-    if (debug_viz_) viz_object_boxes_.insert(viz_object_boxes_.end(), object_boxes.begin(), object_boxes.end());
+    if (debug_viz_) viz_object_boxes_.insert(viz_object_boxes_.end(), object_params.begin(), object_params.end());
 
     std::vector<int> object_indices(parameter_count);
     std::iota(object_indices.begin(), object_indices.end(), idx);
-    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, object_indices.data(), object_boxes.data(),
-                                                                  parameter_count);
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, object_indices.data(),
+                                                                  object_params.data(), parameter_count);
     if (status != ACADOS_SUCCESS) {
       throw std::runtime_error("acados object-box update failed with status " + std::to_string(status));
     }
+
+    // follow distance
+    idx += parameter_count;
+    parameter_count = static_cast<int>(p_follow_shape_[0] * p_follow_shape_[1]);
+    std::vector<int> follow_indices(parameter_count);
+    std::iota(follow_indices.begin(), follow_indices.end(), idx);
+    std::array<double, 3> follow = follow_pass.follow[stage];
+    status = trajectory_optimization::acados_update_params_sparse(ocp_capsule_, stage, follow_indices.data(), follow.data(),
+                                                                  parameter_count);
+    if (status != ACADOS_SUCCESS) {
+      throw std::runtime_error("acados follow update failed with status " + std::to_string(status));
+    }
   }
   const auto elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
-  RCLCPP_DEBUG(get_logger(), "setOcpParameters object-box duration: %.3f ms", elapsed_ms);
+  RCLCPP_DEBUG(get_logger(), "setOcpParameters duration: %.3f ms", elapsed_ms);
 }
 
 }  // namespace trajectory_optimization

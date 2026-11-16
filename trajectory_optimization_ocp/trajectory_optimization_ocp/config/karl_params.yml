@@ -21,7 +21,7 @@ acceleration_n_max: 3.0           # max. absolute normal acceleration [m/s²]
 alpha_max: 0.7330382858           # max. absolute steering rate [rad/s] (42°/s)
 jerk_min: -5.0                    # max. negative tangential jerk [m/s²]
 jerk_max: 2.0                     # max. positive tangential jerk [m/s²]
-d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild
+d_min_object_collision: 0.10      # hard minimum separation of the physical OBBs [m]; requires solver rebuild; also in modelConstants() of the node
 
 ### cost scaling factors
 c_lat: 0.5            # distance to scale the lateral deviation costs [m]
@@ -42,20 +42,25 @@ boundary_slack_weights:                     # scalar or list (length 2)
   quadratic_lower: 100.0
   quadratic_upper: 100.0
 enable_object_slack: True                   # soften desired THW/lateral clearance; physical separation stays hard
-object_slack_weights:                       # scalar or list (length n_objects)
-  linear_lower: 50.0
-  linear_upper: 50.0
-  quadratic_lower: 500.0
-  quadratic_upper: 500.0
+object_slack_weights:                       # scalar or list (length 8): bounds of passed objects [front left, rear left,
+                                            # front right, rear right], then per front corner [d_min_object_long, thw]
+  # thw rows: no linear term and quadratic = w_lat / c_lat^2 (w_lat = 0.1 from the node parameters), so a missing metre
+  # of time-headway distance costs as much as a metre of lateral offset (both front-corner rows together)
+  linear_lower: [50.0, 50.0, 50.0, 50.0, 50.0, 0.0, 50.0, 0.0]
+  linear_upper: [50.0, 50.0, 50.0, 50.0, 50.0, 0.0, 50.0, 0.0]
+  quadratic_lower: [500.0, 500.0, 500.0, 500.0, 500.0, 0.4, 500.0, 0.4]
+  quadratic_upper: [500.0, 500.0, 500.0, 500.0, 500.0, 0.4, 500.0, 0.4]
 
 ### parameter vector structure (stage-wise parameters)
-# [dyn_weight (1), constraint_activation (2), objects]
+# [dyn_weight (1), constraint_activation (2), objects, follow]
 p_dynamic_weight_shape: [1, 1]    # one value (also used in ROS node)
 p_constraint_activation_shape: [2, 1] # stage-wise [objects, boundaries] flags for sparse solve-phase toggling
 p_objects_shape: [30, 6]          # nObjects x [x, y, yaw, half_length, half_width, active]
+p_follow_shape: [3, 1]            # [s_rear, active, relax]: arc length of the rear of the followed object along the reference path
+                                  # and the part of max(d_min_object_long, thw * v) that full braking cannot reach (also used in ROS node)
 
 ### global parameter vector structure (constant over the horizon)
 # [cost_weights (12), cost_params (4), ref_path]
 p_cost_weights_shape: [12, 1]     # nWeights x weightDim (also used in ROS node)
 p_cost_params_shape: [4, 1]       # [thw, d_min_object_long, d_min_object_lat, d_min_boundary_lat] x nCostParamsDim (also used in ROS node)
-p_ref_path_shape: [51, 6]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right] (also used in ROS node)
+p_ref_path_shape: [51, 9]         # nStates x [psi, x, y, v, d_bound_left, d_bound_right, d_object_left, d_object_right, s] (also used in ROS node)
