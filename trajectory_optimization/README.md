@@ -56,7 +56,7 @@ flowchart LR
 | `verbose` | `bool` | `false` | Print solver statistics |
 | `performance_logging` | `bool` | `false` | Write one CSV record for every completed solver run |
 | `debug_visualization` | `bool` | `false` | Publish debug visualization markers for ego, objects and boundaries |
-| `run_as_callback` | `bool` | `false` | Run OCP once for each received reference trajectory (true) or on a timer (false) |
+| `run_as_callback` | `bool` | `false` | Run OCP on reference updates, coalescing while busy (true), or on a timer (false) |
 | `cost_weights` | `float[]` | `std::vector<double>(12, 1.0)` | Cost function weights |
 | `dynamic_weight` | `float` | `1.0` | Dynamic weight alpha |
 | `thw` | `float` | `2.0` | Desired time headway to front vehicle [s]; soft when object slacks are enabled |
