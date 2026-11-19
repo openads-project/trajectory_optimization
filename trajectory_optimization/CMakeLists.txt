@@ -42,11 +42,13 @@ target_link_libraries(${TARGET_NAME}
 rclcpp_components_register_node(${TARGET_NAME}
   PLUGIN "trajectory_optimization::TrajectoryOptimizationAckermannNode"
   EXECUTABLE trajectory_optimization_ackermann_node
+  EXECUTOR MultiThreadedExecutor
 )
 
 rclcpp_components_register_node(${TARGET_NAME}
   PLUGIN "trajectory_optimization::TrajectoryOptimizationRWSNode"
   EXECUTABLE trajectory_optimization_rws_node
+  EXECUTOR MultiThreadedExecutor
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC

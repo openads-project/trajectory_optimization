@@ -5,6 +5,7 @@
 
 #include <tracetools/tracetools.h>
 #include <Eigen/Dense>
+#include <mutex>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <vector>
@@ -125,6 +126,26 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
    * @brief Creates ROS interfaces, initializes cached messages and prepares the solver.
    */
   void setup();
+
+  /**
+   * @brief Copies the latest buffered inputs into solver-owned planning-cycle state.
+   *
+   * Must run in the mutually exclusive solver callback group. Selects message pointers under the input mutex,
+   * then copies messages outside the lock so input callbacks can continue. Disabled object and boundary inputs
+   * are reset to empty. Inputs are selected together without synchronizing their timestamps and remain fixed
+   * for the active planning cycle.
+   */
+  void takeInputSnapshot();
+
+  /**
+   * @brief Consumes a pending reference update and starts a cycle if reference-triggered mode is enabled.
+   *
+   * Runs in the mutually exclusive solver callback group. Cancels the one-shot timer and clears the pending
+   * flag under the input mutex so concurrent reference callbacks cannot lose a wakeup. Multiple updates coalesce
+   * into one request; updates received during planning can queue another cycle. Timer-driven mode consumes the
+   * request without starting an additional cycle.
+   */
+  void processReferenceCycle();
 
   /**
    * @brief Resets the optimizer memory while retaining the generated solver instance.
@@ -356,6 +377,18 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
 
   OnSetParametersCallbackHandle::SharedPtr parameters_callback_;
 
+  rclcpp::CallbackGroup::SharedPtr input_callback_group_;
+
+  struct BufferedInputs {
+    perception_msgs::msg::EgoData::ConstSharedPtr ego_data;
+    perception_msgs::msg::ObjectList::ConstSharedPtr object_list;
+    route_planning_msgs::msg::Route::ConstSharedPtr route;
+    trajectory_planning_msgs::msg::Trajectory::ConstSharedPtr reference_trajectory;
+  };
+  std::mutex input_mutex_;
+  BufferedInputs buffered_inputs_;
+  bool reference_cycle_pending_ = false;
+
   rclcpp::Subscription<perception_msgs::msg::EgoData>::SharedPtr ego_data_sub_;
   rclcpp::Subscription<perception_msgs::msg::ObjectList>::SharedPtr object_list_sub_;
   rclcpp::Subscription<route_planning_msgs::msg::Route>::SharedPtr route_sub_;
@@ -367,6 +400,7 @@ class TrajectoryOptimizationNode : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr boundary_pub_;
 
   rclcpp::TimerBase::SharedPtr planning_timer_;
+  rclcpp::TimerBase::SharedPtr reference_cycle_timer_;
 
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
